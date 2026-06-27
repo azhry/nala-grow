@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-surface text-on-surface font-public-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  * {
+    @apply border-outline-variant;
+  }
+}
+
+@layer components {
+  .soft-shadow {
+    box-shadow: 0 8px 20px rgba(126, 182, 173, 0.15);
+  }
+
+  .bento-card {
+    @apply bg-surface-container-lowest rounded-xl p-5 soft-shadow;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .bento-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(126, 182, 173, 0.2);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Public+Sans:wght@300;400;500;600&display=swap');
