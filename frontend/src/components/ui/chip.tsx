@@ -8,9 +8,12 @@ type ChipColor =
   | "accent"
   | "neutral"
 
+type ChipSize = "sm" | "md"
+
 interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
   color?: ChipColor
   icon?: string
+  size?: ChipSize
 }
 
 const colorClasses: Record<ChipColor, string> = {
@@ -23,25 +26,31 @@ const colorClasses: Record<ChipColor, string> = {
   error:
     "bg-error-container text-error",
   accent:
-    "bg-[#FF8A7A]/15 text-[#FF8A7A]",
+    "bg-accent-coral/15 text-accent-coral",
   neutral:
     "bg-surface-container-high text-on-surface-variant",
 }
 
+const sizeClasses: Record<ChipSize, string> = {
+  sm: "px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider",
+  md: "px-3 py-1 font-label-md text-label-md",
+}
+
 const Chip = forwardRef<HTMLSpanElement, ChipProps>(
-  ({ color = "neutral", icon, className = "", children, ...props }, ref) => {
+  ({ color = "neutral", icon, size = "sm", className = "", children, ...props }, ref) => {
     return (
       <span
         ref={ref}
         className={[
-          "inline-flex items-center gap-1 px-3 py-1 rounded-full font-label-md",
+          "inline-flex items-center gap-1 rounded-full",
+          sizeClasses[size],
           colorClasses[color],
           className,
         ].join(" ")}
         {...props}
       >
         {icon && (
-          <span className="material-symbols-outlined text-[14px]">{icon}</span>
+          <span className="material-symbols-outlined text-[12px]">{icon}</span>
         )}
         {children}
       </span>

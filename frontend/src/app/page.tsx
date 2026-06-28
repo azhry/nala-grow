@@ -3,7 +3,7 @@ import Link from "next/link"
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60dvh] gap-stack-md">
-      <h1 className="font-quicksand text-headline-lg-mobile text-primary text-center">
+      <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary text-center">
         NalaGrow
       </h1>
       <p className="text-body-md text-on-surface-variant text-center max-w-xs">

@@ -25,9 +25,9 @@ function TopNavBar({
             child_care
           </span>
           <div>
-            <h1 className="font-headline-md text-on-surface">{title}</h1>
+            <h1 className="font-headline-md text-headline-md text-on-surface">{title}</h1>
             {subtitle && (
-              <p className="font-body-sm text-on-surface-variant -mt-0.5">
+              <p className="font-body-sm text-body-sm text-on-surface-variant -mt-0.5">
                 {subtitle}
               </p>
             )}

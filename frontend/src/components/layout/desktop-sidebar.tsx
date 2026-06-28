@@ -41,8 +41,8 @@ function DesktopSidebar({
       <div className="flex flex-col items-center gap-2 pt-8 pb-6 px-4 border-b border-outline-variant/30">
         <Avatar src={babyAvatar} size="xl" fallback={babyName[0]} />
         <div className="text-center">
-          <h3 className="font-headline-sm text-on-surface">{babyName}</h3>
-          <p className="font-body-sm text-on-surface-variant">{babyAge}</p>
+          <h3 className="font-headline-sm text-headline-sm text-on-surface">{babyName}</h3>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">{babyAge}</p>
         </div>
       </div>
 
@@ -55,7 +55,7 @@ function DesktopSidebar({
               href={item.href}
               className={[
                 "flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-150",
-                "font-label-md",
+                "font-label-md text-label-md",
                 active
                   ? "bg-primary-container/30 text-on-primary-container font-semibold"
                   : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface",
@@ -77,7 +77,7 @@ function DesktopSidebar({
           <Link
             key={item.href}
             href={item.href}
-            className="flex items-center gap-3 px-4 py-2.5 rounded-full font-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150"
           >
             <span className="material-symbols-outlined text-[20px]">
               {item.icon}

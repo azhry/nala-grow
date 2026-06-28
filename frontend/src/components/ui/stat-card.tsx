@@ -1,77 +1,62 @@
-import type { ReactNode } from "react"
-
 interface StatCardProps {
   icon: string
   label: string
   value: string
-  color?: "primary" | "tertiary" | "accent"
-  trend?: "up" | "down" | "neutral"
+  subtext?: string
+  color?: "primary" | "secondary" | "tertiary" | "accent"
   active?: boolean
+  badge?: string
+  iconFill?: boolean
 }
 
-const colorClasses = {
-  primary: {
-    iconBg: "bg-primary-container/30",
-    iconColor: "text-primary",
-    valueColor: "text-primary",
-  },
-  tertiary: {
-    iconBg: "bg-tertiary-container/30",
-    iconColor: "text-tertiary",
-    valueColor: "text-tertiary",
-  },
-  accent: {
-    iconBg: "bg-[#FF8A7A]/15",
-    iconColor: "text-[#FF8A7A]",
-    valueColor: "text-[#FF8A7A]",
-  },
+const iconBgColors = {
+  primary: "bg-primary-container/20 text-primary",
+  secondary: "bg-secondary-container/50 text-secondary",
+  tertiary: "bg-tertiary-container/30 text-tertiary",
+  accent: "bg-accent-coral/15 text-accent-coral",
 }
 
-function StatCard({ icon, label, value, color = "primary", active = false }: StatCardProps) {
-  const c = colorClasses[color]
-
-  const base = [
-    "relative overflow-hidden rounded-[24px] p-5 transition-all duration-200",
-    active
-      ? "bg-gradient-to-br from-primary to-primary-container text-on-primary"
-      : "bg-surface-container-lowest shadow-[0_8px_20px_rgba(126,182,173,0.15)]",
-  ].join(" ")
-
+function StatCard({ icon, label, value, subtext, color = "primary", active = false, badge, iconFill = false }: StatCardProps) {
   if (active) {
     return (
-      <div className={base}>
-        <span className="material-symbols-outlined text-on-primary/20 text-[80px] absolute -bottom-2 -right-2">
+      <div className="bg-primary text-on-primary p-6 rounded-[24px] shadow-[0_8px_20px_rgba(126,182,173,0.15)] relative overflow-hidden group">
+        <div className="relative z-10 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-primary-fixed rounded-full animate-pulse" />
+            <span className="font-label-md text-label-md uppercase tracking-wider text-primary-fixed">{label}</span>
+          </div>
+          <span className="font-headline-md text-headline-md text-on-primary">{value}</span>
+          {subtext && (
+            <span className="font-body-sm text-body-sm text-on-primary/80">{subtext}</span>
+          )}
+        </div>
+        <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-9xl opacity-10 rotate-12">
           {icon}
         </span>
-        <div className="relative z-10 flex flex-col gap-2">
-          <span className="font-label-md text-on-primary/80 uppercase tracking-wider">
-            {label}
-          </span>
-          <span className="font-headline-lg text-on-primary">{value}</span>
-        </div>
       </div>
     )
   }
 
   return (
-    <div className={base}>
-      <div className="flex items-start gap-4">
-        <div
-          className={[
-            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
-            c.iconBg,
-          ].join(" ")}
-        >
-          <span className={`material-symbols-outlined text-[24px] ${c.iconColor}`}>
-            {icon}
-          </span>
+    <div className="bg-surface-container-lowest p-5 rounded-[24px] shadow-[0_8px_20px_rgba(126,182,173,0.15)] border border-primary/5 flex flex-col justify-between min-h-[160px]">
+      <div className="flex justify-between items-start">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBgColors[color]}`}>
+          <span className="material-symbols-outlined text-[28px]">{icon}</span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="font-label-md text-on-surface-variant uppercase tracking-wider">
-            {label}
+        {badge && (
+          <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+            {badge}
           </span>
-          <span className={`font-headline-lg ${c.valueColor}`}>{value}</span>
-        </div>
+        )}
+      </div>
+      <div>
+        <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">
+          {label}
+        </span>
+        <p className="font-headline-md text-headline-md text-on-surface mt-0.5">{value}</p>
+        {subtext && (
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{subtext}</p>
+        )}
       </div>
     </div>
   )

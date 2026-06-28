@@ -7,9 +7,10 @@ describe("Card", () => {
     expect(screen.getByText("Hello")).toBeInTheDocument()
   })
 
-  it("renders elevated variant with shadow class", () => {
+  it("renders elevated variant with shadow and border", () => {
     const { container } = render(<Card variant="elevated">Elevated</Card>)
     expect(container.firstChild).toHaveClass("shadow-[0_8px_20px_rgba(126,182,173,0.15)]")
+    expect(container.firstChild).toHaveClass("border-primary/5")
   })
 
   it("renders outlined variant", () => {

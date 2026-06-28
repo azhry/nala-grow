@@ -12,11 +12,10 @@ describe("FAB", () => {
     expect(screen.getByText("edit")).toBeInTheDocument()
   })
 
-  it("renders primary variant with gradient", () => {
+  it("renders primary variant", () => {
     const { container } = render(<FAB variant="primary" />)
-    expect(container.firstChild).toHaveClass("bg-gradient-to-br")
-    expect(container.firstChild).toHaveClass("from-primary")
-    expect(container.firstChild).toHaveClass("to-primary-container")
+    expect(container.firstChild).toHaveClass("bg-primary")
+    expect(container.firstChild).toHaveClass("text-on-primary")
   })
 
   it("renders secondary variant", () => {
@@ -36,9 +35,9 @@ describe("FAB", () => {
     expect(container.firstChild).not.toHaveClass("fixed")
   })
 
-  it("is rounded-2xl", () => {
+  it("is rounded-full", () => {
     const { container } = render(<FAB />)
-    expect(container.firstChild).toHaveClass("rounded-2xl")
+    expect(container.firstChild).toHaveClass("rounded-full")
   })
 
   it("has w-14 h-14", () => {
@@ -59,13 +58,18 @@ describe("FAB", () => {
     expect(container.firstChild).toHaveClass("my-fab")
   })
 
-  it("has shadow utility class", () => {
+  it("has shadow-lg class", () => {
     const { container } = render(<FAB />)
-    expect(container.firstChild).toHaveClass("shadow-[0_8px_20px_rgba(126,182,173,0.3)]")
+    expect(container.firstChild).toHaveClass("shadow-lg")
   })
 
   it("has active scale effect", () => {
     const { container } = render(<FAB />)
-    expect(container.firstChild).toHaveClass("active:scale-[0.95]")
+    expect(container.firstChild).toHaveClass("active:scale-95")
+  })
+
+  it("has md:hidden for mobile-only", () => {
+    const { container } = render(<FAB />)
+    expect(container.firstChild).toHaveClass("md:hidden")
   })
 })

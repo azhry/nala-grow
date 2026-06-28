@@ -7,10 +7,13 @@ describe("Input", () => {
     expect(screen.getByPlaceholderText("Enter text")).toBeInTheDocument()
   })
 
-  it("renders label when provided", () => {
+  it("renders label when provided with font-label-md text-label-md", () => {
     render(<Input label="Baby Name" />)
-    expect(screen.getByText("Baby Name")).toBeInTheDocument()
-    expect(screen.getByText("Baby Name").tagName).toBe("LABEL")
+    const label = screen.getByText("Baby Name")
+    expect(label).toBeInTheDocument()
+    expect(label.tagName).toBe("LABEL")
+    expect(label).toHaveClass("font-label-md")
+    expect(label).toHaveClass("text-label-md")
   })
 
   it("does not render label when not provided", () => {
@@ -26,7 +29,8 @@ describe("Input", () => {
   it("applies error styling", () => {
     const { container } = render(<Input error="Error" />)
     const input = container.querySelector("input")
-    expect(input).toHaveClass("border-error")
+    expect(input).toHaveClass("ring-2")
+    expect(input).toHaveClass("ring-error")
   })
 
   it("renders icon button when icon prop provided", () => {
@@ -39,13 +43,6 @@ describe("Input", () => {
     render(<Input icon="search" iconAction={handleIcon} />)
     fireEvent.click(screen.getByText("search").closest("button")!)
     expect(handleIcon).toHaveBeenCalledTimes(1)
-  })
-
-  it("applies focus classes on focus", () => {
-    const { container } = render(<Input />)
-    const input = container.querySelector("input")!
-    fireEvent.focus(input)
-    expect(input).toHaveClass("focus:border-primary")
   })
 
   it("calls onFocus and onBlur callbacks", () => {
@@ -78,6 +75,19 @@ describe("Input", () => {
     const { container } = render(<Input />)
     const input = container.querySelector("input")!
     expect(input).toHaveClass("rounded-xl")
+  })
+
+  it("has focus ring classes", () => {
+    const { container } = render(<Input />)
+    const input = container.querySelector("input")!
+    expect(input).toHaveClass("focus:ring-2")
+    expect(input).toHaveClass("focus:ring-primary-container")
+  })
+
+  it("has h-14 class", () => {
+    const { container } = render(<Input />)
+    const input = container.querySelector("input")!
+    expect(input).toHaveClass("h-14")
   })
 
   it("merges custom className", () => {

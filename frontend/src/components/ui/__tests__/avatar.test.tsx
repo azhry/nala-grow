@@ -61,7 +61,7 @@ describe("Avatar", () => {
   })
 
   it("prefers fallback over default icon", () => {
-    const { container } = render(<Avatar fallback="A" />)
+    render(<Avatar fallback="A" />)
     expect(screen.getByText("A")).toBeInTheDocument()
     expect(screen.queryByText("person")).not.toBeInTheDocument()
   })

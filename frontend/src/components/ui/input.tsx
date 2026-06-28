@@ -1,59 +1,49 @@
 "use client"
 
-import { type InputHTMLAttributes, forwardRef, useState } from "react"
+import { type InputHTMLAttributes, forwardRef } from "react"
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
   icon?: string
+  iconPosition?: "left" | "right"
   iconAction?: () => void
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, iconAction, className = "", ...props }, ref) => {
-    const [focused, setFocused] = useState(false)
-
+  ({ label, error, icon, iconPosition = "right", iconAction, className = "", ...props }, ref) => {
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label className="font-label-md text-primary ml-1 mb-0.5">
+          <label className="font-label-md text-label-md text-primary ml-1 mb-0.5">
             {label}
           </label>
         )}
         <div className="relative">
+          {icon && iconPosition === "left" && (
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
+              {icon}
+            </span>
+          )}
           <input
             ref={ref}
-            onFocus={(e) => {
-              setFocused(true)
-              props.onFocus?.(e)
-            }}
-            onBlur={(e) => {
-              setFocused(false)
-              props.onBlur?.(e)
-            }}
             className={[
-              "w-full h-14 px-4 font-body-md text-on-surface",
-              "bg-surface-container-low rounded-xl",
-              "border-2 border-transparent",
+              "w-full h-14 font-body-md text-body-md text-on-surface",
+              "bg-surface-container-low border-none rounded-xl",
               "outline-none transition-all duration-150",
-              "placeholder:text-on-surface-variant placeholder:opacity-60",
-              "focus:border-primary focus:bg-surface-container",
-              error ? "border-error bg-error-container/20" : "",
-              icon ? "pr-12" : "",
+              "focus:ring-2 focus:ring-primary-container",
+              "placeholder:text-on-surface-variant placeholder:opacity-50",
+              error ? "ring-2 ring-error bg-error-container/20" : "",
+              icon && iconPosition === "left" ? "pl-12 pr-4" : icon && iconPosition === "right" ? "pr-12 pl-4" : "px-4",
               className,
             ].join(" ")}
             {...props}
           />
-          {icon && (
+          {icon && iconPosition === "right" && (
             <button
               type="button"
               onClick={iconAction}
-              className={[
-                "absolute right-3 top-1/2 -translate-y-1/2",
-                "w-9 h-9 flex items-center justify-center rounded-full",
-                "text-on-surface-variant hover:bg-surface-container-high",
-                "transition-colors duration-150",
-              ].join(" ")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined text-[22px]">
                 {icon}
@@ -62,7 +52,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <span className="font-body-sm text-error ml-1 mt-0.5">{error}</span>
+          <span className="font-body-sm text-body-sm text-error ml-1 mt-0.5">{error}</span>
         )}
       </div>
     )

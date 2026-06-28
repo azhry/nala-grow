@@ -59,10 +59,10 @@ export default function DesignSystemPage() {
     <div className="min-h-screen bg-[#FDF5E6]">
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="font-headline-lg text-on-surface mb-2">
+          <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">
             NalaGrow Design System
           </h1>
-          <p className="font-body-md text-on-surface-variant mb-4">
+          <p className="font-body-md text-body-md text-on-surface-variant mb-4">
             Reusable UI components extracted from Stitch designs. Use this page
             to verify color, spacing, typography, and interaction fidelity.
           </p>
@@ -94,8 +94,8 @@ export default function DesignSystemPage() {
               { name: "Accent Coral", class: "bg-[#FF8A7A] text-white" },
             ].map((c) => (
               <div key={c.name} className={`rounded-2xl p-4 ${c.class}`}>
-                <p className="font-label-md">{c.name}</p>
-                <p className="font-body-sm mt-1 opacity-80">{c.class.split(" ")[0].replace("bg-", "")}</p>
+                <p className="font-label-md text-label-md">{c.name}</p>
+                <p className="font-body-sm text-body-sm mt-1 opacity-80">{c.class.split(" ")[0].replace("bg-", "")}</p>
               </div>
             ))}
           </div>
@@ -104,17 +104,17 @@ export default function DesignSystemPage() {
         {tab === "typography" && (
           <div className="space-y-6">
             {[
-              { name: "headline-lg", class: "font-headline-lg", text: "NalaGrow — 32px Quicksand 700" },
-              { name: "headline-lg-mobile", class: "font-headline-lg-mobile", text: "NalaGrow — 26px Quicksand 700" },
-              { name: "headline-md", class: "font-headline-md", text: "Feeding Log — 24px Quicksand 600" },
-              { name: "headline-sm", class: "font-headline-sm", text: "Morning Bottle — 20px Quicksand 600" },
-              { name: "body-lg", class: "font-body-lg", text: "Track your baby's growth journey from day one. — 18px Public Sans 400" },
-              { name: "body-md", class: "font-body-md", text: "Track your baby's growth journey from day one. — 16px Public Sans 400" },
-              { name: "body-sm", class: "font-body-sm", text: "Track your baby's growth journey from day one. — 14px Public Sans 400" },
-              { name: "label-md", class: "font-label-md", text: "TOTAL SLEEP TODAY — 12px Public Sans 600, 0.05em" },
+              { name: "headline-lg", class: "font-headline-lg text-headline-lg", text: "NalaGrow — 32px Quicksand 700" },
+              { name: "headline-lg-mobile", class: "font-headline-lg-mobile text-headline-lg-mobile", text: "NalaGrow — 26px Quicksand 700" },
+              { name: "headline-md", class: "font-headline-md text-headline-md", text: "Feeding Log — 24px Quicksand 600" },
+              { name: "headline-sm", class: "font-headline-sm text-headline-sm", text: "Morning Bottle — 20px Quicksand 600" },
+              { name: "body-lg", class: "font-body-lg text-body-lg", text: "Track your baby's growth journey from day one. — 18px Public Sans 400" },
+              { name: "body-md", class: "font-body-md text-body-md", text: "Track your baby's growth journey from day one. — 16px Public Sans 400" },
+              { name: "body-sm", class: "font-body-sm text-body-sm", text: "Track your baby's growth journey from day one. — 14px Public Sans 400" },
+              { name: "label-md", class: "font-label-md text-label-md", text: "TOTAL SLEEP TODAY — 12px Public Sans 600, 0.05em" },
             ].map((t) => (
               <div key={t.name}>
-                <p className="font-body-sm text-on-surface-variant mb-1">{t.name}</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mb-1">{t.name}</p>
                 <p className={t.class}>{t.text}</p>
               </div>
             ))}
@@ -124,7 +124,7 @@ export default function DesignSystemPage() {
         {tab === "components" && (
           <div className="space-y-12">
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Buttons</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Buttons</h2>
               <div className="flex flex-wrap gap-3">
                 <Button variant="primary">Primary</Button>
                 <Button variant="secondary">Secondary</Button>
@@ -146,7 +146,7 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Input Fields</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Input Fields</h2>
               <div className="max-w-md space-y-4">
                 <Input label="Baby Name" placeholder="Enter name" />
                 <Input label="Email" type="email" placeholder="Enter email" icon="email" />
@@ -156,23 +156,23 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Cards</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Cards</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card variant="elevated">
-                  <h3 className="font-headline-sm mb-2">Elevated Card</h3>
-                  <p className="font-body-sm text-on-surface-variant">
+                  <h3 className="font-headline-sm text-headline-sm mb-2">Elevated Card</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
                     This card has the standard soft-shadow and rounded-[24px].
                   </p>
                 </Card>
                 <Card variant="outlined">
-                  <h3 className="font-headline-sm mb-2">Outlined Card</h3>
-                  <p className="font-body-sm text-on-surface-variant">
+                  <h3 className="font-headline-sm text-headline-sm mb-2">Outlined Card</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
                     This card uses border instead of shadow.
                   </p>
                 </Card>
                 <Card variant="filled">
-                  <h3 className="font-headline-sm mb-2">Filled Card</h3>
-                  <p className="font-body-sm text-on-surface-variant">
+                  <h3 className="font-headline-sm text-headline-sm mb-2">Filled Card</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
                     This card uses surface-container background.
                   </p>
                 </Card>
@@ -180,7 +180,7 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Chips & Avatars</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Chips & Avatars</h2>
               <div className="flex flex-wrap gap-3 items-center">
                 <Chip color="primary">Breast Milk</Chip>
                 <Chip color="secondary">Crib</Chip>
@@ -200,7 +200,7 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Segmented Control</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Segmented Control</h2>
               <SegmentedControl
                 options={[
                   { value: "day", label: "Day" },
@@ -210,13 +210,13 @@ export default function DesignSystemPage() {
                 value={segVal}
                 onChange={setSegVal}
               />
-              <p className="font-body-sm text-on-surface-variant mt-2">
+              <p className="font-body-sm text-body-sm text-on-surface-variant mt-2">
                 Selected: {segVal}
               </p>
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Progress Bar & Spinner</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Progress Bar & Spinner</h2>
               <div className="max-w-md space-y-4">
                 <ProgressBar value={65} />
                 <ProgressBar value={100} />
@@ -229,7 +229,7 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Timer</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Timer</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
                 <Timer variant="default" />
                 <Timer variant="active" running={timerRunning} />
@@ -244,7 +244,7 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Stat Cards</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Stat Cards</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl">
                 <StatCard icon="bedtime" label="Total Sleep Today" value="14.5h" color="primary" />
                 <StatCard icon="timer" label="Longest Stretch" value="4.2h" color="tertiary" />
@@ -256,15 +256,15 @@ export default function DesignSystemPage() {
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">Timeline</h2>
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Timeline</h2>
               <Card className="max-w-xl">
                 <Timeline entries={mockTimelineEntries} />
               </Card>
             </section>
 
             <section>
-              <h2 className="font-headline-md text-on-surface mb-4">FAB</h2>
-              <p className="font-body-sm text-on-surface-variant mb-4">
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">FAB</h2>
+              <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">
                 Floating action button appears fixed at bottom-right on the actual page (not shown here).
               </p>
               <div className="relative h-20 w-20">
@@ -275,12 +275,12 @@ export default function DesignSystemPage() {
         )}
 
         <div className="mt-16 pt-8 border-t border-outline-variant/30 text-center">
-          <p className="font-body-sm text-on-surface-variant">
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
             Design System v1.0 — 14 components, 12 color tokens, 8 type styles
           </p>
-          <p className="font-body-sm text-on-surface-variant mt-1">
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
             Matching Stitch visual framework from{" "}
-            <code className="font-label-md text-primary">nalagrow_visual_framework/DESIGN.md</code>
+            <code className="font-label-md text-label-md text-primary">nalagrow_visual_framework/DESIGN.md</code>
           </p>
         </div>
       </div>
