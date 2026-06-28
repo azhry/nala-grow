@@ -32,8 +32,8 @@ const colorClasses: Record<ChipColor, string> = {
 }
 
 const sizeClasses: Record<ChipSize, string> = {
-  sm: "px-2 py-0.5 font-label-xs text-label-xs uppercase",
-  md: "px-3 py-1 font-label-md text-label-md",
+  sm: "px-3 py-1 font-label-xs text-label-xs uppercase",
+  md: "px-3 py-1.5 font-label-md text-label-md",
 }
 
 const Chip = forwardRef<HTMLSpanElement, ChipProps>(
@@ -42,7 +42,7 @@ const Chip = forwardRef<HTMLSpanElement, ChipProps>(
       <span
         ref={ref}
         className={[
-          "inline-flex items-center gap-1 rounded-full",
+          "inline-flex items-center gap-1.5 rounded-full",
           sizeClasses[size],
           colorClasses[color],
           className,
@@ -50,7 +50,7 @@ const Chip = forwardRef<HTMLSpanElement, ChipProps>(
         {...props}
       >
         {icon && (
-          <span className="material-symbols-outlined text-[12px]">{icon}</span>
+          <span className="material-symbols-outlined text-[14px]">{icon}</span>
         )}
         {children}
       </span>

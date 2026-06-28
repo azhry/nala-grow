@@ -282,7 +282,7 @@ export default function DesignSystemPage() {
               </div>
             </section>
 
-            <section className="grid gap-gutter lg:grid-cols-[1fr_360px]">
+            <section className="grid items-start gap-gutter lg:grid-cols-[1fr_360px]">
               <ChartWrapper
                 title="Weight-for-age Percentiles"
                 subtitle="WHO Standards (0-24 Months)"
@@ -295,11 +295,12 @@ export default function DesignSystemPage() {
                 <GrowthPercentileChart />
               </ChartWrapper>
 
-              <div className="grid gap-gutter">
+              <Card className="space-y-3">
+                <h3 className="font-headline-sm text-headline-sm text-primary">Current Stats</h3>
                 <MetricCard label="Weight" value="6.4" unit="kg" percentile="62nd percentile" trend="up" icon="scale" />
                 <MetricCard label="Height" value="63.5" unit="cm" percentile="58th percentile" icon="straighten" tone="tertiary" />
                 <MetricCard label="Head Circ." value="41.2" unit="cm" percentile="45th percentile" icon="face_2" tone="secondary" />
-              </div>
+              </Card>
             </section>
 
             <section className="grid gap-gutter lg:grid-cols-2">

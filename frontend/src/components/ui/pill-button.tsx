@@ -8,7 +8,7 @@ interface PillButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const baseClasses =
-  "flex items-center gap-base px-gutter py-stack-sm rounded-full shadow-sm hover:shadow-md transition-all whitespace-nowrap active:scale-95"
+  "flex items-center gap-2 px-6 py-3 rounded-full shadow-sm hover:shadow-md transition-all whitespace-nowrap active:scale-95"
 
 const variantClasses = {
   primary: "bg-primary text-on-primary",
@@ -23,7 +23,7 @@ const PillButton = forwardRef<HTMLButtonElement, PillButtonProps>(
         className={[baseClasses, variantClasses[variant], className].join(" ")}
         {...props}
       >
-        <span className="material-symbols-outlined text-[20px]">{icon}</span>
+        <span className="material-symbols-outlined text-[24px]">{icon}</span>
         <span className="font-label-md text-label-md">{children}</span>
       </button>
     )

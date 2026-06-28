@@ -74,9 +74,9 @@ describe("StatCard", () => {
     expect(icons.length).toBeGreaterThanOrEqual(1)
   })
 
-  it("renders compact icon container with w-11", () => {
+  it("renders Stitch-sized icon container with w-12", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" />)
-    const iconWrappers = container.querySelectorAll(".w-11")
+    const iconWrappers = container.querySelectorAll(".w-12")
     expect(iconWrappers.length).toBeGreaterThanOrEqual(1)
   })
 

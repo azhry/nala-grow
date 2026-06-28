@@ -25,17 +25,17 @@ const toneClasses: Record<NonNullable<QuickLogAction["tone"]>, string> = {
 function QuickLogGrid({ actions, onSelect, className = "", footer }: QuickLogGridProps) {
   return (
     <div className={["space-y-gutter", className].join(" ")}>
-      <div className="grid grid-cols-2 gap-gutter sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-base sm:grid-cols-3">
         {actions.map((action) => (
           <button
             key={action.id}
             type="button"
-            className="group flex aspect-square min-h-[120px] flex-col items-center justify-center gap-base rounded-2xl bg-surface-container-low p-gutter text-center transition-all hover:bg-surface-container-high active:scale-[0.98]"
+            className="group flex min-h-[136px] flex-col items-center justify-center rounded-3xl bg-surface-container-low p-stack-md text-center transition-all hover:scale-105 hover:bg-primary-container/20 active:scale-[0.98]"
             onClick={() => onSelect?.(action.id)}
           >
             <span
               className={[
-                "flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-110",
+                "mb-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-colors group-hover:bg-primary group-hover:text-on-primary",
                 toneClasses[action.tone ?? "primary"],
               ].join(" ")}
               aria-hidden="true"

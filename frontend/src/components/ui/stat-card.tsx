@@ -38,15 +38,15 @@ function StatCard({ icon, label, value, subtext, color = "primary", active = fal
   }
 
   return (
-    <div className="bg-surface-container-lowest p-5 rounded-xl shadow-soft border border-primary/5 flex flex-col justify-between min-h-[132px]">
+    <div className="bg-surface-container-lowest p-stack-md rounded-xl shadow-soft border border-primary/5 flex flex-col justify-between min-h-[160px]">
       <div className="flex justify-between items-start">
-        <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${iconBgColors[color]}`}>
-          <span className={["material-symbols-outlined text-[26px]", iconFill ? "fill-1" : ""].join(" ")}>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBgColors[color]}`}>
+          <span className={["material-symbols-outlined text-[28px]", iconFill ? "fill-1" : ""].join(" ")}>
             {icon}
           </span>
         </div>
         {badge && (
-          <span className="bg-primary/10 text-primary text-label-xs font-label-xs px-2 py-1 rounded-full uppercase">
+          <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase">
             {badge}
           </span>
         )}

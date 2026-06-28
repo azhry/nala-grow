@@ -35,15 +35,15 @@ function MetricCard({
   return (
     <div
       className={[
-        "rounded-xl bg-surface-container p-base",
-        "flex items-center gap-base",
+        "rounded-2xl bg-surface-container p-3",
+        "flex items-center justify-between gap-3",
         className,
       ].join(" ")}
     >
       {icon && (
         <span
           className={[
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
             toneClasses[tone],
           ].join(" ")}
           aria-hidden="true"
@@ -59,8 +59,8 @@ function MetricCard({
         </div>
       </div>
       {percentile && (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-container/20 px-3 py-1 font-label-md text-label-md text-primary">
-          <span className="material-symbols-outlined text-[16px]">{trendIcons[trend]}</span>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/20 px-3 py-1 font-label-md text-label-md text-primary">
+          <span className="material-symbols-outlined text-[14px]">{trendIcons[trend]}</span>
           {percentile}
         </span>
       )}

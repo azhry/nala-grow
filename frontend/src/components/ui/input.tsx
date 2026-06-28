@@ -29,12 +29,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             className={[
               "w-full h-14 font-body-md text-body-md text-on-surface",
-              "bg-surface-container-low border-none rounded-xl",
+              "bg-surface-container-low border-none rounded-2xl",
               "outline-none transition-all duration-150",
               "focus:ring-2 focus:ring-primary-container",
               "placeholder:text-on-surface-variant placeholder:opacity-50",
               error ? "ring-2 ring-error bg-error-container/20" : "",
-              icon && iconPosition === "left" ? "pl-12 pr-4" : icon && iconPosition === "right" ? "pr-12 pl-4" : "px-4",
+              icon && iconPosition === "left" ? "pl-12 pr-5" : icon && iconPosition === "right" ? "pr-14 pl-5" : "px-5",
               className,
             ].join(" ")}
             {...props}
@@ -43,9 +43,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={iconAction}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-outline transition-colors hover:bg-primary-container/20 hover:text-primary"
             >
-              <span className="material-symbols-outlined text-[22px]">
+              <span className="material-symbols-outlined text-[20px]">
                 {icon}
               </span>
             </button>
