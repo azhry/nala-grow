@@ -63,19 +63,19 @@ function Timer({
       <div className="flex flex-col items-center gap-4">
         <span
           className={[
-            "font-headline-lg tracking-wider tabular-nums",
+            "font-headline-lg text-[48px] tracking-wider tabular-nums leading-none",
             variant === "default" ? "text-on-surface" : "text-on-primary",
           ].join(" ")}
         >
           {formatTime(seconds)}
         </span>
-        <div className="flex gap-3">
+        <div className="flex w-full gap-3">
           {running ? (
             <button
               type="button"
               onClick={() => onPause?.(seconds)}
               className={[
-                "px-5 py-2 rounded-full font-label-md transition-all active:scale-[0.97]",
+                "flex-1 px-5 py-2 rounded-full font-label-md text-label-md transition-all active:scale-[0.97]",
                 variant === "active"
                   ? "bg-white/20 text-on-primary hover:bg-white/30"
                   : "bg-primary text-on-primary",
@@ -88,7 +88,7 @@ function Timer({
               type="button"
               onClick={() => onStop?.(seconds)}
               className={[
-                "px-5 py-2 rounded-full font-label-md transition-all active:scale-[0.97]",
+                "flex-1 px-5 py-2 rounded-full font-label-md text-label-md transition-all active:scale-[0.97]",
                 variant === "active"
                   ? "bg-white text-on-primary-container"
                   : "bg-primary text-on-primary",

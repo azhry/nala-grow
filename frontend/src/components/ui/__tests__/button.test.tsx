@@ -105,4 +105,12 @@ describe("Button", () => {
     const { container } = render(<Button>Press</Button>)
     expect(container.firstChild).toHaveClass("active:scale-95")
   })
+
+  it("renders form size with h-14 and rounded-xl", () => {
+    const { container } = render(<Button size="form">Form CTA</Button>)
+    expect(container.firstChild).toHaveClass("h-14")
+    expect(container.firstChild).toHaveClass("rounded-xl")
+    expect(container.firstChild).toHaveClass("font-headline-sm")
+    expect(container.firstChild).toHaveClass("text-headline-sm")
+  })
 })

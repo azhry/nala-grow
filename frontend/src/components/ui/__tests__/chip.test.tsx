@@ -9,7 +9,7 @@ describe("Chip", () => {
 
   it("renders primary color", () => {
     const { container } = render(<Chip color="primary">Primary</Chip>)
-    expect(container.firstChild).toHaveClass("bg-primary-container/10")
+    expect(container.firstChild).toHaveClass("bg-primary-container/20")
   })
 
   it("renders secondary color", () => {
@@ -29,7 +29,7 @@ describe("Chip", () => {
 
   it("renders accent color", () => {
     const { container } = render(<Chip color="accent">Accent</Chip>)
-    expect(container.firstChild).toHaveClass("bg-[#FF8A7A]/15")
+    expect(container.firstChild).toHaveClass("bg-accent-coral/15")
   })
 
   it("renders neutral color (default)", () => {
@@ -47,9 +47,9 @@ describe("Chip", () => {
     expect(container.querySelector(".material-symbols-outlined")).not.toBeInTheDocument()
   })
 
-  it("has rounded class", () => {
+  it("has rounded-full class", () => {
     const { container } = render(<Chip>Rounded</Chip>)
-    expect(container.firstChild).toHaveClass("rounded")
+    expect(container.firstChild).toHaveClass("rounded-full")
   })
 
   it("has uppercase, text-[10px], and tracking-wider classes", () => {
@@ -59,9 +59,10 @@ describe("Chip", () => {
     expect(container.firstChild).toHaveClass("tracking-wider")
   })
 
-  it("has font-label-md class", () => {
-    const { container } = render(<Chip>Font</Chip>)
+  it("renders md size with font-label-md", () => {
+    const { container } = render(<Chip size="md">Medium</Chip>)
     expect(container.firstChild).toHaveClass("font-label-md")
+    expect(container.firstChild).toHaveClass("text-label-md")
   })
 
   it("merges custom className", () => {

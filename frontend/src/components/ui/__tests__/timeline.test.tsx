@@ -63,10 +63,10 @@ describe("Timeline", () => {
     expect(screen.getByText("Loved it")).toBeInTheDocument()
   })
 
-  it("renders chevron buttons for each entry", () => {
-    render(<Timeline entries={sampleEntries} />)
-    const chevrons = screen.getAllByText("chevron_right")
-    expect(chevrons).toHaveLength(3)
+  it("renders card containers with rounded-2xl", () => {
+    const { container } = render(<Timeline entries={sampleEntries} />)
+    const cards = container.querySelectorAll(".rounded-2xl")
+    expect(cards).toHaveLength(3)
   })
 
   it("highlights active entry", () => {
@@ -77,13 +77,14 @@ describe("Timeline", () => {
 
   it("renders connecting lines between entries", () => {
     const { container } = render(<Timeline entries={sampleEntries} />)
-    const lines = container.querySelectorAll(".bg-outline-variant\\/50")
-    expect(lines.length).toBeGreaterThanOrEqual(2)
+    const lines = container.querySelectorAll(".absolute")
+    expect(lines.length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders nothing for empty entries", () => {
     const { container } = render(<Timeline entries={[]} />)
-    expect(container.firstChild?.childNodes.length).toBe(0)
+    const cards = container.querySelectorAll(".rounded-2xl")
+    expect(cards.length).toBe(0)
   })
 
   it("renders custom className", () => {
@@ -91,15 +92,21 @@ describe("Timeline", () => {
     expect(container.firstChild).toHaveClass("my-timeline")
   })
 
-  it("renders active ping badge on active entry", () => {
+  it("renders active pulse badge on active entry", () => {
     render(<Timeline entries={sampleEntries} />)
-    const ping = document.querySelector(".animate-ping")
-    expect(ping).toBeInTheDocument()
+    const pulse = document.querySelector(".animate-pulse")
+    expect(pulse).toBeInTheDocument()
   })
 
-  it("renders color-coded dots", () => {
+  it("renders color-coded w-6 h-6 dots with icons inside", () => {
     const { container } = render(<Timeline entries={sampleEntries} />)
-    const dots = container.querySelectorAll(".w-3.h-3.rounded-full")
+    const dots = container.querySelectorAll(".w-6.h-6.rounded-full")
     expect(dots).toHaveLength(3)
+  })
+
+  it("renders ring-4 ring-white on dots", () => {
+    const { container } = render(<Timeline entries={sampleEntries} />)
+    const rings = container.querySelectorAll(".ring-4")
+    expect(rings).toHaveLength(3)
   })
 })

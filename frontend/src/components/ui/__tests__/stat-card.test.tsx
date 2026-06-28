@@ -49,16 +49,16 @@ describe("StatCard", () => {
     expect(container.firstChild).toHaveClass("bg-primary")
   })
 
-  it("renders active label with text-label-md class", () => {
+  it("renders active label with tracking-wider", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
     const label = container.querySelector(".uppercase")
     expect(label).toHaveClass("text-label-md")
-    expect(label).toHaveClass("tracking-widest")
+    expect(label).toHaveClass("tracking-wider")
   })
 
-  it("renders active value with text-headline-lg class", () => {
+  it("renders active value with text-headline-md class", () => {
     render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
-    expect(screen.getByText("8h")).toHaveClass("text-headline-lg")
+    expect(screen.getByText("8h")).toHaveClass("text-headline-md")
   })
 
   it("renders inactive variant with shadow and border", () => {

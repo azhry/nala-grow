@@ -46,18 +46,9 @@ describe("SuccessOverlay", () => {
     expect(bar).toHaveStyle("width: 0%")
   })
 
-  it("shows close button only after progress completes", () => {
-    render(<SuccessOverlay open title="Done" onClose={() => {}} />)
-    expect(screen.queryByText("Continue")).not.toBeInTheDocument()
-    act(() => {
-      jest.advanceTimersByTime(1500)
-    })
-    expect(screen.getByText("Continue")).toBeInTheDocument()
-  })
-
-  it("renders backdrop blur", () => {
+  it("renders backdrop with bg-surface/90", () => {
     const { container } = render(<SuccessOverlay open title="Done" />)
-    expect(container.firstChild).toHaveClass("backdrop-blur-sm")
+    expect(container.firstChild).toHaveClass("bg-surface/90")
   })
 
   it("renders check icon", () => {

@@ -70,10 +70,10 @@ describe("SegmentedControl", () => {
     expect(container.firstChild).toHaveClass("rounded-full")
   })
 
-  it("has bg-surface-container-highest container", () => {
+  it("has bg-surface-container-low container", () => {
     const { container } = render(
       <SegmentedControl options={options} value="day" onChange={() => {}} />,
     )
-    expect(container.firstChild).toHaveClass("bg-surface-container-highest")
+    expect(container.firstChild).toHaveClass("bg-surface-container-low")
   })
 })

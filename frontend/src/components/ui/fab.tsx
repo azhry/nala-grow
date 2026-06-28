@@ -21,11 +21,13 @@ const FAB = forwardRef<HTMLButtonElement, FABProps>(
       <button
         ref={ref}
         className={[
-          fixed ? "fixed bottom-24 right-6 z-40" : "inline-flex",
+          fixed
+            ? "fixed bottom-24 right-6 z-40 md:hidden"
+            : "inline-flex",
           "w-14 h-14 rounded-full",
           "flex items-center justify-center",
           "transition-transform duration-150 ease-out",
-          "hover:scale-105 active:scale-90",
+          "hover:scale-105 active:scale-95",
           "cursor-pointer",
           variantClasses[variant],
           className,

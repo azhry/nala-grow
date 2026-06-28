@@ -65,6 +65,11 @@ describe("FAB", () => {
 
   it("has active scale effect", () => {
     const { container } = render(<FAB />)
-    expect(container.firstChild).toHaveClass("active:scale-90")
+    expect(container.firstChild).toHaveClass("active:scale-95")
+  })
+
+  it("has md:hidden for mobile-only", () => {
+    const { container } = render(<FAB />)
+    expect(container.firstChild).toHaveClass("md:hidden")
   })
 })

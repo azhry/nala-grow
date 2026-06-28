@@ -81,7 +81,13 @@ describe("Input", () => {
     const { container } = render(<Input />)
     const input = container.querySelector("input")!
     expect(input).toHaveClass("focus:ring-2")
-    expect(input).toHaveClass("focus:ring-primary/20")
+    expect(input).toHaveClass("focus:ring-primary-container")
+  })
+
+  it("has h-14 class", () => {
+    const { container } = render(<Input />)
+    const input = container.querySelector("input")!
+    expect(input).toHaveClass("h-14")
   })
 
   it("merges custom className", () => {
