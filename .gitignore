@@ -3,3 +3,4 @@ skills-lock.json
 notes.txt
 node_modules
 .next
+.swc
