@@ -9,7 +9,7 @@ describe("Chip", () => {
 
   it("renders primary color", () => {
     const { container } = render(<Chip color="primary">Primary</Chip>)
-    expect(container.firstChild).toHaveClass("bg-primary-container/20")
+    expect(container.firstChild).toHaveClass("bg-primary-container/10")
   })
 
   it("renders secondary color", () => {
@@ -47,9 +47,15 @@ describe("Chip", () => {
     expect(container.querySelector(".material-symbols-outlined")).not.toBeInTheDocument()
   })
 
-  it("has rounded-full class", () => {
+  it("has rounded class", () => {
     const { container } = render(<Chip>Rounded</Chip>)
-    expect(container.firstChild).toHaveClass("rounded-full")
+    expect(container.firstChild).toHaveClass("rounded")
+  })
+
+  it("has uppercase and text-[10px] classes", () => {
+    const { container } = render(<Chip>Styled</Chip>)
+    expect(container.firstChild).toHaveClass("uppercase")
+    expect(container.firstChild).toHaveClass("text-[10px]")
   })
 
   it("has font-label-md class", () => {

@@ -33,29 +33,30 @@ describe("StatCard", () => {
     expect(screen.getByText("Feeds")).toBeInTheDocument()
   })
 
-  it("renders label in uppercase", () => {
+  it("renders label in uppercase with tracking-widest", () => {
     render(<StatCard icon="bedtime" label="total sleep" value="8h" />)
     expect(screen.getByText("total sleep")).toHaveClass("uppercase")
+    expect(screen.getByText("total sleep")).toHaveClass("tracking-widest")
   })
 
-  it("renders value in headline-lg class", () => {
+  it("renders value in headline-md class", () => {
     render(<StatCard icon="bedtime" label="Sleep" value="8h" />)
-    expect(screen.getByText("8h")).toHaveClass("font-headline-lg")
+    expect(screen.getByText("8h")).toHaveClass("font-headline-md")
   })
 
-  it("renders with active gradient variant", () => {
+  it("renders active variant with bg-primary", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
-    expect(container.firstChild).toHaveClass("bg-gradient-to-br")
+    expect(container.firstChild).toHaveClass("bg-primary")
   })
 
-  it("renders inactive variant with shadow", () => {
+  it("renders inactive variant with shadow and border", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active={false} />)
     expect(container.firstChild).toHaveClass("shadow-[0_8px_20px_rgba(126,182,173,0.15)]")
+    expect(container.firstChild).toHaveClass("border-primary/5")
   })
 
   it("renders decorative icon in active state", () => {
-    const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
-    expect(container.firstChild).toHaveClass("bg-gradient-to-br")
+    render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
     const icons = screen.getAllByText("bedtime")
     expect(icons.length).toBeGreaterThanOrEqual(1)
   })
@@ -66,7 +67,7 @@ describe("StatCard", () => {
     expect(iconWrappers.length).toBeGreaterThanOrEqual(1)
   })
 
-  it("renders rounded-2xl on the card", () => {
+  it("renders rounded-[24px] on the card", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" />)
     expect(container.firstChild).toHaveClass("rounded-[24px]")
   })

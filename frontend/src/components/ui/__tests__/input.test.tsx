@@ -26,7 +26,8 @@ describe("Input", () => {
   it("applies error styling", () => {
     const { container } = render(<Input error="Error" />)
     const input = container.querySelector("input")
-    expect(input).toHaveClass("border-error")
+    expect(input).toHaveClass("ring-2")
+    expect(input).toHaveClass("ring-error")
   })
 
   it("renders icon button when icon prop provided", () => {
@@ -39,13 +40,6 @@ describe("Input", () => {
     render(<Input icon="search" iconAction={handleIcon} />)
     fireEvent.click(screen.getByText("search").closest("button")!)
     expect(handleIcon).toHaveBeenCalledTimes(1)
-  })
-
-  it("applies focus classes on focus", () => {
-    const { container } = render(<Input />)
-    const input = container.querySelector("input")!
-    fireEvent.focus(input)
-    expect(input).toHaveClass("focus:border-primary")
   })
 
   it("calls onFocus and onBlur callbacks", () => {
@@ -78,6 +72,13 @@ describe("Input", () => {
     const { container } = render(<Input />)
     const input = container.querySelector("input")!
     expect(input).toHaveClass("rounded-xl")
+  })
+
+  it("has focus ring classes", () => {
+    const { container } = render(<Input />)
+    const input = container.querySelector("input")!
+    expect(input).toHaveClass("focus:ring-2")
+    expect(input).toHaveClass("focus:ring-primary/20")
   })
 
   it("merges custom className", () => {

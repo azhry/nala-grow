@@ -1,6 +1,6 @@
 "use client"
 
-import { type InputHTMLAttributes, forwardRef, useState } from "react"
+import { type InputHTMLAttributes, forwardRef } from "react"
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -11,8 +11,6 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, icon, iconAction, className = "", ...props }, ref) => {
-    const [focused, setFocused] = useState(false)
-
     return (
       <div className="flex flex-col gap-1">
         {label && (
@@ -23,22 +21,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <div className="relative">
           <input
             ref={ref}
-            onFocus={(e) => {
-              setFocused(true)
-              props.onFocus?.(e)
-            }}
-            onBlur={(e) => {
-              setFocused(false)
-              props.onBlur?.(e)
-            }}
             className={[
-              "w-full h-14 px-4 font-body-md text-on-surface",
-              "bg-surface-container-low rounded-xl",
-              "border-2 border-transparent",
+              "w-full p-3 font-body-md text-on-surface bg-surface-container-low",
+              "border-none rounded-xl",
               "outline-none transition-all duration-150",
+              "focus:ring-2 focus:ring-primary/20",
               "placeholder:text-on-surface-variant placeholder:opacity-60",
-              "focus:border-primary focus:bg-surface-container",
-              error ? "border-error bg-error-container/20" : "",
+              error ? "ring-2 ring-error bg-error-container/20" : "",
               icon ? "pr-12" : "",
               className,
             ].join(" ")}

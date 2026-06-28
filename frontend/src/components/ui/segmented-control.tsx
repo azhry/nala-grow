@@ -21,7 +21,7 @@ function SegmentedControl({
   return (
     <div
       className={[
-        "inline-flex bg-surface-container-low rounded-xl p-1 gap-0.5",
+        "flex bg-surface-container-low rounded-xl p-1",
         className,
       ].join(" ")}
     >
@@ -31,11 +31,10 @@ function SegmentedControl({
           type="button"
           onClick={() => onChange(opt.value)}
           className={[
-            "px-4 py-1.5 rounded-lg font-label-md transition-all duration-150",
-            "active:scale-[0.98]",
+            "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all duration-150",
             value === opt.value
-              ? "bg-white text-on-surface shadow-sm"
-              : "text-on-surface-variant hover:text-on-surface",
+              ? "bg-white text-primary shadow-sm font-bold"
+              : "text-on-surface-variant hover:bg-white/50",
           ].join(" ")}
         >
           {opt.label}

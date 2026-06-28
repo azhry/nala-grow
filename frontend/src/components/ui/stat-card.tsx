@@ -1,5 +1,3 @@
-import type { ReactNode } from "react"
-
 interface StatCardProps {
   icon: string
   label: string
@@ -11,7 +9,7 @@ interface StatCardProps {
 
 const colorClasses = {
   primary: {
-    iconBg: "bg-primary-container/30",
+    iconBg: "bg-primary-container/20",
     iconColor: "text-primary",
     valueColor: "text-primary",
   },
@@ -30,17 +28,10 @@ const colorClasses = {
 function StatCard({ icon, label, value, color = "primary", active = false }: StatCardProps) {
   const c = colorClasses[color]
 
-  const base = [
-    "relative overflow-hidden rounded-[24px] p-5 transition-all duration-200",
-    active
-      ? "bg-gradient-to-br from-primary to-primary-container text-on-primary"
-      : "bg-surface-container-lowest shadow-[0_8px_20px_rgba(126,182,173,0.15)]",
-  ].join(" ")
-
   if (active) {
     return (
-      <div className={base}>
-        <span className="material-symbols-outlined text-on-primary/20 text-[80px] absolute -bottom-2 -right-2">
+      <div className="bg-primary p-6 rounded-[24px] shadow-lg text-on-primary relative overflow-hidden">
+        <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-9xl opacity-10 rotate-12">
           {icon}
         </span>
         <div className="relative z-10 flex flex-col gap-2">
@@ -54,24 +45,24 @@ function StatCard({ icon, label, value, color = "primary", active = false }: Sta
   }
 
   return (
-    <div className={base}>
-      <div className="flex items-start gap-4">
+    <div className="bg-surface-container-lowest p-6 rounded-[24px] shadow-[0_8px_20px_rgba(126,182,173,0.15)] border border-primary/5 flex flex-col justify-between min-h-[160px]">
+      <div className="flex justify-between items-start">
         <div
           className={[
-            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
+            "w-12 h-12 rounded-2xl flex items-center justify-center",
             c.iconBg,
           ].join(" ")}
         >
-          <span className={`material-symbols-outlined text-[24px] ${c.iconColor}`}>
+          <span className={`material-symbols-outlined text-[28px] fill-1 ${c.iconColor}`}>
             {icon}
           </span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="font-label-md text-on-surface-variant uppercase tracking-wider">
-            {label}
-          </span>
-          <span className={`font-headline-lg ${c.valueColor}`}>{value}</span>
-        </div>
+      </div>
+      <div>
+        <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">
+          {label}
+        </span>
+        <p className={`font-headline-md text-headline-md mt-0.5 ${c.valueColor}`}>{value}</p>
       </div>
     </div>
   )

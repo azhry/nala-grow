@@ -15,29 +15,29 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-on-primary shadow-md hover:brightness-110",
+    "bg-primary text-on-primary shadow-sm hover:shadow-md hover:scale-[1.02]",
   secondary:
-    "bg-secondary-container text-secondary border border-outline-variant",
+    "bg-surface-container-highest text-primary border border-primary/20 shadow-sm hover:shadow-md hover:scale-[1.02]",
   outline:
-    "bg-transparent text-primary border-2 border-primary",
+    "bg-transparent text-primary border-2 border-primary hover:bg-primary/5",
   ghost:
     "bg-transparent text-on-surface-variant hover:bg-surface-container-high",
   danger:
-    "bg-error text-on-primary shadow-md",
+    "bg-error text-on-primary shadow-sm",
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-10 px-4 text-label-md rounded-xl",
-  md: "h-12 px-5 text-body-md rounded-2xl",
-  lg: "h-14 px-6 text-headline-sm rounded-2xl",
-  xl: "h-16 px-8 text-headline-sm rounded-full",
+  sm: "gap-2 px-3 py-2 rounded-full font-label-md text-label-md",
+  md: "gap-2 px-4 py-3 rounded-full font-label-md text-label-md",
+  lg: "gap-3 px-6 py-3 rounded-full font-headline-sm text-headline-sm",
+  xl: "gap-3 px-8 py-4 rounded-full font-headline-sm text-headline-sm",
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       variant = "primary",
-      size = "lg",
+      size = "md",
       loading = false,
       icon,
       fullWidth = false,
@@ -53,9 +53,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={[
-          "inline-flex items-center justify-center gap-2 font-semibold",
+          "inline-flex items-center justify-center whitespace-nowrap",
           "transition-all duration-150 ease-out",
-          "active:scale-[0.98] active:transition-transform active:duration-100",
+          "active:scale-95",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
           variantClasses[variant],
           sizeClasses[size],

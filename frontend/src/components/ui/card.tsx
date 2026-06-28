@@ -7,7 +7,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const variantClasses = {
   elevated:
-    "bg-surface-container-lowest shadow-[0_8px_20px_rgba(126,182,173,0.15)]",
+    "bg-surface-container-lowest border border-primary/5 shadow-[0_8px_20px_rgba(126,182,173,0.15)]",
   outlined: "bg-surface-container-lowest border border-outline-variant",
   filled: "bg-surface-container",
 }

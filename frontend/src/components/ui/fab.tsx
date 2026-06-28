@@ -10,7 +10,7 @@ interface FABProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary:
-    "bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-lg",
+    "bg-primary text-on-primary shadow-lg",
   secondary:
     "bg-surface-container-lowest text-primary border border-outline-variant shadow-md",
 }
@@ -22,17 +22,17 @@ const FAB = forwardRef<HTMLButtonElement, FABProps>(
         ref={ref}
         className={[
           fixed ? "fixed bottom-24 right-6 z-40" : "inline-flex",
-          "w-14 h-14 rounded-2xl",
+          "w-14 h-14 rounded-full",
           "flex items-center justify-center",
-          "transition-all duration-150 ease-out",
-          "active:scale-[0.95]",
-          "shadow-[0_8px_20px_rgba(126,182,173,0.3)]",
+          "transition-transform duration-150 ease-out",
+          "hover:scale-105 active:scale-90",
+          "cursor-pointer",
           variantClasses[variant],
           className,
         ].join(" ")}
         {...props}
       >
-        <span className="material-symbols-outlined text-[28px]">{icon}</span>
+        <span className="material-symbols-outlined text-[32px]">{icon}</span>
       </button>
     )
   },

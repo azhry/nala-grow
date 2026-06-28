@@ -26,6 +26,7 @@ describe("SegmentedControl", () => {
     const weekButton = screen.getByText("Week")
     expect(weekButton).toHaveClass("bg-white")
     expect(weekButton).toHaveClass("shadow-sm")
+    expect(weekButton).toHaveClass("font-bold")
   })
 
   it("does not mark non-selected options active", () => {

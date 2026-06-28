@@ -15,7 +15,7 @@ interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
 
 const colorClasses: Record<ChipColor, string> = {
   primary:
-    "bg-primary-container/20 text-on-primary-container",
+    "bg-primary-container/10 text-primary",
   secondary:
     "bg-secondary-container/40 text-secondary",
   tertiary:
@@ -34,14 +34,14 @@ const Chip = forwardRef<HTMLSpanElement, ChipProps>(
       <span
         ref={ref}
         className={[
-          "inline-flex items-center gap-1 px-3 py-1 rounded-full font-label-md",
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded font-label-md text-[10px] uppercase font-bold",
           colorClasses[color],
           className,
         ].join(" ")}
         {...props}
       >
         {icon && (
-          <span className="material-symbols-outlined text-[14px]">{icon}</span>
+          <span className="material-symbols-outlined text-[12px]">{icon}</span>
         )}
         {children}
       </span>
