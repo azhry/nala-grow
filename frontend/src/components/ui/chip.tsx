@@ -34,7 +34,7 @@ const Chip = forwardRef<HTMLSpanElement, ChipProps>(
       <span
         ref={ref}
         className={[
-          "inline-flex items-center gap-1 px-2 py-0.5 rounded font-label-md text-[10px] uppercase font-bold",
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded font-label-md text-[10px] uppercase font-bold tracking-wider",
           colorClasses[color],
           className,
         ].join(" ")}

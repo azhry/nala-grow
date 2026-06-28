@@ -35,10 +35,10 @@ function StatCard({ icon, label, value, color = "primary", active = false }: Sta
           {icon}
         </span>
         <div className="relative z-10 flex flex-col gap-2">
-          <span className="font-label-md text-on-primary/80 uppercase tracking-wider">
+          <span className="font-label-md text-label-md text-on-primary/80 uppercase tracking-widest">
             {label}
           </span>
-          <span className="font-headline-lg text-on-primary">{value}</span>
+          <span className="font-headline-lg text-headline-lg text-on-primary">{value}</span>
         </div>
       </div>
     )

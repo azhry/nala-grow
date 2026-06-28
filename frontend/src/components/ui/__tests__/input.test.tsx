@@ -7,10 +7,13 @@ describe("Input", () => {
     expect(screen.getByPlaceholderText("Enter text")).toBeInTheDocument()
   })
 
-  it("renders label when provided", () => {
+  it("renders label when provided with font-label-md text-label-md", () => {
     render(<Input label="Baby Name" />)
-    expect(screen.getByText("Baby Name")).toBeInTheDocument()
-    expect(screen.getByText("Baby Name").tagName).toBe("LABEL")
+    const label = screen.getByText("Baby Name")
+    expect(label).toBeInTheDocument()
+    expect(label.tagName).toBe("LABEL")
+    expect(label).toHaveClass("font-label-md")
+    expect(label).toHaveClass("text-label-md")
   })
 
   it("does not render label when not provided", () => {

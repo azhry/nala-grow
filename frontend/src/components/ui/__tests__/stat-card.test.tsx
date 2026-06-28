@@ -49,6 +49,18 @@ describe("StatCard", () => {
     expect(container.firstChild).toHaveClass("bg-primary")
   })
 
+  it("renders active label with text-label-md class", () => {
+    const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
+    const label = container.querySelector(".uppercase")
+    expect(label).toHaveClass("text-label-md")
+    expect(label).toHaveClass("tracking-widest")
+  })
+
+  it("renders active value with text-headline-lg class", () => {
+    render(<StatCard icon="bedtime" label="Sleep" value="8h" active />)
+    expect(screen.getByText("8h")).toHaveClass("text-headline-lg")
+  })
+
   it("renders inactive variant with shadow and border", () => {
     const { container } = render(<StatCard icon="bedtime" label="Sleep" value="8h" active={false} />)
     expect(container.firstChild).toHaveClass("shadow-[0_8px_20px_rgba(126,182,173,0.15)]")

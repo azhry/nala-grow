@@ -52,10 +52,11 @@ describe("Chip", () => {
     expect(container.firstChild).toHaveClass("rounded")
   })
 
-  it("has uppercase and text-[10px] classes", () => {
+  it("has uppercase, text-[10px], and tracking-wider classes", () => {
     const { container } = render(<Chip>Styled</Chip>)
     expect(container.firstChild).toHaveClass("uppercase")
     expect(container.firstChild).toHaveClass("text-[10px]")
+    expect(container.firstChild).toHaveClass("tracking-wider")
   })
 
   it("has font-label-md class", () => {

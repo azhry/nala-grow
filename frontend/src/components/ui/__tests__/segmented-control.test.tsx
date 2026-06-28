@@ -24,15 +24,16 @@ describe("SegmentedControl", () => {
   it("marks selected option active", () => {
     render(<SegmentedControl options={options} value="week" onChange={() => {}} />)
     const weekButton = screen.getByText("Week")
-    expect(weekButton).toHaveClass("bg-white")
-    expect(weekButton).toHaveClass("shadow-sm")
+    expect(weekButton).toHaveClass("bg-primary")
+    expect(weekButton).toHaveClass("text-on-primary")
     expect(weekButton).toHaveClass("font-bold")
+    expect(weekButton).toHaveClass("shadow-sm")
   })
 
   it("does not mark non-selected options active", () => {
     render(<SegmentedControl options={options} value="day" onChange={() => {}} />)
     const weekButton = screen.getByText("Week")
-    expect(weekButton).not.toHaveClass("bg-white")
+    expect(weekButton).not.toHaveClass("bg-primary")
   })
 
   it("calls onChange with correct value when clicked", () => {
@@ -62,10 +63,17 @@ describe("SegmentedControl", () => {
     expect(container.firstChild).toHaveClass("my-control")
   })
 
-  it("has rounded-xl container", () => {
+  it("has rounded-full container", () => {
     const { container } = render(
       <SegmentedControl options={options} value="day" onChange={() => {}} />,
     )
-    expect(container.firstChild).toHaveClass("rounded-xl")
+    expect(container.firstChild).toHaveClass("rounded-full")
+  })
+
+  it("has bg-surface-container-highest container", () => {
+    const { container } = render(
+      <SegmentedControl options={options} value="day" onChange={() => {}} />,
+    )
+    expect(container.firstChild).toHaveClass("bg-surface-container-highest")
   })
 })
