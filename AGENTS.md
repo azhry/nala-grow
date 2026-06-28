@@ -2,6 +2,10 @@
 
 Baby growth tracker for parents.
 
+## Preface
+
+Call me "Boss" every time you respond or reply to me. Making sure you still remember the context of the project.
+
 ## Stack
 - **Framework**: Next.js 14 (App Router)
 - **UI**: Tailwind CSS with custom design tokens
@@ -172,7 +176,7 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-06-28T00:16:02.345Z
+- Last updated: 2026-06-28T22:40:16.427Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
@@ -243,7 +247,7 @@ mutation path before attempting Linear sync.
 | BE-007 | backend | planned | nala-grow | backend/, backend/** |
 | BE-008 | backend | planned | nala-grow | backend/, backend/** |
 | IN-001 | integration | planned | nala-grow | not set |
-| FE-010 | frontend | verified | nala-grow | frontend/, frontend/** |
+| FE-010 | frontend | implemented | nala-grow | frontend/, frontend/** |
 | QT-001 | test | verified | nala-grow | frontend/ |
 | QT-002 | test | verified | nala-grow | frontend/ |
 | QT-003 | test | verified | nala-grow | frontend/ |
@@ -262,13 +266,13 @@ mutation path before attempting Linear sync.
 | QT-016 | test | verified | nala-grow | frontend/ |
 | QT-017 | test | verified | nala-grow | frontend/ |
 | QT-018 | test | planned | nala-grow | frontend/ |
-| QT-019 | test | planned | nala-grow | frontend/ |
+| QT-019 | test | verified | nala-grow | frontend/ |
 | QT-020 | test | planned | nala-grow | frontend/ |
 | QT-021 | test | planned | nala-grow | frontend/ |
 | QT-022 | test | planned | nala-grow | frontend/ |
-| QT-023 | test | planned | nala-grow | frontend/ |
+| QT-023 | test | verified | nala-grow | frontend/ |
 | QT-024 | test | planned | nala-grow | frontend/ |
-| QT-025 | test | planned | nala-grow | frontend/ |
+| QT-025 | test | verified | nala-grow | frontend/ |
 
 Before writing project files, verify scope:
 
@@ -299,7 +303,7 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 | BE-007 | backend | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API |
 | BE-008 | backend | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation |
 | IN-001 | integration | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
-| FE-010 | frontend | verified | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
+| FE-010 | frontend | implemented | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
 | QT-001 | test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
 | QT-002 | test | verified | 516cfc19-c191-424a-bfd3-351a68546bd1 | Install & configure Playwright |
 | QT-003 | test | verified | c73409ea-b915-480d-86c5-662e15cf3f83 | Add test:unit and test:e2e npm scripts |
@@ -318,13 +322,13 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 | QT-016 | test | verified | 387b620d-3145-4064-b508-09be9be5625d | Timeline unit tests |
 | QT-017 | test | verified | 336cb618-90e2-4583-97f9-d733d64e4ffe | Spinner unit tests |
 | QT-018 | test | planned | 87f4f5f0-a3f3-4dd2-9d23-5aedff704eda | Home page E2E smoke test |
-| QT-019 | test | planned | 38763cb2-66dc-481e-a9d5-edc0b8f9cf59 | Design System page E2E smoke test |
+| QT-019 | test | verified | 38763cb2-66dc-481e-a9d5-edc0b8f9cf59 | Design System page E2E smoke test |
 | QT-020 | test | planned | c4e98170-f7bd-4b83-8ed4-153a217140aa | Hydration mismatch test |
 | QT-021 | test | planned | 0fdd2750-2b1e-4140-b02a-c3adb2c7f5c4 | Responsive layout test |
 | QT-022 | test | planned | 0ec02959-5e37-44cc-93ea-c29e7bf207d8 | Bottom tab navigation rendering test |
-| QT-023 | test | planned | 393fc71f-5b87-495f-a326-47642f6b2f13 | Visual regression infrastructure |
+| QT-023 | test | verified | 393fc71f-5b87-495f-a326-47642f6b2f13 | Visual regression infrastructure |
 | QT-024 | test | planned | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
-| QT-025 | test | planned | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
+| QT-025 | test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
 
 ### Durable Knowledge
 
@@ -332,10 +336,10 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 - process_rule: Split frontend and backend tasks at an explicit contract boundary before allowing parallel execution.
 - verification_pattern: Record token usage at run, task, and eval scope so future runs can compare planning cost against verification cost.
 - event linear_sync: Synced 1 tasks to Linear
-- event task_complete: QT-016 testing -> verified
+- event task_complete: QT-025 testing -> verified
 - event linear_sync: Synced 1 tasks to Linear
-- event task_complete: QT-017 testing -> verified
-- event linear_sync: Synced 1 tasks to Linear
+- event linear_sync: Synced 44 tasks to Linear
+- event linear_sync: Synced 2 knowledge cards to Linear
 
 Record durable project learning with:
 
@@ -354,6 +358,6 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role frontend_dev
 ```
 
-Generated by agent-spec-ops at 2026-06-28T08:27:25.942Z.
+Generated by agent-spec-ops at 2026-06-28T22:40:20.316Z.
 <!-- agent-spec-ops:managed:end -->
 
