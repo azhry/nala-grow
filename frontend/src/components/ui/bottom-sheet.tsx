@@ -30,7 +30,7 @@ function BottomSheet({ open, onClose, children, className = "" }: BottomSheetPro
       />
       <div
         className={[
-          "relative w-full max-w-lg bg-surface rounded-t-[24px] overflow-hidden shadow-soft",
+          "relative w-full max-w-lg bg-surface rounded-t-xl overflow-hidden shadow-soft",
           "animate-in fade-in slide-in-from-bottom duration-300 ease-out",
           visible ? "translate-y-0" : "translate-y-full",
           className,

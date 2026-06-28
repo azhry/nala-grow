@@ -24,7 +24,7 @@ function ProfileCard({
   return (
     <div
       className={[
-        "bg-surface-container-lowest rounded-[24px] p-5 shadow-soft relative overflow-hidden group",
+        "bg-surface-container-lowest rounded-xl p-5 shadow-soft relative overflow-hidden group",
         active
           ? "border-2 border-primary-container"
           : "border border-outline-variant/30 hover:border-primary-container transition-all",
@@ -40,7 +40,7 @@ function ProfileCard({
           )}
         </div>
         {active && (
-          <span className="bg-primary text-on-primary px-3 py-1 rounded-full text-[10px] font-bold tracking-widest flex items-center gap-1">
+          <span className="bg-primary text-on-primary px-3 py-1 rounded-full font-label-xs text-label-xs flex items-center gap-1">
             <span className="material-symbols-outlined text-[14px]">check_circle</span>
             CURRENT
           </span>

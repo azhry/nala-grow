@@ -52,9 +52,9 @@ function Timer({
   }
 
   const containerClasses = {
-    default: "bg-surface-container-low rounded-[24px] p-5",
+    default: "bg-surface-container-low rounded-xl p-5",
     active:
-      "bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-[24px] p-5 shadow-lg",
+      "bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-xl p-5 shadow-primary-glow",
     minimal: "",
   }
 
@@ -63,7 +63,7 @@ function Timer({
       <div className="flex flex-col items-center gap-4">
         <span
           className={[
-            "font-headline-lg text-[48px] tracking-wider tabular-nums leading-none",
+            "font-display-timer text-display-timer tabular-nums",
             variant === "default" ? "text-on-surface" : "text-on-primary",
           ].join(" ")}
         >

@@ -32,7 +32,7 @@ const colorClasses: Record<ChipColor, string> = {
 }
 
 const sizeClasses: Record<ChipSize, string> = {
-  sm: "px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider",
+  sm: "px-2 py-0.5 font-label-xs text-label-xs uppercase",
   md: "px-3 py-1 font-label-md text-label-md",
 }
 
