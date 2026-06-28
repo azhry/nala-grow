@@ -30,13 +30,13 @@ const dotColors: Record<string, string> = {
 
 function Timeline({ entries, className = "" }: TimelineProps) {
   return (
-    <div className={["relative pl-8 space-y-6", className].join(" ")}>
+    <div className={["relative pl-10 space-y-6", className].join(" ")}>
       <div className="absolute left-[11px] top-2 bottom-2 w-[2px] bg-primary-container/30" />
-      {entries.map((entry, i) => (
+      {entries.map((entry) => (
         <div key={entry.id} className="relative group">
           <div
             className={[
-              "absolute -left-8 top-1 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10",
+              "absolute left-[-40px] top-1 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10",
               dotColors[entry.color] || "bg-primary-container",
             ].join(" ")}
           >

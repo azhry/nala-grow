@@ -36,25 +36,25 @@ describe("Button", () => {
 
   it("renders sm size", () => {
     const { container } = render(<Button size="sm">Small</Button>)
-    expect(container.firstChild).toHaveClass("py-2")
+    expect(container.firstChild).toHaveClass("h-10")
     expect(container.firstChild).toHaveClass("rounded-full")
   })
 
   it("renders md size", () => {
     const { container } = render(<Button size="md">Medium</Button>)
-    expect(container.firstChild).toHaveClass("py-3")
+    expect(container.firstChild).toHaveClass("h-12")
     expect(container.firstChild).toHaveClass("rounded-full")
   })
 
   it("renders lg size", () => {
     const { container } = render(<Button size="lg">Large</Button>)
-    expect(container.firstChild).toHaveClass("py-3")
-    expect(container.firstChild).toHaveClass("font-headline-sm")
+    expect(container.firstChild).toHaveClass("h-14")
+    expect(container.firstChild).toHaveClass("font-body-md")
   })
 
   it("renders xl size with icon", () => {
     const { container } = render(<Button size="xl" icon="arrow_forward">XL</Button>)
-    expect(container.firstChild).toHaveClass("py-4")
+    expect(container.firstChild).toHaveClass("h-16")
     expect(container.firstChild).toHaveClass("rounded-full")
     expect(screen.getByText("arrow_forward")).toBeInTheDocument()
   })
@@ -106,10 +106,10 @@ describe("Button", () => {
     expect(container.firstChild).toHaveClass("active:scale-95")
   })
 
-  it("renders form size with h-14 and rounded-xl", () => {
+  it("renders form size with field height and rounded-full", () => {
     const { container } = render(<Button size="form">Form CTA</Button>)
-    expect(container.firstChild).toHaveClass("h-14")
-    expect(container.firstChild).toHaveClass("rounded-xl")
+    expect(container.firstChild).toHaveClass("h-field")
+    expect(container.firstChild).toHaveClass("rounded-full")
     expect(container.firstChild).toHaveClass("font-headline-sm")
     expect(container.firstChild).toHaveClass("text-headline-sm")
   })

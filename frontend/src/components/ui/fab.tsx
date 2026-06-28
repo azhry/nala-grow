@@ -34,7 +34,7 @@ const FAB = forwardRef<HTMLButtonElement, FABProps>(
         ].join(" ")}
         {...props}
       >
-        <span className="material-symbols-outlined text-[32px]">{icon}</span>
+        <span className="material-symbols-outlined text-[28px]">{icon}</span>
       </button>
     )
   },

@@ -15,7 +15,7 @@ const mainNav: NavItem[] = [
   { href: "/growth", label: "Growth", icon: "monitoring" },
   { href: "/feeding", label: "Feeding", icon: "restaurant" },
   { href: "/sleep", label: "Sleep", icon: "bedtime" },
-  { href: "/milestones", label: "Milestones", icon: "celebration" },
+  { href: "/milestones", label: "Milestones", icon: "emoji_events" },
 ]
 
 const secondaryNav: NavItem[] = [

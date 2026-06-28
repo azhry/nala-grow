@@ -71,10 +71,10 @@ describe("Input", () => {
     expect(input).toHaveClass("bg-surface-container-low")
   })
 
-  it("has rounded-xl class", () => {
+  it("has rounded-2xl class", () => {
     const { container } = render(<Input />)
     const input = container.querySelector("input")!
-    expect(input).toHaveClass("rounded-xl")
+    expect(input).toHaveClass("rounded-2xl")
   })
 
   it("has focus ring classes", () => {

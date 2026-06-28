@@ -21,12 +21,12 @@ function SegmentedControl({
   className = "",
 }: SegmentedControlProps) {
   const containerClasses = variant === "pill"
-    ? "flex bg-surface-container-low p-1 rounded-full"
-    : "flex bg-surface-container-low rounded-xl p-1"
+    ? "flex w-full min-w-0 bg-surface-container-low p-1 rounded-full"
+    : "flex w-full min-w-0 bg-surface-container-low rounded-xl p-1"
 
   const buttonBase = variant === "pill"
-    ? "flex-1 py-2 px-4 rounded-full font-label-md text-label-md transition-all duration-150"
-    : "flex-1 py-2 px-4 rounded-lg font-label-md text-label-md transition-all duration-150"
+    ? "min-w-0 flex-1 py-2 px-2 sm:px-4 rounded-full font-label-md text-label-md transition-all duration-150"
+    : "min-w-0 flex-1 py-2 px-2 sm:px-4 rounded-lg font-label-md text-label-md transition-all duration-150"
 
   const activeClasses = variant === "pill"
     ? "bg-primary text-on-primary font-bold shadow-sm"

@@ -10,6 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize
   loading?: boolean
   icon?: string
+  iconPosition?: "start" | "end"
   fullWidth?: boolean
 }
 
@@ -27,11 +28,11 @@ const variantClasses: Record<ButtonVariant, string> = {
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "gap-1.5 px-3 py-2 rounded-full font-headline-sm text-headline-sm",
-  md: "gap-2 px-4 py-3 rounded-full font-headline-sm text-headline-sm",
-  lg: "gap-2 px-5 py-3 rounded-full font-headline-sm text-headline-sm",
-  xl: "gap-2 px-8 py-4 rounded-full font-headline-sm text-headline-sm",
-  form: "h-14 gap-2 px-6 rounded-xl font-headline-sm text-headline-sm hover:bg-on-primary-container",
+  sm: "h-10 gap-1.5 px-4 rounded-full font-label-md text-label-md",
+  md: "h-12 gap-2 px-5 rounded-full font-label-md text-label-md",
+  lg: "h-14 gap-2 px-6 rounded-full font-body-md text-body-md font-semibold",
+  xl: "h-16 gap-2 px-8 rounded-full font-headline-sm text-headline-sm",
+  form: "h-field gap-2 px-6 rounded-full font-headline-sm text-headline-sm hover:bg-on-primary-container",
 }
 
 const sizeActive: Record<ButtonSize, string> = {
@@ -57,6 +58,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = "md",
       loading = false,
       icon,
+      iconPosition = "start",
       fullWidth = false,
       className = "",
       children,
@@ -84,10 +86,13 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <span className="inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : icon ? (
+        ) : icon && iconPosition === "start" ? (
           <span className="material-symbols-outlined text-[20px]">{icon}</span>
         ) : null}
         {children}
+        {!loading && icon && iconPosition === "end" ? (
+          <span className="material-symbols-outlined text-[20px]">{icon}</span>
+        ) : null}
       </button>
     )
   },

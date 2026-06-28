@@ -26,7 +26,7 @@ const sampleEntries = [
     timestamp: "Today, 12:00 PM",
     duration: "45g",
     color: "tertiary" as const,
-    icon: "nutrition" as const,
+    icon: "restaurant" as const,
     tags: [{ label: "Loved it", color: "tertiary" as const }],
   },
 ]
@@ -53,7 +53,7 @@ describe("Timeline", () => {
 
   it("renders entry icons", () => {
     render(<Timeline entries={sampleEntries} />)
-    expect(screen.getByText("restaurant")).toBeInTheDocument()
+    expect(screen.getAllByText("restaurant")).toHaveLength(2)
     expect(screen.getByText("bedtime")).toBeInTheDocument()
   })
 

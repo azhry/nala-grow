@@ -91,11 +91,12 @@ describe("Timer", () => {
     expect(container.firstChild).not.toHaveClass("bg-gradient-to-br")
   })
 
-  it("displays time in tabular-nums with text-[48px]", () => {
+  it("displays time in tabular-nums with display timer token", () => {
     const { container } = render(<Timer />)
     const timeDisplay = container.querySelector(".tabular-nums")
     expect(timeDisplay).toBeInTheDocument()
-    expect(timeDisplay).toHaveClass("text-[48px]")
+    expect(timeDisplay).toHaveClass("font-display-timer")
+    expect(timeDisplay).toHaveClass("text-display-timer")
   })
 
   it("has flex-1 buttons", () => {

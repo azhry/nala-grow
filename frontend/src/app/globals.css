@@ -1,3 +1,51 @@
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/public-sans-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/public-sans-600.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/public-sans-700.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Quicksand";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/quicksand-600.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Quicksand";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/quicksand-700.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/material-symbols-outlined.ttf") format("truetype");
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,7 +63,7 @@
 
 @layer components {
   .soft-shadow {
-    box-shadow: 0 8px 20px rgba(126, 182, 173, 0.15);
+    @apply shadow-soft;
   }
 
   .bento-card {
@@ -25,7 +73,7 @@
 
   .bento-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(126, 182, 173, 0.2);
+    @apply shadow-soft-lg;
   }
 
   .hide-scrollbar::-webkit-scrollbar {
@@ -46,16 +94,25 @@
 
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-feature-settings: "liga";
   font-family: "Material Symbols Outlined";
   font-weight: normal;
   font-style: normal;
   line-height: 1;
   letter-spacing: normal;
   text-transform: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1em;
+  min-height: 1em;
+  overflow: hidden;
+  vertical-align: middle;
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .fill-1 {

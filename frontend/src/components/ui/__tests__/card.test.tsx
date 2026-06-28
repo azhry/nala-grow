@@ -9,7 +9,7 @@ describe("Card", () => {
 
   it("renders elevated variant with shadow and border", () => {
     const { container } = render(<Card variant="elevated">Elevated</Card>)
-    expect(container.firstChild).toHaveClass("shadow-[0_8px_20px_rgba(126,182,173,0.15)]")
+    expect(container.firstChild).toHaveClass("shadow-soft")
     expect(container.firstChild).toHaveClass("border-primary/5")
   })
 
@@ -24,9 +24,9 @@ describe("Card", () => {
     expect(container.firstChild).toHaveClass("bg-surface-container")
   })
 
-  it("has rounded-2xl by default", () => {
+  it("has rounded-xl by default", () => {
     const { container } = render(<Card>Rounded</Card>)
-    expect(container.firstChild).toHaveClass("rounded-[24px]")
+    expect(container.firstChild).toHaveClass("rounded-xl")
   })
 
   it("renders with no padding", () => {
