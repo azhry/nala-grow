@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test:unit": "jest",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "playwright test --reporter=github"
+    "test:e2e:ci": "playwright test --reporter=github",
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
