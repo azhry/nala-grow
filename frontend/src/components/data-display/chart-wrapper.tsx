@@ -13,6 +13,7 @@ interface ChartWrapperProps {
   readonly legend?: readonly ChartLegendItem[]
   readonly action?: ReactNode
   readonly className?: string
+  readonly contentClassName?: string
 }
 
 function ChartWrapper({
@@ -22,34 +23,35 @@ function ChartWrapper({
   legend = [],
   action,
   className = "",
+  contentClassName = "min-h-[220px] overflow-hidden rounded-2xl bg-surface p-gutter",
 }: ChartWrapperProps) {
   return (
-    <Card className={["space-y-gutter", className].join(" ")}>
-      <div className="flex flex-col gap-base sm:flex-row sm:items-start sm:justify-between">
+    <Card className={className}>
+      <div className="mb-8 flex flex-col gap-base sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="font-headline-sm text-headline-sm text-primary">{title}</h2>
+          <h2 className="font-headline-md text-headline-md text-primary">{title}</h2>
           {subtitle && (
             <p className="font-body-sm text-body-sm text-on-surface-variant">{subtitle}</p>
           )}
         </div>
-        {action && <div className="shrink-0">{action}</div>}
+        {(legend.length > 0 || action) && (
+          <div className="flex shrink-0 flex-wrap items-center gap-gutter">
+            {legend.map((item) => (
+              <span
+                key={item.label}
+                className="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface"
+              >
+                <span className={["h-3 w-3 rounded-full", item.colorClass].join(" ")} />
+                {item.label}
+              </span>
+            ))}
+            {action}
+          </div>
+        )}
       </div>
-      <div className="min-h-[220px] overflow-hidden rounded-2xl bg-surface p-gutter">
+      <div className={contentClassName}>
         {children}
       </div>
-      {legend.length > 0 && (
-        <div className="flex flex-wrap gap-base">
-          {legend.map((item) => (
-            <span
-              key={item.label}
-              className="inline-flex items-center gap-2 font-label-md text-label-md text-on-surface-variant"
-            >
-              <span className={["h-2.5 w-2.5 rounded-full", item.colorClass].join(" ")} />
-              {item.label}
-            </span>
-          ))}
-        </div>
-      )}
     </Card>
   )
 }

@@ -1,5 +1,7 @@
 export { ChartWrapper } from "./chart-wrapper"
 export type { ChartLegendItem, ChartWrapperProps } from "./chart-wrapper"
+export { GrowthPercentileChart } from "./growth-percentile-chart"
+export type { GrowthPercentileChartProps } from "./growth-percentile-chart"
 export { MetricCard } from "./metric-card"
 export type { MetricCardProps } from "./metric-card"
 export { Timeline } from "@/components/ui/timeline"

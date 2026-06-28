@@ -25,7 +25,7 @@ import {
   SuccessOverlay,
 } from "@/components/ui"
 import { PageHeader, PageShell, ProfileSwitcher } from "@/components/layout"
-import { ChartWrapper, MetricCard, StatCard, Timeline } from "@/components/data-display"
+import { ChartWrapper, GrowthPercentileChart, MetricCard, StatCard, Timeline } from "@/components/data-display"
 import {
   componentInventory,
   designColors,
@@ -95,7 +95,7 @@ const screenPatternCoverage: Record<string, string[]> = {
   feeding_entry_forms: ["QuickLogGrid", "BottomSheet", "SideSelector", "StepperInput", "Timeline"],
   feeding_log_timers: ["Timer", "StatCard", "Timeline", "BottomTabNav"],
   functional_nalagrow_dashboard: ["ProfileSwitcher", "StatCard", "QuickLogGrid", "BottomTabNav"],
-  growth_tracking_charts: ["ChartWrapper", "MetricCard", "PillButton", "Timeline"],
+  growth_tracking_charts: ["ChartWrapper", "GrowthPercentileChart", "MetricCard", "PillButton", "Timeline"],
   interactive_feeding_log: ["ReactionSelector", "BottomSheet", "Timer", "Timeline"],
   interactive_growth_tracking: ["ChartWrapper", "MetricCard", "Dropdown", "PillButton"],
   interactive_nalagrow_dashboard: ["PageShell", "ProfileSwitcher", "StatCard", "FAB"],
@@ -284,45 +284,21 @@ export default function DesignSystemPage() {
 
             <section className="grid gap-gutter lg:grid-cols-[1fr_360px]">
               <ChartWrapper
-                title="Growth Curve"
-                subtitle="Weight compared with percentile bands"
-                action={<PillButton icon="file_download" variant="secondary">Export</PillButton>}
+                title="Weight-for-age Percentiles"
+                subtitle="WHO Standards (0-24 Months)"
+                contentClassName="overflow-visible bg-transparent p-0"
                 legend={[
-                  { label: "WHO range", colorClass: "bg-primary-container" },
                   { label: "Lily", colorClass: "bg-primary" },
+                  { label: "Percentiles", colorClass: "bg-primary-container/40" },
                 ]}
               >
-                <svg viewBox="0 0 560 220" className="h-full min-h-[220px] w-full">
-                  <path
-                    d="M20 170 C120 120 190 132 270 96 C360 56 430 72 540 36 L540 190 L20 190 Z"
-                    fill={designColors["primary-container"]}
-                    opacity="0.22"
-                  />
-                  <path
-                    d="M20 170 C120 120 190 132 270 96 C360 56 430 72 540 36"
-                    fill="none"
-                    stroke={designColors.primary}
-                    strokeLinecap="round"
-                    strokeWidth="5"
-                  />
-                  {[20, 150, 280, 410, 540].map((x, index) => (
-                    <circle
-                      key={x}
-                      cx={x}
-                      cy={[170, 116, 94, 68, 36][index]}
-                      r="8"
-                      fill={designColors.primary}
-                      stroke={designColors["surface-container-lowest"]}
-                      strokeWidth="4"
-                    />
-                  ))}
-                </svg>
+                <GrowthPercentileChart />
               </ChartWrapper>
 
               <div className="grid gap-gutter">
                 <MetricCard label="Weight" value="6.4" unit="kg" percentile="62nd percentile" trend="up" icon="scale" />
-                <MetricCard label="Length" value="63" unit="cm" percentile="58th percentile" icon="straighten" tone="tertiary" />
-                <MetricCard label="Head" value="41.5" unit="cm" percentile="55th percentile" icon="child_care" tone="secondary" />
+                <MetricCard label="Height" value="63.5" unit="cm" percentile="58th percentile" icon="straighten" tone="tertiary" />
+                <MetricCard label="Head Circ." value="41.2" unit="cm" percentile="45th percentile" icon="face_2" tone="secondary" />
               </div>
             </section>
 

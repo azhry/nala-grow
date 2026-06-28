@@ -208,6 +208,7 @@ export const componentInventory = [
   "PageHeader",
   "ProfileSwitcher",
   "ChartWrapper",
+  "GrowthPercentileChart",
   "MetricCard",
   "QuickLogGrid",
   "ReactionSelector",
