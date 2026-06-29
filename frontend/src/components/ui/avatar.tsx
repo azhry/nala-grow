@@ -15,6 +15,22 @@ const sizeClasses: Record<AvatarSize, string> = {
   xxl: "w-32 h-32",
 }
 
+const fallbackTextClasses: Record<AvatarSize, string> = {
+  sm: "font-label-md text-label-md",
+  md: "font-body-md text-body-md font-semibold",
+  lg: "font-headline-sm text-headline-sm",
+  xl: "font-headline-md text-headline-md",
+  xxl: "font-headline-lg text-headline-lg",
+}
+
+const fallbackIconClasses: Record<AvatarSize, string> = {
+  sm: "text-[18px]",
+  md: "text-[22px]",
+  lg: "text-[26px]",
+  xl: "text-[32px]",
+  xxl: "text-[48px]",
+}
+
 const Avatar = forwardRef<HTMLImageElement, AvatarProps>(
   ({ size = "md", fallback, className = "", alt = "", ...props }, ref) => {
     return (
@@ -36,11 +52,11 @@ const Avatar = forwardRef<HTMLImageElement, AvatarProps>(
             {...props}
           />
         ) : fallback ? (
-          <span className="font-headline-sm text-on-primary-container">
+          <span className={[fallbackTextClasses[size], "text-on-primary-container"].join(" ")}>
             {fallback}
           </span>
         ) : (
-          <span className="material-symbols-outlined text-on-surface-variant text-[24px]">
+          <span className={["material-symbols-outlined text-on-surface-variant", fallbackIconClasses[size]].join(" ")}>
             person
           </span>
         )}
