@@ -12,6 +12,11 @@ describe("Avatar", () => {
     expect(screen.getByText("N")).toBeInTheDocument()
   })
 
+  it("scales fallback initials for xxl profile avatars", () => {
+    render(<Avatar size="xxl" fallback="L" />)
+    expect(screen.getByText("L")).toHaveClass("text-headline-lg")
+  })
+
   it("renders image when src provided", () => {
     render(<Avatar src="/photo.jpg" alt="Baby" />)
     const img = screen.getByAltText("Baby")
