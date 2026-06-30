@@ -176,20 +176,24 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-06-28T22:40:16.427Z
+- Last updated: 2026-06-30T18:44:39.283Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
 
 ### Required Session Start
 
+If available, invoke the `$agent-spec-ops` skill for this work. The skill
+contains the compact operating procedure for this harness; this managed
+block contains the delivery-specific paths and commands.
+
 Run this before acting, after compaction, after interruption, and after any
 state change made outside the current shell:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
-node scripts/read-context.js runs/NL-001/workflow-state.json --role frontend_dev
-node scripts/read-instructions.js runs/NL-001/workflow-state.json --role frontend_dev
+node scripts/read-context.js runs/NL-001/workflow-state.json --role orchestrator
+node scripts/read-instructions.js runs/NL-001/workflow-state.json --role orchestrator
 ```
 
 If a transition script reports stale context, rerun the two commands above.
@@ -230,7 +234,7 @@ mutation path before attempting Linear sync.
 | Task | Role | Status | Allowed repos | Allowed paths |
 | --- | --- | --- | --- | --- |
 | FE-001 | frontend | verified | nala-grow | frontend/, frontend/** |
-| FE-002 | frontend | planned | nala-grow | frontend/, frontend/** |
+| FE-002 | frontend | active | nala-grow | frontend/, frontend/** |
 | FE-003 | frontend | planned | nala-grow | frontend/, frontend/** |
 | FE-004 | frontend | planned | nala-grow | frontend/, frontend/** |
 | FE-005 | frontend | planned | nala-grow | frontend/, frontend/** |
@@ -247,7 +251,7 @@ mutation path before attempting Linear sync.
 | BE-007 | backend | planned | nala-grow | backend/, backend/** |
 | BE-008 | backend | planned | nala-grow | backend/, backend/** |
 | IN-001 | integration | planned | nala-grow | not set |
-| FE-010 | frontend | implemented | nala-grow | frontend/, frontend/** |
+| FE-010 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | QT-001 | test | verified | nala-grow | frontend/ |
 | QT-002 | test | verified | nala-grow | frontend/ |
 | QT-003 | test | verified | nala-grow | frontend/ |
@@ -278,7 +282,7 @@ Before writing project files, verify scope:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
-node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> frontend_dev
+node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> orchestrator
 ```
 
 ### Current Tasks
@@ -286,7 +290,7 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 | ID | Role | Status | Linear | Title |
 | --- | --- | --- | --- | --- |
 | FE-001 | frontend | verified | 6ea895b2-4ae1-45a7-b429-2d68b4bdeab8 | Frontend scaffold — Next.js 14 + Tailwind + PWA |
-| FE-002 | frontend | planned | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
+| FE-002 | frontend | active | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
 | FE-003 | frontend | planned | 1cc8205f-c5e7-46e4-b10f-7e09c0d0a0dd | Baby profile management |
 | FE-004 | frontend | planned | d357b485-07ba-4f61-ac14-c02b1457020e | Dashboard with summary cards and quick log |
 | FE-005 | frontend | planned | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
@@ -303,7 +307,7 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 | BE-007 | backend | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API |
 | BE-008 | backend | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation |
 | IN-001 | integration | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
-| FE-010 | frontend | implemented | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
+| FE-010 | frontend_dev | verified | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
 | QT-001 | test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
 | QT-002 | test | verified | 516cfc19-c191-424a-bfd3-351a68546bd1 | Install & configure Playwright |
 | QT-003 | test | verified | c73409ea-b915-480d-86c5-662e15cf3f83 | Add test:unit and test:e2e npm scripts |
@@ -330,16 +334,30 @@ node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> 
 | QT-024 | test | planned | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
 | QT-025 | test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
 
+### PR Review Gate
+
+- Dev agents must use `submit-task.js` to create the PR; the script records a planned PR-review spawn request.
+- After submit or dispatch planning, inspect planned spawns:
+
+```bash
+cd ../my-harnesses/agent-spec-ops
+node scripts/list-agent-spawn-requests.js runs/NL-001/workflow-state.json --json
+```
+
+- For each planned request, call Codex `spawn_agent` with the returned `agent_type` and `prompt`, then record the returned agent ID with `record-agent-spawn.js`.
+- Reviewers record `passed` or `changes_requested` with `record-pr-review.js`; auto-merge is blocked until `pr_review_status=passed`.
+- When changes are requested, the dev agent addresses `git_flow.pr_review_comments`, resubmits, and waits for a fresh review pass.
+
 ### Durable Knowledge
 
-- anti_pattern: Do not rename a shared response field in only the consumer or only the producer.
 - process_rule: Split frontend and backend tasks at an explicit contract boundary before allowing parallel execution.
+- process_rule: Agent Spec Ops must make git lifecycle, role/lane state, and external credential/tool adapters impossible to misinterpret before a task can be called complete.
 - verification_pattern: Record token usage at run, task, and eval scope so future runs can compare planning cost against verification cost.
-- event linear_sync: Synced 1 tasks to Linear
-- event task_complete: QT-025 testing -> verified
-- event linear_sync: Synced 1 tasks to Linear
 - event linear_sync: Synced 44 tasks to Linear
-- event linear_sync: Synced 2 knowledge cards to Linear
+- event linear_sync: Synced 3 knowledge cards to Linear
+- event artifact_generated: Generated project AGENTS.md for NL-001
+- event task_started: FE-002 planned -> active
+- event linear_sync: Synced 1 tasks to Linear
 
 Record durable project learning with:
 
@@ -355,9 +373,9 @@ or final review updates, regenerate this managed block:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
-node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role frontend_dev
+node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-06-28T22:40:20.316Z.
+Generated by agent-spec-ops at 2026-06-30T19:10:24.442Z.
 <!-- agent-spec-ops:managed:end -->
 
