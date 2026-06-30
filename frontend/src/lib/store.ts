@@ -13,9 +13,11 @@ interface AppState {
   user: { id: string; email: string } | null
   activeBaby: BabyProfile | null
   babies: BabyProfile[]
+  _hasHydrated: boolean
   setUser: (user: AppState["user"]) => void
   setActiveBaby: (baby: BabyProfile | null) => void
   setBabies: (babies: BabyProfile[]) => void
+  setHasHydrated: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -24,10 +26,17 @@ export const useAppStore = create<AppState>()(
       user: null,
       activeBaby: null,
       babies: [],
+      _hasHydrated: false,
       setUser: (user) => set({ user }),
       setActiveBaby: (baby) => set({ activeBaby: baby }),
       setBabies: (babies) => set({ babies }),
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
-    { name: "nalagrow-store" }
+    {
+      name: "nalagrow-store",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
+    }
   )
 )
