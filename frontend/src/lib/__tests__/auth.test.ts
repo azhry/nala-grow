@@ -1,144 +1,169 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import * as authModule from "../auth"
-const { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword, updatePassword, signOut, getSessionToken, isAuthenticated } = authModule
+import {
+  getSessionToken,
+  isAuthenticated,
+  resetPassword,
+  signInWithEmail,
+  signInWithGoogle,
+  signOut,
+  signUpWithEmail,
+  updatePassword,
+} from "../auth"
 
-const mockApiFetch = jest.fn()
+const mockAuth = {
+  getSession: jest.fn(),
+  resetPasswordForEmail: jest.fn(),
+  signInWithOAuth: jest.fn(),
+  signInWithPassword: jest.fn(),
+  signOut: jest.fn(),
+  signUp: jest.fn(),
+  updateUser: jest.fn(),
+}
 
-jest.mock("../api-client", () => ({
-  apiFetch: (...args: any[]) => mockApiFetch(...args),
-  ApiError: class ApiError extends Error {
-    status: number
-    traceId: string
-    constructor(status: number, message: string, traceId: string) {
-      super(message)
-      this.status = status
-      this.traceId = traceId
-    }
-  },
+const mockSetUser = jest.fn()
+const mockSetActiveBaby = jest.fn()
+let mockUser: { id: string; email: string } | null = null
+
+jest.mock("@supabase/ssr", () => ({
+  createBrowserClient: jest.fn(() => ({
+    auth: mockAuth,
+  })),
 }))
 
 jest.mock("../store", () => ({
   useAppStore: {
     getState: () => ({
-      user: null,
-      setUser: jest.fn(),
-      setActiveBaby: jest.fn(),
+      user: mockUser,
+      setUser: mockSetUser,
+      setActiveBaby: mockSetActiveBaby,
     }),
   },
 }))
 
+const sessionUser = { id: "user-1", email: "test@test.com" }
+const session = { access_token: "supabase-token", user: sessionUser }
+
 describe("auth service", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUser = null
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key"
     Object.defineProperty(document, "cookie", {
+      configurable: true,
       writable: true,
       value: "",
     })
   })
 
   describe("signInWithEmail", () => {
-    it("calls API with correct endpoint and body", async () => {
-      mockApiFetch.mockResolvedValue({
-        user: { id: "1", email: "test@test.com" },
-        token: "abc123",
+    it("uses Supabase email/password auth and persists the session user", async () => {
+      mockAuth.signInWithPassword.mockResolvedValue({
+        data: { session, user: sessionUser },
+        error: null,
       })
-      await signInWithEmail("test@test.com", "password123")
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/auth/login",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ email: "test@test.com", password: "password123" }),
-        }),
-      )
-    })
 
-    it("sets session cookie on success", async () => {
-      mockApiFetch.mockResolvedValue({
-        user: { id: "1", email: "test@test.com" },
-        token: "abc123",
+      const result = await signInWithEmail("test@test.com", "password123")
+
+      expect(mockAuth.signInWithPassword).toHaveBeenCalledWith({
+        email: "test@test.com",
+        password: "password123",
       })
-      await signInWithEmail("test@test.com", "password123")
-      expect(document.cookie).toContain("nalagrow-session=abc123")
+      expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
+      expect(result).toEqual({ user: sessionUser, token: "supabase-token" })
     })
   })
 
   describe("signUpWithEmail", () => {
-    it("calls API with correct endpoint and body", async () => {
-      mockApiFetch.mockResolvedValue({
-        user: { id: "2", email: "new@test.com" },
-        token: "def456",
+    it("uses Supabase signup with a dashboard redirect", async () => {
+      mockAuth.signUp.mockResolvedValue({
+        data: { session, user: sessionUser },
+        error: null,
       })
+
       await signUpWithEmail("new@test.com", "password123")
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/auth/signup",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ email: "new@test.com", password: "password123" }),
-        }),
-      )
+
+      expect(mockAuth.signUp).toHaveBeenCalledWith({
+        email: "new@test.com",
+        password: "password123",
+        options: { emailRedirectTo: "http://localhost/dashboard" },
+      })
+      expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
     })
   })
 
   describe("signInWithGoogle", () => {
-    it("does not throw when called", () => {
-      expect(() => signInWithGoogle()).not.toThrow()
+    it("starts Supabase Google OAuth with a dashboard redirect", async () => {
+      mockAuth.signInWithOAuth.mockResolvedValue({ data: {}, error: null })
+
+      await signInWithGoogle()
+
+      expect(mockAuth.signInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: { redirectTo: "http://localhost/dashboard" },
+      })
     })
   })
 
   describe("resetPassword", () => {
-    it("calls API with correct endpoint and body", async () => {
-      mockApiFetch.mockResolvedValue({})
+    it("uses Supabase password reset email with reset redirect", async () => {
+      mockAuth.resetPasswordForEmail.mockResolvedValue({
+        data: {},
+        error: null,
+      })
+
       await resetPassword("test@test.com")
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/auth/reset-password",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ email: "test@test.com" }),
-        }),
+
+      expect(mockAuth.resetPasswordForEmail).toHaveBeenCalledWith(
+        "test@test.com",
+        { redirectTo: "http://localhost/reset-password" },
       )
     })
   })
 
   describe("updatePassword", () => {
-    it("calls API with correct endpoint and body", async () => {
-      mockApiFetch.mockResolvedValue({})
-      await updatePassword("reset-token", "newpassword123")
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/auth/update-password",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ token: "reset-token", password: "newpassword123" }),
-        }),
-      )
+    it("updates the current Supabase user's password", async () => {
+      mockAuth.updateUser.mockResolvedValue({ data: {}, error: null })
+
+      await updatePassword("ignored-token", "newpassword123")
+
+      expect(mockAuth.updateUser).toHaveBeenCalledWith({
+        password: "newpassword123",
+      })
     })
   })
 
   describe("signOut", () => {
-    it("clears session cookie", () => {
-      document.cookie = "nalagrow-session=abc123; path=/; max-age=86400"
-      signOut()
-      expect(document.cookie).not.toContain("nalagrow-session=abc123")
+    it("signs out through Supabase and clears local app state", async () => {
+      mockAuth.signOut.mockResolvedValue({ error: null })
+
+      await signOut()
+
+      expect(mockAuth.signOut).toHaveBeenCalled()
+      expect(mockSetUser).toHaveBeenCalledWith(null)
+      expect(mockSetActiveBaby).toHaveBeenCalledWith(null)
     })
   })
 
   describe("getSessionToken", () => {
-    it("returns null when no cookie", () => {
+    it("returns null when no Supabase auth cookie exists", () => {
       expect(getSessionToken()).toBeNull()
     })
 
-    it("returns token when cookie exists", () => {
-      document.cookie = "nalagrow-session=mytoken; path=/"
-      expect(getSessionToken()).toBe("mytoken")
+    it("returns the Supabase auth cookie payload when present", () => {
+      document.cookie =
+        "sb-project-ref-auth-token=%7B%22access_token%22%3A%22abc%22%7D"
+      expect(getSessionToken()).toBe('{"access_token":"abc"}')
     })
   })
 
   describe("isAuthenticated", () => {
-    it("returns false when no session cookie", () => {
+    it("returns false when there is no Supabase cookie or user", () => {
       expect(isAuthenticated()).toBe(false)
     })
 
-    it("returns true when session cookie exists", () => {
-      document.cookie = "nalagrow-session=mytoken; path=/"
+    it("returns true when the store has a Supabase user", () => {
+      mockUser = sessionUser
       expect(isAuthenticated()).toBe(true)
     })
   })
