@@ -6,6 +6,7 @@ import { PhotoUpload, Spinner, SuccessOverlay } from "@/components/ui"
 import { createBaby } from "@/lib/baby-service"
 import { useAppStore } from "@/lib/store"
 import { ApiError } from "@/lib/api-client"
+import { uploadBabyPhoto } from "@/lib/supabase-storage"
 
 export default function CreateBabyProfilePage() {
   const router = useRouter()
@@ -42,7 +43,7 @@ export default function CreateBabyProfilePage() {
 
     setLoading(true)
     try {
-      const photo_url = photoFile ? URL.createObjectURL(photoFile) : undefined
+      const photo_url = photoFile ? await uploadBabyPhoto(photoFile) : undefined
       const baby = await createBaby({
         name: name.trim(),
         dob,
@@ -52,7 +53,7 @@ export default function CreateBabyProfilePage() {
       setBabies([...babies, baby])
       setActiveBaby(baby)
       setShowSuccess(true)
-      setTimeout(() => router.push("/dashboard"), 1800)
+      setTimeout(() => router.push("/profile/manage"), 1800)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)

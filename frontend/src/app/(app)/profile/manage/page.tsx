@@ -28,7 +28,7 @@ export default function ManageProfilesPage() {
     setTimeout(() => {
       setActiveBaby(baby)
       setSwitching(null)
-      router.push("/dashboard")
+      router.push("/profile/manage")
     }, 1000)
   }
 

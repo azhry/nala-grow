@@ -6,6 +6,7 @@ import { PhotoUpload, Spinner, SuccessOverlay } from "@/components/ui"
 import { updateBaby } from "@/lib/baby-service"
 import { useAppStore } from "@/lib/store"
 import { ApiError } from "@/lib/api-client"
+import { uploadBabyPhoto } from "@/lib/supabase-storage"
 
 function EditProfileForm() {
   const router = useRouter()
@@ -47,7 +48,7 @@ function EditProfileForm() {
     setLoading(true)
     try {
       const photo_url = photoFile
-        ? URL.createObjectURL(photoFile)
+        ? await uploadBabyPhoto(photoFile)
         : photoPreview
       const updated = await updateBaby(babyId, {
         name: name.trim(),
