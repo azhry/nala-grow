@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Spinner } from "@/components/ui"
@@ -9,6 +9,7 @@ import { resetPassword, updatePassword, ApiError } from "@/lib/auth"
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
+  const code = searchParams.get("code")
 
   const [email, setEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -16,6 +17,19 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [hasRecoverySession, setHasRecoverySession] = useState(Boolean(token || code))
+
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+    setHasRecoverySession(
+      Boolean(
+        token ||
+          code ||
+          hashParams.get("type") === "recovery" ||
+          hashParams.get("access_token"),
+      ),
+    )
+  }, [code, token])
 
   async function handleRequestReset(e: React.FormEvent) {
     e.preventDefault()
@@ -46,7 +60,7 @@ function ResetPasswordForm() {
 
     setLoading(true)
     try {
-      await updatePassword(token!, newPassword)
+      await updatePassword(token || code || "", newPassword)
       setSuccess(true)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -70,10 +84,10 @@ function ResetPasswordForm() {
       <main className="z-10 w-full max-w-md">
         <div className="mb-stack-lg text-center">
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight md:font-headline-lg md:text-headline-lg">
-            {token ? "Set New Password" : "Reset Password"}
+            {hasRecoverySession ? "Set New Password" : "Reset Password"}
           </h1>
           <p className="mt-base font-body-md text-body-md text-on-surface-variant">
-            {token
+            {hasRecoverySession
               ? "Enter your new password below."
               : "We'll send you a link to reset your password."}
           </p>
@@ -84,14 +98,14 @@ function ResetPasswordForm() {
             <div className="flex flex-col items-center gap-stack-md py-stack-md text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-container/30">
                 <span className="material-symbols-outlined text-[36px] text-primary">
-                  {token ? "check_circle" : "mail"}
+                  {hasRecoverySession ? "check_circle" : "mail"}
                 </span>
               </div>
               <h2 className="font-headline-sm text-headline-sm text-on-surface">
-                {token ? "Password Updated" : "Check Your Email"}
+                {hasRecoverySession ? "Password Updated" : "Check Your Email"}
               </h2>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                {token
+                {hasRecoverySession
                   ? "Your password has been updated. You can now log in."
                   : "We've sent a password reset link to your email."}
               </p>
@@ -102,7 +116,7 @@ function ResetPasswordForm() {
                 Back to Login
               </Link>
             </div>
-          ) : token ? (
+          ) : hasRecoverySession ? (
             <form className="space-y-stack-md" onSubmit={handleUpdatePassword}>
               <div className="space-y-base">
                 <label
