@@ -1,6 +1,8 @@
 "use client"
 
-import { apiFetch, ApiError } from "./api-client"
+import { createBrowserClient } from "@supabase/ssr"
+import type { Session, User } from "@supabase/supabase-js"
+import { ApiError } from "./api-client"
 import { useAppStore } from "./store"
 
 export interface AuthUser {
@@ -13,23 +15,73 @@ export interface AuthSession {
   token: string
 }
 
-const SESSION_COOKIE = "nalagrow-session"
-const COOKIE_MAX_AGE_DAYS = 30
+const SUPABASE_COOKIE_PATTERN = /^sb-.+-auth-token/
+const SESSION_DAYS = 30
 
-function setSessionCookie(token: string) {
-  const maxAge = COOKIE_MAX_AGE_DAYS * 24 * 60 * 60
-  document.cookie = `${SESSION_COOKIE}=${token}; path=/; max-age=${maxAge}; SameSite=Lax`
+function getSupabaseConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) {
+    throw new ApiError(
+      500,
+      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      "",
+    )
+  }
+
+  return { url, anonKey }
 }
 
-function clearSessionCookie() {
-  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0`
+export function getSupabaseClient() {
+  const { url, anonKey } = getSupabaseConfig()
+
+  return createBrowserClient(url, anonKey, {
+    cookieOptions: {
+      maxAge: SESSION_DAYS * 24 * 60 * 60,
+      sameSite: "lax",
+    },
+  })
+}
+
+function toAuthUser(user: User): AuthUser {
+  return {
+    id: user.id,
+    email: user.email ?? "",
+  }
+}
+
+function persistSession(session: Session | null, user: User | null) {
+  const authUser = user ? toAuthUser(user) : null
+  useAppStore.getState().setUser(authUser)
+
+  return authUser && session
+    ? { user: authUser, token: session.access_token }
+    : null
+}
+
+function throwApiError(message: string, status = 400): never {
+  throw new ApiError(status, message, "")
+}
+
+export async function getCurrentSession(): Promise<AuthSession | null> {
+  const {
+    data: { session },
+    error,
+  } = await getSupabaseClient().auth.getSession()
+
+  if (error) throwApiError(error.message)
+  return session ? persistSession(session, session.user) : null
 }
 
 export function getSessionToken(): string | null {
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${SESSION_COOKIE}=([^;]*)`),
-  )
-  return match ? decodeURIComponent(match[1]) : null
+  if (typeof document === "undefined") return null
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((value) => SUPABASE_COOKIE_PATTERN.test(value.split("=")[0]))
+
+  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null
 }
 
 export function getSessionUser(): AuthUser | null {
@@ -38,69 +90,91 @@ export function getSessionUser(): AuthUser | null {
 
 export function isAuthenticated(): boolean {
   if (typeof document === "undefined") return false
-  return getSessionToken() !== null
+  return getSessionToken() !== null || getSessionUser() !== null
 }
 
 export async function signInWithEmail(
   email: string,
   password: string,
 ): Promise<AuthSession> {
-  const data = await apiFetch<{ user: AuthUser; token: string }>(
-    "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    },
-  )
-  setSessionCookie(data.token)
-  useAppStore.getState().setUser(data.user)
-  return data
+  const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) throwApiError(error.message)
+
+  const session = persistSession(data.session, data.user)
+  if (!session) throwApiError("Unable to start a Supabase session.")
+  return session
 }
 
 export async function signUpWithEmail(
   email: string,
   password: string,
 ): Promise<AuthSession> {
-  const data = await apiFetch<{ user: AuthUser; token: string }>(
-    "/auth/signup",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
+  const { data, error } = await getSupabaseClient().auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo:
+        typeof window === "undefined"
+          ? undefined
+          : `${window.location.origin}/dashboard`,
     },
-  )
-  setSessionCookie(data.token)
-  useAppStore.getState().setUser(data.user)
-  return data
+  })
+
+  if (error) throwApiError(error.message)
+
+  const authUser = data.user ? toAuthUser(data.user) : null
+  if (authUser) useAppStore.getState().setUser(authUser)
+
+  return {
+    user: authUser ?? { id: "", email },
+    token: data.session?.access_token ?? "",
+  }
 }
 
-export function signInWithGoogle() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
-  navigateTo(`${apiBase}/auth/google`)
-}
+export async function signInWithGoogle() {
+  const { error } = await getSupabaseClient().auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo:
+        typeof window === "undefined"
+          ? undefined
+          : `${window.location.origin}/dashboard`,
+    },
+  })
 
-export function navigateTo(url: string) {
-  window.location.href = url
+  if (error) throwApiError(error.message)
 }
 
 export async function resetPassword(email: string): Promise<void> {
-  await apiFetch("/auth/reset-password", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-  })
+  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(
+    email,
+    {
+      redirectTo:
+        typeof window === "undefined"
+          ? undefined
+          : `${window.location.origin}/reset-password`,
+    },
+  )
+
+  if (error) throwApiError(error.message)
 }
 
 export async function updatePassword(
-  token: string,
+  _token: string,
   password: string,
 ): Promise<void> {
-  await apiFetch("/auth/update-password", {
-    method: "POST",
-    body: JSON.stringify({ token, password }),
-  })
+  const { error } = await getSupabaseClient().auth.updateUser({ password })
+  if (error) throwApiError(error.message)
 }
 
-export function signOut() {
-  clearSessionCookie()
+export async function signOut() {
+  const { error } = await getSupabaseClient().auth.signOut()
+  if (error) throwApiError(error.message)
+
   useAppStore.getState().setUser(null)
   useAppStore.getState().setActiveBaby(null)
 }

@@ -1,7 +1,6 @@
+import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-
-const SESSION_COOKIE = "nalagrow-session"
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -15,19 +14,50 @@ const AUTH_PATHS = ["/login", "/signup", "/reset-password"]
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
   )
 }
 
 function isAuthPath(pathname: string) {
   return AUTH_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
   )
 }
 
-export function middleware(request: NextRequest) {
+async function getSupabaseUser(request: NextRequest, response: NextResponse) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) return null
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value),
+        )
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        )
+      },
+    },
+  })
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  return user
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value)
+  const response = NextResponse.next({ request })
+  const user = await getSupabaseUser(request, response)
+  const hasSession = Boolean(user)
 
   if (isProtectedPath(pathname) && !hasSession) {
     const loginUrl = new URL("/login", request.url)
@@ -39,7 +69,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
