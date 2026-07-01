@@ -6,10 +6,31 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signInWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
 
+const PROTECTED_REDIRECTS = [
+  "/dashboard",
+  "/feeding",
+  "/sleep",
+  "/milestones",
+  "/profile",
+]
+
+function getSafeRedirect(redirect: string | null) {
+  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) {
+    return "/dashboard"
+  }
+
+  const pathname = redirect.split(/[?#]/)[0]
+  const isProtected = PROTECTED_REDIRECTS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  )
+
+  return isProtected ? redirect : "/dashboard"
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/dashboard"
+  const redirectTo = getSafeRedirect(searchParams.get("redirect"))
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
