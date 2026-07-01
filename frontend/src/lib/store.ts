@@ -17,6 +17,7 @@ interface AppState {
   setUser: (user: AppState["user"]) => void
   setActiveBaby: (baby: BabyProfile | null) => void
   setBabies: (babies: BabyProfile[]) => void
+  setHasHydrated: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -29,11 +30,12 @@ export const useAppStore = create<AppState>()(
       setUser: (user) => set({ user }),
       setActiveBaby: (baby) => set({ activeBaby: baby }),
       setBabies: (babies) => set({ babies }),
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: "nalagrow-store",
       onRehydrateStorage: () => (state) => {
-        useAppStore.setState({ _hasHydrated: true })
+state?.setHasHydrated(true)
       },
     }
   )

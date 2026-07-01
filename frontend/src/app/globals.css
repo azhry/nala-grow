@@ -66,6 +66,19 @@
     @apply shadow-soft;
   }
 
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .organic-shape {
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  }
+
+  .squishy-active:active {
+    transform: scale(0.98);
+  }
+
   .bento-card {
     @apply bg-surface-container-lowest rounded-xl p-5 soft-shadow;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
