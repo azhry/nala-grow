@@ -164,10 +164,20 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 export async function updatePassword(
-  _token: string,
+  recoveryCode: string,
   password: string,
 ): Promise<void> {
-  const { error } = await getSupabaseClient().auth.updateUser({ password })
+  const supabase = getSupabaseClient()
+
+  if (recoveryCode) {
+    const { data, error } =
+      await supabase.auth.exchangeCodeForSession(recoveryCode)
+
+    if (error) throwApiError(error.message)
+    persistSession(data.session, data.session?.user ?? null)
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
   if (error) throwApiError(error.message)
 }
 

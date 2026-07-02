@@ -12,6 +12,7 @@ import {
 
 const mockAuth = {
   getSession: jest.fn(),
+  exchangeCodeForSession: jest.fn(),
   resetPasswordForEmail: jest.fn(),
   signInWithOAuth: jest.fn(),
   signInWithPassword: jest.fn(),
@@ -107,10 +108,14 @@ describe("auth service", () => {
 
   describe("resetPassword", () => {
     it("uses Supabase password reset email with reset redirect", async () => {
-      mockAuth.resetPasswordForEmail.mockResolvedValue({
-        data: {},
-        error: null,
-      })
+    mockAuth.resetPasswordForEmail.mockResolvedValue({
+      data: {},
+      error: null,
+    })
+    mockAuth.exchangeCodeForSession.mockResolvedValue({
+      data: { session },
+      error: null,
+    })
 
       await resetPassword("test@test.com")
 
@@ -122,11 +127,14 @@ describe("auth service", () => {
   })
 
   describe("updatePassword", () => {
-    it("updates the current Supabase user's password", async () => {
+    it("exchanges a recovery code before updating the password", async () => {
       mockAuth.updateUser.mockResolvedValue({ data: {}, error: null })
 
-      await updatePassword("ignored-token", "newpassword123")
+      await updatePassword("recovery-code", "newpassword123")
 
+      expect(mockAuth.exchangeCodeForSession).toHaveBeenCalledWith(
+        "recovery-code",
+      )
       expect(mockAuth.updateUser).toHaveBeenCalledWith({
         password: "newpassword123",
       })
