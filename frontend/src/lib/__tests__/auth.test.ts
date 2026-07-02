@@ -108,14 +108,10 @@ describe("auth service", () => {
 
   describe("resetPassword", () => {
     it("uses Supabase password reset email with reset redirect", async () => {
-    mockAuth.resetPasswordForEmail.mockResolvedValue({
-      data: {},
-      error: null,
-    })
-    mockAuth.exchangeCodeForSession.mockResolvedValue({
-      data: { session },
-      error: null,
-    })
+      mockAuth.resetPasswordForEmail.mockResolvedValue({
+        data: {},
+        error: null,
+      })
 
       await resetPassword("test@test.com")
 
@@ -128,6 +124,10 @@ describe("auth service", () => {
 
   describe("updatePassword", () => {
     it("exchanges a recovery code before updating the password", async () => {
+      mockAuth.exchangeCodeForSession.mockResolvedValue({
+        data: { session },
+        error: null,
+      })
       mockAuth.updateUser.mockResolvedValue({ data: {}, error: null })
 
       await updatePassword("recovery-code", "newpassword123")
