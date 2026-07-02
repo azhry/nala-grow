@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { Providers } from "@/lib/providers"
-import { BottomTabNav } from "@/components/layout/bottom-tab-nav"
 import { designColors } from "@/lib/design-tokens"
 
 export const metadata: Metadata = {
@@ -23,10 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="light" suppressHydrationWarning>
       <body className="font-body-md text-body-md">
         <Providers>
-          <div className="min-h-dvh bg-surface">
-            <main className="min-h-dvh pb-nav md:pb-0">{children}</main>
-            <BottomTabNav />
-          </div>
+          <div className="min-h-dvh bg-surface">{children}</div>
         </Providers>
       </body>
     </html>
