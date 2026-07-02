@@ -1,11 +1,11 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-interface BabyProfile {
+export interface BabyProfile {
   id: string
   name: string
   dob: string
-  sex: "male" | "female"
+  sex: "male" | "female" | "unspecified"
   photo_url?: string
 }
 
