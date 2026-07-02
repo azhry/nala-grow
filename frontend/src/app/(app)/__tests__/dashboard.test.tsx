@@ -1,8 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import DashboardPage from "../dashboard/page"
 
-const mockSetFabOpen = jest.fn()
-
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }))
