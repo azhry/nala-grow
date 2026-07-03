@@ -1,32 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import Link from "next/link"
 import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
+import { SummaryCard } from "@/components/dashboard"
+import { QuickLogOverlay } from "@/components/quick-log"
+import { TimelineWidget } from "@/components/timeline"
+import type { TimelineEntry } from "@/components/ui"
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", href: "/feeding/log", color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", href: "/sleep/log", color: "surface" },
-  { label: "Log Growth", icon: "monitoring", href: "/growth/log", color: "surface" },
+  { label: "Log Feed", icon: "restaurant", href: "/feeding/log", primary: true },
+  { label: "Log Sleep", icon: "bedtime", href: "/sleep/log", primary: false },
+  { label: "Log Growth", icon: "monitoring", href: "/growth/log", primary: false },
 ] as const
 
-const activities = [
-  { icon: "restaurant", label: "Breastfeed", detail: "15 mins · Left side", time: "10:30 AM", color: "primary" },
-  { icon: "bedtime", label: "Nap", detail: "1h 15m duration", time: "8:15 AM", color: "tertiary" },
-  { icon: "baby_changing_station", label: "Diaper Change", detail: "Wet · No rash", time: "7:45 AM", color: "secondary" },
-  { icon: "restaurant", label: "Breastfeed", detail: "12 mins · Right side", time: "6:30 AM", color: "primary" },
-] as const
-
-const colorMap: Record<string, string> = {
-  primary: "bg-primary-container/20 text-primary",
-  tertiary: "bg-tertiary-container/20 text-tertiary",
-  secondary: "bg-secondary-container/50 text-secondary",
-}
+const activityEntries: TimelineEntry[] = [
+  { id: "1", title: "Breastfeed", timestamp: "10:30 AM", duration: "15 mins", color: "primary", icon: "restaurant", tags: [{ label: "Left side", color: "neutral" as const }] },
+  { id: "2", title: "Nap", timestamp: "8:15 AM", duration: "1h 15m", color: "tertiary", icon: "bedtime", tags: [{ label: "Duration", color: "neutral" as const }] },
+  { id: "3", title: "Diaper Change", timestamp: "7:45 AM", color: "secondary", icon: "baby_changing_station", tags: [{ label: "Wet", color: "neutral" as const }, { label: "No rash", color: "neutral" as const }] },
+  { id: "4", title: "Breastfeed", timestamp: "6:30 AM", duration: "12 mins", color: "primary", icon: "restaurant", tags: [{ label: "Right side", color: "neutral" as const }] },
+]
 
 export default function DashboardPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const [fabOpen, setFabOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [touchStart, setTouchStart] = useState(0)
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -36,16 +36,46 @@ export default function DashboardPage() {
   })()
 
   const babyName = activeBaby?.name ?? "Maya"
+  const babyAge = activeBaby?.dob
+    ? (() => {
+        const diff = Date.now() - new Date(activeBaby.dob).getTime()
+        const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30.44))
+        return `${months} months`
+      })()
+    : "4 months"
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    setTimeout(() => setRefreshing(false), 1200)
+  }, [])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientY)
+  }, [])
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      const delta = e.touches[0].clientY - touchStart
+      if (delta > 100 && !refreshing && window.scrollY === 0) {
+        handleRefresh()
+      }
+    },
+    [touchStart, refreshing, handleRefresh],
+  )
 
   return (
-    <div className="pb-stack-lg">
-      <div className="px-container-margin md:px-stack-lg space-y-stack-md max-w-6xl mx-auto">
+    <div
+      className="pb-stack-lg"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+    >
+      <div className="space-y-stack-md px-container-margin md:px-stack-lg max-w-6xl mx-auto">
         <section className="py-stack-sm">
           <h2 className="font-headline-lg text-headline-lg text-on-surface">
             {greeting}, {babyName}!
           </h2>
           <p className="font-body-lg text-body-lg text-on-surface-variant">
-            {babyName} is 4 months. You&apos;ve logged 4 events today.
+            {babyName} is {babyAge}. You&apos;ve logged 4 events today.
           </p>
         </section>
 
@@ -56,7 +86,7 @@ export default function DashboardPage() {
               href={action.href}
               className={[
                 "flex items-center gap-base whitespace-nowrap rounded-full px-gutter py-stack-sm text-label-md font-label-md shadow-sm transition-all active:scale-95 hover:shadow-md",
-                action.color === "primary"
+                action.primary
                   ? "bg-primary text-on-primary"
                   : "bg-surface-container-highest text-primary border border-primary/20",
               ].join(" ")}
@@ -68,93 +98,44 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-stack-md">
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
-            <div className="flex items-start justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-container/20 text-primary">
-                <span className="material-symbols-outlined fill-1 text-[28px]">restaurant</span>
-              </div>
-              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
-                Green Status
-              </span>
-            </div>
-            <div>
-              <h3 className="mt-stack-sm font-label-md text-label-md uppercase tracking-widest text-on-surface-variant">
-                Last Feed
-              </h3>
-              <p className="font-headline-md text-headline-md text-on-surface">2.5 hours ago</p>
-              <p className="text-body-sm text-on-surface-variant">
-                Total today: <span className="font-bold text-primary">8 feeds</span>
-              </p>
-            </div>
-          </div>
+          <SummaryCard
+            icon="restaurant"
+            iconBgColor="primary"
+            label="Last Feed"
+            value="2.5 hours ago"
+            badge="Green Status"
+          >
+            Total today: <span className="font-bold text-primary">8 feeds</span>
+          </SummaryCard>
 
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-tertiary-container/20 text-tertiary">
-              <span className="material-symbols-outlined fill-1 text-[28px]">bedtime</span>
-            </div>
-            <div>
-              <h3 className="mt-stack-sm font-label-md text-label-md uppercase tracking-widest text-on-surface-variant">
-                Sleep
-              </h3>
-              <p className="font-headline-md text-headline-md text-on-surface">14.5 hours</p>
-              <p className="text-body-sm text-on-surface-variant">
-                Longest stretch: <span className="font-bold text-tertiary">4.2h</span>
-              </p>
-            </div>
-          </div>
+          <SummaryCard
+            icon="bedtime"
+            iconBgColor="tertiary"
+            label="Sleep"
+            value="14.5 hours"
+          >
+            Longest stretch: <span className="font-bold text-tertiary">4.2h</span>
+          </SummaryCard>
 
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary-container/50 text-secondary">
-              <span className="material-symbols-outlined fill-1 text-[28px]">monitoring</span>
-            </div>
-            <div>
-              <h3 className="mt-stack-sm font-label-md text-label-md uppercase tracking-widest text-on-surface-variant">
-                Growth
-              </h3>
-              <p className="font-headline-md text-headline-md text-on-surface">6.2 kg</p>
-              <p className="text-body-sm text-on-surface-variant">
-                Percentile: <span className="font-bold text-secondary">42nd</span>
-              </p>
-            </div>
-          </div>
+          <SummaryCard
+            icon="monitoring"
+            iconBgColor="secondary"
+            label="Growth"
+            value="6.2 kg"
+          >
+            Percentile: <span className="font-bold text-secondary">42nd</span>
+          </SummaryCard>
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-stack-md">
-          <div className="rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow lg:col-span-2">
-            <div className="mb-stack-md flex items-center justify-between">
-              <h3 className="font-headline-sm text-headline-sm text-on-surface">
-                Recent Activities
-              </h3>
-              <button className="text-body-sm font-bold text-primary hover:underline">
-                View All
-              </button>
-            </div>
-            <div className="space-y-base">
-              {activities.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-gutter rounded-2xl border border-transparent bg-background/50 p-gutter transition-colors hover:border-primary/10 hover:bg-primary-container/5"
-                >
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full ${colorMap[item.color]}`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-body-md text-body-md font-medium text-on-surface">
-                      {item.label}
-                    </p>
-                    <p className="text-body-sm text-on-surface-variant">{item.detail}</p>
-                  </div>
-                  <span className="font-label-md text-body-sm text-on-surface-variant">
-                    {item.time}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="lg:col-span-2">
+            <TimelineWidget
+              entries={activityEntries}
+              onViewAll={() => {}}
+            />
           </div>
 
-          <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] bg-primary p-stack-md text-on-primary shadow-lg">
+          <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-primary p-stack-md text-on-primary shadow-lg">
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl transition-transform group-hover:scale-110" />
             <div>
               <h3 className="font-headline-sm text-headline-sm mb-base">Daily Insight</h3>
@@ -176,10 +157,21 @@ export default function DashboardPage() {
       </div>
 
       <FAB
-        icon="add"
-        onClick={() => setFabOpen(!fabOpen)}
-        className="md:hidden"
+        icon={refreshing ? "sync" : "add"}
+        onClick={() => { if (!refreshing) setFabOpen(true) }}
+        className={refreshing ? "animate-spin" : "md:hidden"}
       />
+
+      <QuickLogOverlay open={fabOpen} onClose={() => setFabOpen(false)} />
+
+      {refreshing && (
+        <div className="fixed inset-x-0 top-0 z-50 flex justify-center pt-4">
+          <div className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-on-primary shadow-lg">
+            <span className="material-symbols-outlined animate-spin">sync</span>
+            <span className="text-body-sm font-bold">Refreshing...</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

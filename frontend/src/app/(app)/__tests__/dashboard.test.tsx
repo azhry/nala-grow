@@ -5,19 +5,17 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }))
 
-jest.mock("@/components/ui", () => ({
-  FAB: ({
-    icon,
-    onClick,
-  }: {
-    icon: string
-    onClick?: () => void
-  }) => (
-    <button data-testid="fab" onClick={onClick}>
-      <span>{icon}</span>
-    </button>
-  ),
-}))
+jest.mock("@/components/ui", () => {
+  const actual = jest.requireActual("@/components/ui")
+  return {
+    ...actual,
+    FAB: ({ icon, onClick }: { icon: string; onClick?: () => void }) => (
+      <button data-testid="fab" onClick={onClick}>
+        <span>{icon}</span>
+      </button>
+    ),
+  }
+})
 
 let storeState: Record<string, unknown>
 
@@ -45,15 +43,16 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Log Growth")).toBeInTheDocument()
   })
 
-  it("renders bento summary cards", () => {
+  it("renders summary cards", () => {
     render(<DashboardPage />)
     expect(screen.getByText("Last Feed")).toBeInTheDocument()
     expect(screen.getByText("Sleep")).toBeInTheDocument()
     expect(screen.getByText("Growth")).toBeInTheDocument()
   })
 
-  it("renders recent activities section", () => {
+  it("renders recent activities section via TimelineWidget", () => {
     render(<DashboardPage />)
+    expect(screen.getByText("Recent Activities")).toBeInTheDocument()
     expect(screen.getAllByText("Breastfeed").length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText("Nap")).toBeInTheDocument()
     expect(screen.getByText("Diaper Change")).toBeInTheDocument()
@@ -74,5 +73,10 @@ describe("DashboardPage", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
     expect(screen.getByText("Good", { exact: false })).toBeInTheDocument()
+  })
+
+  it("renders View All button in timeline", () => {
+    render(<DashboardPage />)
+    expect(screen.getByText("View All")).toBeInTheDocument()
   })
 })
