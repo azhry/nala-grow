@@ -12,10 +12,10 @@ const quickActions = [
 ] as const
 
 const activities = [
-  { icon: "restaurant", label: "Breastfeed", detail: "15 mins · Left side", time: "10:30 AM", color: "primary" },
+  { icon: "restaurant", label: "Breastfeed", detail: "15 mins • Left side", time: "10:30 AM", color: "primary" },
   { icon: "bedtime", label: "Nap", detail: "1h 15m duration", time: "8:15 AM", color: "tertiary" },
-  { icon: "baby_changing_station", label: "Diaper Change", detail: "Wet · No rash", time: "7:45 AM", color: "secondary" },
-  { icon: "restaurant", label: "Breastfeed", detail: "12 mins · Right side", time: "6:30 AM", color: "primary" },
+  { icon: "baby_changing_station", label: "Diaper Change", detail: "Wet • No rash", time: "7:45 AM", color: "secondary" },
+  { icon: "restaurant", label: "Breastfeed", detail: "12 mins • Right side", time: "6:30 AM", color: "primary" },
 ] as const
 
 const colorMap: Record<string, string> = {

@@ -48,10 +48,10 @@ export default function SignupPage() {
     <div className="flex min-h-dvh flex-col overflow-hidden md:flex-row">
       <div className="relative hidden bg-primary-fixed md:flex md:w-1/2 lg:w-3/5">
         <div
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 z-0 bg-cover bg-center"
           style={{
             backgroundImage:
-              "linear-gradient(135deg, #b4eee4 0%, #7eb6ad 50%, #2f6760 100%)",
+              "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCsnByYGP_SjfsLSLtpO3aUqqkiABJAWCiNbu5on4YmAvkQzTxfe5e2UlU5ltqebcH0Ugb1y3PG9CpVaEO0CB97jvYSEnBA9KmLF89uRt1zq3Q04dT07BWOwDYdsP1WvpIYpIgZIyMuBRquZqVPjsT9axWIryjGD1BHc5vzeoAm7q9g5GVxxJHY93RAWJTSDdKrzwh853p2wMm24jlXf_7I7xSZZVEo8XpZwkChlFmFaMP0ljXpEgGAyY8XsvonT9SVoWRbOOjPM8U')",
           }}
         />
         <div className="z-10 absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-primary/40 to-transparent p-stack-lg">
