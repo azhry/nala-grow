@@ -56,14 +56,14 @@ export const designTypography = {
     fontSize: "32px",
     fontWeight: "700",
     lineHeight: "40px",
-    letterSpacing: "0",
+    letterSpacing: "-0.02em",
   },
   "headline-lg-mobile": {
     fontFamily: "Quicksand",
     fontSize: "26px",
     fontWeight: "700",
     lineHeight: "32px",
-    letterSpacing: "0",
+    letterSpacing: "-0.01em",
   },
   "headline-md": {
     fontFamily: "Quicksand",
@@ -105,7 +105,7 @@ export const designTypography = {
     fontSize: "12px",
     fontWeight: "600",
     lineHeight: "16px",
-    letterSpacing: "0",
+    letterSpacing: "0.05em",
   },
   "label-xs": {
     fontFamily: "Public Sans",

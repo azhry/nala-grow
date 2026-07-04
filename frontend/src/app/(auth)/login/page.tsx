@@ -189,21 +189,19 @@ function LoginForm() {
         </p>
       </main>
 
-      <footer className="mt-stack-lg text-center opacity-60">
-        <div className="mb-base flex items-center justify-center gap-gutter">
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            child_care
-          </span>
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            favorite
-          </span>
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            auto_graph
-          </span>
+      <footer className="mt-stack-lg text-center">
+        <div className="flex items-center justify-center gap-gutter px-container-margin py-stack-sm font-body-sm text-body-sm text-on-surface-variant">
+          <span>© 2024 NalaGrow</span>
+          <div className="flex gap-base">
+            <Link href="#" className="transition-colors hover:text-primary">
+              Help
+            </Link>
+            <span className="text-outline-variant">•</span>
+            <Link href="#" className="transition-colors hover:text-primary">
+              Privacy
+            </Link>
+          </div>
         </div>
-        <p className="font-label-md text-label-md text-secondary">
-          © 2024 NalaGrow. Nurturing every step.
-        </p>
       </footer>
     </div>
   )

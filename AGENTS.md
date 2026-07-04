@@ -6,6 +6,18 @@ Baby growth tracker for parents.
 
 Call me "Boss" every time you respond or reply to me. Making sure you still remember the context of the project.
 
+## Harness First
+
+For delivery work, use `agent-spec-ops` before project coding rules.
+
+1. Do not treat a user prompt as direct implementation while NL-001 is active.
+2. Run harness context recovery before edits, tests, task changes, or tool-heavy work.
+3. Rework request means return to `task_breakdown`; do not patch code first.
+4. Orchestrator must not edit project files or run dev/test during implementation.
+5. No Linear task ID and matching active dev/test role means no implementation.
+6. Do not edit `workflow-state.json` directly or use generic state-field mutation for status, task, gate, or lease updates.
+7. Do not invent subagent/session ids. Record only real spawned agent ids returned by the runtime.
+
 ## Stack
 - **Framework**: Next.js 14 (App Router)
 - **UI**: Tailwind CSS with custom design tokens
@@ -176,16 +188,12 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-06-30T18:44:39.283Z
+- Last updated: 2026-07-04T23:01:35.738Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
 
 ### Required Session Start
-
-If available, invoke the `$agent-spec-ops` skill for this work. The skill
-contains the compact operating procedure for this harness; this managed
-block contains the delivery-specific paths and commands.
 
 Run this before acting, after compaction, after interruption, and after any
 state change made outside the current shell:
@@ -194,24 +202,50 @@ state change made outside the current shell:
 cd ../my-harnesses/agent-spec-ops
 node scripts/read-context.js runs/NL-001/workflow-state.json --role orchestrator
 node scripts/read-instructions.js runs/NL-001/workflow-state.json --role orchestrator
+node scripts/validate-state.js runs/NL-001/workflow-state.json
 ```
 
 If a transition script reports stale context, rerun the two commands above.
 
 ### Non-Negotiable Workflow
 
+- Do not treat a user prompt as direct coding work while this run is active.
+- If the user requests rework, stop implementation and route back to `task_breakdown`.
 - Do not keep task, gate, credential, or design knowledge only in chat.
 - Do not edit `workflow-state.json` directly.
-- Use `record-event.js --set` for state field updates.
+- Do not use generic state-field mutation for status, task, gate, or lease updates.
+- Use `record-event.js` only for evidence, decisions, blockers, and corrections.
 - Use `transition.js` for top-level state transitions.
 - Use `transition-task.js` for task status transitions.
 - Use Linear as the task system of record when `LINEAR_API_KEY` is configured.
-- Before delivery-plan review, every task must have a Linear issue ID.
-- Do not create local `task-breakdown.md` when Linear is available.
+- Before implementation, every task must have a Linear issue ID.
+- Dev tasks require test evidence, pushed branch, MR URL, passed MR status comment, and merged MR evidence before `verified`.
+- After test failure, return to dev. After three dev/test loops, stop and ask the user to intervene.
+- Orchestrator may not edit project files or run dev/test directly during implementation.
+- Task transitions require a matching recorded subagent lease from `record-agent-spawn.js`.
+- Test results require `testing` status and a matching test-agent lease.
+- `submit-task.js` refuses unrelated dirty files instead of staging the whole worktree.
+- Do not create a recurring spawn watcher unless a human explicitly asks for unattended background orchestration.
+
+### Agent Dispatch
+
+When `agent_dispatch.spawn_requests[]` contains planned requests:
+
+- Use the available multi-agent spawn tool with the exact request prompt, then record the real returned/visible runtime id with `record-agent-spawn.js`.
+- Never invent, synthesize, or reuse subagent/session ids for leases.
+
+Useful commands:
+
+```bash
+cd ../my-harnesses/agent-spec-ops
+node scripts/read-context.js runs/NL-001/workflow-state.json --role orchestrator
+node scripts/plan-agent-dispatch.js runs/NL-001/workflow-state.json --enable-auto
+node scripts/record-agent-spawn.js runs/NL-001/workflow-state.json <SPAWN_ID> <AGENT_ID>
+```
 
 ### Linear Task Creation
 
-Create or update `task_graph.tasks[]` in state, then sync to Linear:
+Create task breakdown entries through the harness flow, then sync to Linear:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
@@ -219,64 +253,66 @@ node scripts/sync-linear-task.js runs/NL-001/workflow-state.json --create
 node scripts/validate-state.js runs/NL-001/workflow-state.json
 ```
 
-If task graph state is missing, stop and create it through the harness state
-mutation path before attempting Linear sync.
+If task graph state is missing, stop and return to `task_breakdown` before attempting Linear sync.
 
 ### Design Assets
 
 - Status: ready_for_review
 - Harness path: `runs/NL-001/design-assets/`
 - Path from this repo: `../my-harnesses/agent-spec-ops/runs/NL-001/design-assets`
+- Source URL: https://stitch.withgoogle.com/projects/13883788626783334810
 - Evidence: Designs available via Stitch companion app (app-companion-430619.appspot.com). JSON-RPC export returns the companion viewer which renders screens dynamically. For implementation, reference the companion URL for interactive design preview.
 
 ### Approved Write Scope
 
 | Task | Role | Status | Allowed repos | Allowed paths |
 | --- | --- | --- | --- | --- |
-| FE-001 | frontend | verified | nala-grow | frontend/, frontend/** |
-| FE-002 | frontend | active | nala-grow | frontend/, frontend/** |
-| FE-003 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-004 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-005 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-006 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-007 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-008 | frontend | planned | nala-grow | frontend/, frontend/** |
-| FE-009 | frontend | planned | nala-grow | frontend/, frontend/** |
-| BE-001 | backend | planned | nala-grow | backend/, backend/** |
-| BE-002 | backend | planned | nala-grow | backend/, backend/** |
-| BE-003 | backend | planned | nala-grow | backend/, backend/** |
-| BE-004 | backend | planned | nala-grow | backend/, backend/** |
-| BE-005 | backend | planned | nala-grow | backend/, backend/** |
-| BE-006 | backend | planned | nala-grow | backend/, backend/** |
-| BE-007 | backend | planned | nala-grow | backend/, backend/** |
-| BE-008 | backend | planned | nala-grow | backend/, backend/** |
-| IN-001 | integration | planned | nala-grow | not set |
+| FE-001 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
+| FE-002 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
+| FE-003 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
+| FE-004 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
+| FE-005 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
+| FE-006 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
+| FE-007 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
+| FE-008 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
+| FE-009 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
+| BE-001 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-002 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-003 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-004 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-005 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-006 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-007 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-008 | backend_dev | planned | nala-grow | backend/, backend/** |
+| IN-001 | orchestrator | planned | nala-grow | ./ |
 | FE-010 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
-| QT-001 | test | verified | nala-grow | frontend/ |
-| QT-002 | test | verified | nala-grow | frontend/ |
-| QT-003 | test | verified | nala-grow | frontend/ |
-| QT-004 | test | verified | nala-grow | frontend/ |
-| QT-005 | test | verified | nala-grow | frontend/ |
-| QT-006 | test | verified | nala-grow | frontend/ |
-| QT-007 | test | verified | nala-grow | frontend/ |
-| QT-008 | test | verified | nala-grow | frontend/ |
-| QT-009 | test | verified | nala-grow | frontend/ |
-| QT-010 | test | verified | nala-grow | frontend/ |
-| QT-011 | test | verified | nala-grow | frontend/ |
-| QT-012 | test | verified | nala-grow | frontend/ |
-| QT-013 | test | verified | nala-grow | frontend/ |
-| QT-014 | test | verified | nala-grow | frontend/ |
-| QT-015 | test | verified | nala-grow | frontend/ |
-| QT-016 | test | verified | nala-grow | frontend/ |
-| QT-017 | test | verified | nala-grow | frontend/ |
-| QT-018 | test | planned | nala-grow | frontend/ |
-| QT-019 | test | verified | nala-grow | frontend/ |
-| QT-020 | test | planned | nala-grow | frontend/ |
-| QT-021 | test | planned | nala-grow | frontend/ |
-| QT-022 | test | planned | nala-grow | frontend/ |
-| QT-023 | test | verified | nala-grow | frontend/ |
-| QT-024 | test | planned | nala-grow | frontend/ |
-| QT-025 | test | verified | nala-grow | frontend/ |
+| QT-001 | frontend_test | verified | nala-grow | frontend/ |
+| QT-002 | frontend_test | verified | nala-grow | frontend/ |
+| QT-003 | frontend_test | verified | nala-grow | frontend/ |
+| QT-004 | frontend_test | verified | nala-grow | frontend/ |
+| QT-005 | frontend_test | verified | nala-grow | frontend/ |
+| QT-006 | frontend_test | verified | nala-grow | frontend/ |
+| QT-007 | frontend_test | verified | nala-grow | frontend/ |
+| QT-008 | frontend_test | verified | nala-grow | frontend/ |
+| QT-009 | frontend_test | verified | nala-grow | frontend/ |
+| QT-010 | frontend_test | verified | nala-grow | frontend/ |
+| QT-011 | frontend_test | verified | nala-grow | frontend/ |
+| QT-012 | frontend_test | verified | nala-grow | frontend/ |
+| QT-013 | frontend_test | verified | nala-grow | frontend/ |
+| QT-014 | frontend_test | verified | nala-grow | frontend/ |
+| QT-015 | frontend_test | verified | nala-grow | frontend/ |
+| QT-016 | frontend_test | verified | nala-grow | frontend/ |
+| QT-017 | frontend_test | verified | nala-grow | frontend/ |
+| QT-018 | frontend_test | planned | nala-grow | frontend/ |
+| QT-019 | frontend_test | verified | nala-grow | frontend/ |
+| QT-020 | frontend_test | planned | nala-grow | frontend/ |
+| QT-021 | frontend_test | planned | nala-grow | frontend/ |
+| QT-022 | frontend_test | planned | nala-grow | frontend/ |
+| QT-023 | frontend_test | verified | nala-grow | frontend/ |
+| QT-024 | frontend_test | planned | nala-grow | frontend/ |
+| QT-025 | frontend_test | verified | nala-grow | frontend/ |
+| FE-011 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-012 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 
 Before writing project files, verify scope:
 
@@ -285,79 +321,74 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> orchestrator
 ```
 
+Tests must be recorded by the matching test role after the task enters `testing`:
+
+```bash
+cd ../my-harnesses/agent-spec-ops
+node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK_ID> --status passed --role <TEST_ROLE> --command "<COMMAND>" --output "..." --mr-comment-url "<URL>" --mr-comment-evidence "posted passed status" --merged --merge-commit "<SHA>" --merge-evidence "MR merged"
+```
+
 ### Current Tasks
 
 | ID | Role | Status | Linear | Title |
 | --- | --- | --- | --- | --- |
-| FE-001 | frontend | verified | 6ea895b2-4ae1-45a7-b429-2d68b4bdeab8 | Frontend scaffold — Next.js 14 + Tailwind + PWA |
-| FE-002 | frontend | active | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
-| FE-003 | frontend | planned | 1cc8205f-c5e7-46e4-b10f-7e09c0d0a0dd | Baby profile management |
-| FE-004 | frontend | planned | d357b485-07ba-4f61-ac14-c02b1457020e | Dashboard with summary cards and quick log |
-| FE-005 | frontend | planned | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
-| FE-006 | frontend | planned | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
-| FE-007 | frontend | planned | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
-| FE-008 | frontend | planned | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
-| FE-009 | frontend | planned | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
-| BE-001 | backend | planned | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — FastAPI + PostgreSQL + Alembic |
-| BE-002 | backend | planned | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset |
-| BE-003 | backend | planned | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API |
-| BE-004 | backend | planned | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API |
-| BE-005 | backend | planned | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API |
-| BE-006 | backend | planned | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep log API |
-| BE-007 | backend | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API |
-| BE-008 | backend | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation |
-| IN-001 | integration | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
+| FE-001 | frontend_dev | verified | 6ea895b2-4ae1-45a7-b429-2d68b4bdeab8 | Frontend scaffold — Next.js 14 + Tailwind + PWA |
+| FE-002 | frontend_dev | verified | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
+| FE-003 | frontend_dev | verified | 1cc8205f-c5e7-46e4-b10f-7e09c0d0a0dd | Baby profile management |
+| FE-004 | frontend_dev | verified | d357b485-07ba-4f61-ac14-c02b1457020e | Dashboard with summary cards and quick log |
+| FE-005 | frontend_dev | planned | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
+| FE-006 | frontend_dev | planned | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
+| FE-007 | frontend_dev | planned | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
+| FE-008 | frontend_dev | planned | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
+| FE-009 | frontend_dev | planned | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
+| BE-001 | backend_dev | planned | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — FastAPI + PostgreSQL + Alembic |
+| BE-002 | backend_dev | planned | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset |
+| BE-003 | backend_dev | planned | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API |
+| BE-004 | backend_dev | planned | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API |
+| BE-005 | backend_dev | planned | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API |
+| BE-006 | backend_dev | planned | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep log API |
+| BE-007 | backend_dev | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API |
+| BE-008 | backend_dev | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation |
+| IN-001 | orchestrator | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
 | FE-010 | frontend_dev | verified | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
-| QT-001 | test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
-| QT-002 | test | verified | 516cfc19-c191-424a-bfd3-351a68546bd1 | Install & configure Playwright |
-| QT-003 | test | verified | c73409ea-b915-480d-86c5-662e15cf3f83 | Add test:unit and test:e2e npm scripts |
-| QT-004 | test | verified | ccd73b95-0e1d-4096-95db-30a914b12ea2 | Configure GitHub Actions for automated test runs |
-| QT-005 | test | verified | f2cee8da-cea6-406c-b217-179e75bdcfc5 | Button unit tests |
-| QT-006 | test | verified | efba2b01-b299-45c3-af75-783b1df9a441 | Input unit tests |
-| QT-007 | test | verified | 67629d1e-bd85-4721-88e9-1be6ac53f815 | Card unit tests |
-| QT-008 | test | verified | 3989cbd5-455b-46d3-8edb-de0a8f7d9741 | Chip unit tests |
-| QT-009 | test | verified | 70ccbdf4-8d9a-4b11-b7aa-e4a4573e404f | Avatar unit tests |
-| QT-010 | test | verified | aa329f19-e502-4376-9bdf-ac59e5d423df | SegmentedControl unit tests |
-| QT-011 | test | verified | 38b1c6f9-54d2-4555-a946-c4ef1de3da35 | Timer unit tests |
-| QT-012 | test | verified | 1e3d7f9c-78d2-42af-8f5c-d61f2b70cbda | ProgressBar unit tests |
-| QT-013 | test | verified | 43fb867a-d37c-4129-84f6-39e8eca6c9ac | FAB unit tests |
-| QT-014 | test | verified | c36941b2-3bb0-45d1-b53b-203fea38e184 | SuccessOverlay unit tests |
-| QT-015 | test | verified | 355cf0de-2802-45e7-9f6b-44f4b30c841d | StatCard unit tests |
-| QT-016 | test | verified | 387b620d-3145-4064-b508-09be9be5625d | Timeline unit tests |
-| QT-017 | test | verified | 336cb618-90e2-4583-97f9-d733d64e4ffe | Spinner unit tests |
-| QT-018 | test | planned | 87f4f5f0-a3f3-4dd2-9d23-5aedff704eda | Home page E2E smoke test |
-| QT-019 | test | verified | 38763cb2-66dc-481e-a9d5-edc0b8f9cf59 | Design System page E2E smoke test |
-| QT-020 | test | planned | c4e98170-f7bd-4b83-8ed4-153a217140aa | Hydration mismatch test |
-| QT-021 | test | planned | 0fdd2750-2b1e-4140-b02a-c3adb2c7f5c4 | Responsive layout test |
-| QT-022 | test | planned | 0ec02959-5e37-44cc-93ea-c29e7bf207d8 | Bottom tab navigation rendering test |
-| QT-023 | test | verified | 393fc71f-5b87-495f-a326-47642f6b2f13 | Visual regression infrastructure |
-| QT-024 | test | planned | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
-| QT-025 | test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
-
-### PR Review Gate
-
-- Dev agents must use `submit-task.js` to create the PR; the script records a planned PR-review spawn request.
-- After submit or dispatch planning, inspect planned spawns:
-
-```bash
-cd ../my-harnesses/agent-spec-ops
-node scripts/list-agent-spawn-requests.js runs/NL-001/workflow-state.json --json
-```
-
-- For each planned request, call Codex `spawn_agent` with the returned `agent_type` and `prompt`, then record the returned agent ID with `record-agent-spawn.js`.
-- Reviewers record `passed` or `changes_requested` with `record-pr-review.js`; auto-merge is blocked until `pr_review_status=passed`.
-- When changes are requested, the dev agent addresses `git_flow.pr_review_comments`, resubmits, and waits for a fresh review pass.
+| QT-001 | frontend_test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
+| QT-002 | frontend_test | verified | 516cfc19-c191-424a-bfd3-351a68546bd1 | Install & configure Playwright |
+| QT-003 | frontend_test | verified | c73409ea-b915-480d-86c5-662e15cf3f83 | Add test:unit and test:e2e npm scripts |
+| QT-004 | frontend_test | verified | ccd73b95-0e1d-4096-95db-30a914b12ea2 | Configure GitHub Actions for automated test runs |
+| QT-005 | frontend_test | verified | f2cee8da-cea6-406c-b217-179e75bdcfc5 | Button unit tests |
+| QT-006 | frontend_test | verified | efba2b01-b299-45c3-af75-783b1df9a441 | Input unit tests |
+| QT-007 | frontend_test | verified | 67629d1e-bd85-4721-88e9-1be6ac53f815 | Card unit tests |
+| QT-008 | frontend_test | verified | 3989cbd5-455b-46d3-8edb-de0a8f7d9741 | Chip unit tests |
+| QT-009 | frontend_test | verified | 70ccbdf4-8d9a-4b11-b7aa-e4a4573e404f | Avatar unit tests |
+| QT-010 | frontend_test | verified | aa329f19-e502-4376-9bdf-ac59e5d423df | SegmentedControl unit tests |
+| QT-011 | frontend_test | verified | 38b1c6f9-54d2-4555-a946-c4ef1de3da35 | Timer unit tests |
+| QT-012 | frontend_test | verified | 1e3d7f9c-78d2-42af-8f5c-d61f2b70cbda | ProgressBar unit tests |
+| QT-013 | frontend_test | verified | 43fb867a-d37c-4129-84f6-39e8eca6c9ac | FAB unit tests |
+| QT-014 | frontend_test | verified | c36941b2-3bb0-45d1-b53b-203fea38e184 | SuccessOverlay unit tests |
+| QT-015 | frontend_test | verified | 355cf0de-2802-45e7-9f6b-44f4b30c841d | StatCard unit tests |
+| QT-016 | frontend_test | verified | 387b620d-3145-4064-b508-09be9be5625d | Timeline unit tests |
+| QT-017 | frontend_test | verified | 336cb618-90e2-4583-97f9-d733d64e4ffe | Spinner unit tests |
+| QT-018 | frontend_test | planned | 87f4f5f0-a3f3-4dd2-9d23-5aedff704eda | Home page E2E smoke test |
+| QT-019 | frontend_test | verified | 38763cb2-66dc-481e-a9d5-edc0b8f9cf59 | Design System page E2E smoke test |
+| QT-020 | frontend_test | planned | c4e98170-f7bd-4b83-8ed4-153a217140aa | Hydration mismatch test |
+| QT-021 | frontend_test | planned | 0fdd2750-2b1e-4140-b02a-c3adb2c7f5c4 | Responsive layout test |
+| QT-022 | frontend_test | planned | 0ec02959-5e37-44cc-93ea-c29e7bf207d8 | Bottom tab navigation rendering test |
+| QT-023 | frontend_test | verified | 393fc71f-5b87-495f-a326-47642f6b2f13 | Visual regression infrastructure |
+| QT-024 | frontend_test | planned | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
+| QT-025 | frontend_test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
+| FE-011 | frontend_dev | verified | 052eb0a8-5187-4cfd-88d0-0b517218c5b2 | Remove auth barriers for no-backend development |
+| FE-012 | frontend_dev | verified | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
 
 ### Durable Knowledge
 
-- process_rule: Split frontend and backend tasks at an explicit contract boundary before allowing parallel execution.
-- process_rule: Agent Spec Ops must make git lifecycle, role/lane state, and external credential/tool adapters impossible to misinterpret before a task can be called complete.
-- verification_pattern: Record token usage at run, task, and eval scope so future runs can compare planning cost against verification cost.
-- event linear_sync: Synced 44 tasks to Linear
-- event linear_sync: Synced 3 knowledge cards to Linear
+- process_rule: FE-004 Dashboard: Created dashboard page with hero greeting, horizontal quick-action pills, bento summary cards, activity feed, daily insight card, and mobile FAB. Matches all three Stitch dashboard design variants.
+- process_rule: FE-010 rework: Fixed design-tokens.ts letterSpacing for headline-lg (-0.02em), headline-lg-mobile (-0.01em), label-md (0.05em).
+- process_rule: FE-002 rework: Replaced Google OAuth img tag with inline SVG (4 color paths: #4285F4, #34A853, #FBBC05, #EA4335) per Stitch login design.
+- event knowledge_recorded: Knowledge recorded: FE-010 rework: Fixed design-tokens.ts letterSpacing for headline-lg (-0.02em), headline-lg-mobile (-0.01em), label-md (0.05em).
+- event knowledge_recorded: Knowledge recorded: FE-002 rework: Replaced Google OAuth img tag with inline SVG (4 color paths: #4285F4, #34A853, #FBBC05, #EA4335) per Stitch login design.
+- event task_complete: All 3 rework tasks FE-010, FE-002, FE-004 verified
 - event artifact_generated: Generated project AGENTS.md for NL-001
-- event task_started: FE-002 planned -> active
-- event linear_sync: Synced 1 tasks to Linear
+- event artifact_generated: Generated project AGENTS.md for NL-001
 
 Record durable project learning with:
 
@@ -376,6 +407,6 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-06-30T19:10:24.442Z.
+Generated by agent-spec-ops at 2026-07-04T23:02:09.257Z.
 <!-- agent-spec-ops:managed:end -->
 
