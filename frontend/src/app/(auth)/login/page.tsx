@@ -57,24 +57,51 @@ function LoginForm() {
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center p-container-margin">
-      <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
-        <div className="organic-shape absolute -left-24 -top-24 h-96 w-96 animate-pulse bg-primary-container/20 blur-3xl" />
-        <div className="organic-shape absolute -right-32 top-1/2 h-80 w-80 bg-tertiary-container/15 blur-3xl" />
-        <div className="organic-shape absolute -bottom-20 left-1/3 h-64 w-64 bg-secondary-container/20 blur-3xl" />
+    <div className="flex min-h-dvh flex-col overflow-hidden md:flex-row">
+      <div className="relative hidden bg-primary-fixed md:flex md:w-1/2 lg:w-3/5">
+        <div
+          className="absolute inset-0 z-0 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1519689680058-324335c77eba?w=1200&q=80')",
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent z-10 flex flex-col justify-end p-stack-lg">
+          <div className="max-w-md">
+            <h1 className="mb-base font-headline-lg text-headline-lg text-white">
+              Welcome back to NalaGrow.
+            </h1>
+            <p className="font-body-lg text-body-lg text-white/90">
+              Continue tracking milestones, monitoring growth, and finding calm
+              in the everyday moments of parenting.
+            </p>
+          </div>
+        </div>
+        <div className="absolute left-12 top-12 z-20 flex items-center gap-base rounded-full border border-white/20 bg-surface-container-lowest/80 px-base py-2 backdrop-blur-md shadow-soft">
+          <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+          <span className="font-label-md text-label-md text-primary">
+            Trusted by 10k+ Parents
+          </span>
+        </div>
       </div>
 
-      <main className="z-10 w-full max-w-md">
-        <div className="mb-stack-lg text-center">
-          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight md:font-headline-lg md:text-headline-lg">
-            NalaGrow
-          </h1>
-          <p className="mt-base font-body-md text-body-md text-on-surface-variant">
-            Welcome back to your parenting journey.
-          </p>
-        </div>
+      <div className="flex flex-1 flex-col items-center justify-center bg-surface px-container-margin py-stack-lg md:bg-surface-container-lowest">
+        <div className="w-full max-w-sm">
+          <div className="mb-stack-md flex justify-center md:hidden">
+            <span className="font-headline-lg-mobile text-headline-lg-mobile text-primary">
+              NalaGrow
+            </span>
+          </div>
 
-        <div className="glass-card soft-shadow rounded-[24px] border border-white/50 bg-surface-container-lowest p-8">
+          <div className="mb-stack-lg text-center md:text-left">
+            <h2 className="mb-base font-headline-md text-headline-md text-on-surface">
+              Sign in to your account
+            </h2>
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              Welcome back to your parenting journey.
+            </p>
+          </div>
+
           <form className="space-y-stack-md" onSubmit={handleSubmit}>
             <div className="space-y-base">
               <label
@@ -96,7 +123,7 @@ function LoginForm() {
                   placeholder="hello@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-14 w-full rounded-xl border-none bg-surface-container-low pl-12 pr-4 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-on-surface-variant placeholder:opacity-50 focus:ring-2 focus:ring-primary-container"
+                  className="h-14 w-full rounded-xl border-0 bg-surface-container-low pl-12 pr-4 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-on-surface-variant placeholder:opacity-50 focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -129,7 +156,7 @@ function LoginForm() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-14 w-full rounded-xl border-none bg-surface-container-low pl-12 pr-12 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-on-surface-variant placeholder:opacity-50 focus:ring-2 focus:ring-primary-container"
+                  className="h-14 w-full rounded-xl border-0 bg-surface-container-low pl-12 pr-12 font-body-md text-body-md text-on-surface outline-none transition-all placeholder:text-on-surface-variant placeholder:opacity-50 focus:ring-2 focus:ring-primary"
                 />
                 <button
                   type="button"
@@ -152,7 +179,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="soft-shadow squishy-active flex h-14 w-full items-center justify-center gap-base rounded-xl bg-primary font-headline-sm text-headline-sm text-on-primary transition-all hover:bg-on-primary-fixed-variant disabled:opacity-50"
+              className="soft-shadow squishy-active flex h-14 w-full items-center justify-center gap-base rounded-xl bg-primary font-headline-sm text-headline-sm text-on-primary transition-all hover:bg-on-primary-container disabled:opacity-50"
             >
               {loading ? (
                 <Spinner size="sm" />
@@ -176,34 +203,32 @@ function LoginForm() {
 
             <OAuthButton onClick={signInWithGoogle} />
           </form>
-        </div>
 
-        <p className="mt-stack-md text-center font-body-sm text-body-sm text-on-surface-variant">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-bold text-primary transition-all hover:underline"
-          >
-            Create an account
-          </Link>
-        </p>
-      </main>
-
-      <footer className="mt-stack-lg text-center opacity-60">
-        <div className="mb-base flex items-center justify-center gap-gutter">
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            child_care
-          </span>
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            favorite
-          </span>
-          <span className="material-symbols-outlined text-[20px] text-primary">
-            auto_graph
-          </span>
+          <p className="mt-stack-lg text-center font-body-md text-body-md text-on-surface-variant">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="ml-1 font-bold text-primary underline-offset-4 hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
         </div>
-        <p className="font-label-md text-label-md text-secondary">
-          © 2024 NalaGrow. Nurturing every step.
-        </p>
+      </div>
+
+      <footer className="z-30 p-base md:fixed md:bottom-0 md:right-0 md:w-1/2 lg:w-2/5">
+        <div className="flex w-full flex-row items-center justify-center gap-gutter px-container-margin py-stack-sm font-body-sm text-body-sm text-on-surface-variant md:justify-end">
+          <span>© 2024 NalaGrow</span>
+          <div className="flex gap-base">
+            <Link href="#" className="transition-colors hover:text-primary">
+              Help
+            </Link>
+            <span className="text-outline-variant">•</span>
+            <Link href="#" className="transition-colors hover:text-primary">
+              Privacy
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   )
