@@ -19,10 +19,12 @@ type storedUser struct {
 }
 
 var (
-	usersMu  sync.RWMutex
-	users    = map[string]storedUser{}
-	babiesMu sync.RWMutex
-	babies   = map[string]BabyProfile{}
+	usersMu         sync.RWMutex
+	users           = map[string]storedUser{}
+	babiesMu        sync.RWMutex
+	babies          = map[string]BabyProfile{}
+	measurementsMu  sync.RWMutex
+	measurements    = map[string]Measurement{}
 )
 
 type BabyProfile struct {
@@ -33,6 +35,16 @@ type BabyProfile struct {
 	PhotoURL  string `json:"photoUrl"`
 	CreatedAt string `json:"createdAt"`
 	UserID    string `json:"userId"`
+}
+
+type Measurement struct {
+	ID                string  `json:"id"`
+	BabyID            string  `json:"babyId"`
+	Date              string  `json:"date"`
+	Weight            float64 `json:"weight"`
+	Height            float64 `json:"height"`
+	HeadCircumference float64 `json:"headCircumference"`
+	CreatedAt         string  `json:"createdAt"`
 }
 
 type Handler struct {
@@ -138,6 +150,64 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"baby": babyToMap(b),
+		}}
+	}
+
+	if strings.Contains(body, "measurements") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		measurementsMu.RLock()
+		var list []map[string]interface{}
+		for _, m := range measurements {
+			if m.BabyID == babyID {
+				list = append(list, measurementToMap(m))
+			}
+		}
+		measurementsMu.RUnlock()
+		if list == nil {
+			list = []map[string]interface{}{}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"measurements": list,
+		}}
+	}
+
+	if strings.Contains(body, "measurement") && !strings.Contains(body, "measurements") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		measurementsMu.RLock()
+		m, ok := measurements[id]
+		measurementsMu.RUnlock()
+		if !ok {
+			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
+		}
+		// Verify the baby belongs to the user
+		babiesMu.RLock()
+		b, babyOk := babies[m.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"measurement": measurementToMap(m),
 		}}
 	}
 
@@ -368,6 +438,134 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
+	if strings.Contains(body, "createmeasurement") || strings.Contains(body, "createMeasurement") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		m := Measurement{
+			ID:                uuid(),
+			BabyID:            babyID,
+			Date:              getVar(variables, "date"),
+			Weight:            getVarFloat(variables, "weight"),
+			Height:            getVarFloat(variables, "height"),
+			HeadCircumference: getVarFloat(variables, "headCircumference"),
+			CreatedAt:         time.Now().UTC().Format(time.RFC3339),
+		}
+		measurementsMu.Lock()
+		measurements[m.ID] = m
+		measurementsMu.Unlock()
+		result := measurementToMap(m)
+		// Compute and attach percentiles
+		ageMonths := AgeInMonths(b.DOB, m.Date)
+		if m.Weight > 0 {
+			L, M, S := whoLMS(b.Sex, ageMonths, "weight")
+			if M > 0 && S > 0 {
+				z := CalculateZScore(m.Weight, L, M, S)
+				result["weightPercentile"] = ZToPercentile(z)
+			}
+		}
+		if m.Height > 0 {
+			L, M, S := whoLMS(b.Sex, ageMonths, "height")
+			if M > 0 && S > 0 {
+				z := CalculateZScore(m.Height, L, M, S)
+				result["heightPercentile"] = ZToPercentile(z)
+			}
+		}
+		if m.HeadCircumference > 0 {
+			L, M, S := whoLMS(b.Sex, ageMonths, "headCircumference")
+			if M > 0 && S > 0 {
+				z := CalculateZScore(m.HeadCircumference, L, M, S)
+				result["headCircumferencePercentile"] = ZToPercentile(z)
+			}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"createMeasurement": result,
+		}}
+	}
+
+	if strings.Contains(body, "updatemeasurement") || strings.Contains(body, "updateMeasurement") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		measurementsMu.Lock()
+		m, exists := measurements[id]
+		if !exists {
+			measurementsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
+		}
+		// Verify baby ownership
+		babiesMu.RLock()
+		b, babyOk := babies[m.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			measurementsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
+		}
+		if date := getVar(variables, "date"); date != "" {
+			m.Date = date
+		}
+		if weight := getVarFloat(variables, "weight"); weight != 0 {
+			m.Weight = weight
+		}
+		if height := getVarFloat(variables, "height"); height != 0 {
+			m.Height = height
+		}
+		if hc := getVarFloat(variables, "headCircumference"); hc != 0 {
+			m.HeadCircumference = hc
+		}
+		measurements[id] = m
+		measurementsMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"updateMeasurement": measurementToMap(m),
+		}}
+	}
+
+	if strings.Contains(body, "deletemeasurement") || strings.Contains(body, "deleteMeasurement") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		var deleted *Measurement
+		measurementsMu.Lock()
+		if m, exists := measurements[id]; exists {
+			// Verify baby ownership
+			babiesMu.RLock()
+			b, babyOk := babies[m.BabyID]
+			babiesMu.RUnlock()
+			if babyOk && b.UserID == userID {
+				deleted = &m
+				delete(measurements, id)
+			}
+		}
+		measurementsMu.Unlock()
+		if deleted == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"deleteMeasurement": measurementToMap(*deleted),
+		}}
+	}
+
 	return ExecResult{Errors: []GraphQLError{{Message: "unknown mutation"}}}
 }
 
@@ -401,6 +599,22 @@ func jsonBytes(v interface{}) []byte {
 	return b
 }
 
+func getVarFloat(vars map[string]interface{}, key string) float64 {
+	if vars == nil {
+		return 0
+	}
+	input, _ := vars["input"].(map[string]interface{})
+	if input != nil {
+		if v, ok := input[key].(float64); ok {
+			return v
+		}
+	}
+	if v, ok := vars[key].(float64); ok {
+		return v
+	}
+	return 0
+}
+
 func babyToMap(b BabyProfile) map[string]interface{} {
 	return map[string]interface{}{
 		"id":        b.ID,
@@ -410,5 +624,17 @@ func babyToMap(b BabyProfile) map[string]interface{} {
 		"photoUrl":  b.PhotoURL,
 		"createdAt": b.CreatedAt,
 		"userId":    b.UserID,
+	}
+}
+
+func measurementToMap(m Measurement) map[string]interface{} {
+	return map[string]interface{}{
+		"id":                m.ID,
+		"babyId":            m.BabyID,
+		"date":              m.Date,
+		"weight":            m.Weight,
+		"height":            m.Height,
+		"headCircumference": m.HeadCircumference,
+		"createdAt":         m.CreatedAt,
 	}
 }
