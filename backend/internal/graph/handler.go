@@ -19,12 +19,14 @@ type storedUser struct {
 }
 
 var (
-	usersMu         sync.RWMutex
-	users           = map[string]storedUser{}
-	babiesMu        sync.RWMutex
-	babies          = map[string]BabyProfile{}
-	measurementsMu  sync.RWMutex
-	measurements    = map[string]Measurement{}
+	usersMu            sync.RWMutex
+	users              = map[string]storedUser{}
+	babiesMu           sync.RWMutex
+	babies             = map[string]BabyProfile{}
+	measurementsMu     sync.RWMutex
+	measurements       = map[string]Measurement{}
+	feedingSessionsMu  sync.RWMutex
+	feedingSessions    = map[string]FeedingSession{}
 )
 
 type BabyProfile struct {
@@ -45,6 +47,22 @@ type Measurement struct {
 	Height            float64 `json:"height"`
 	HeadCircumference float64 `json:"headCircumference"`
 	CreatedAt         string  `json:"createdAt"`
+}
+
+type FeedingSession struct {
+	ID               string  `json:"id"`
+	BabyID           string  `json:"babyId"`
+	FeedType         string  `json:"feedType"`
+	StartedAt        string  `json:"startedAt"`
+	EndedAt          string  `json:"endedAt"`
+	LeftDurationSec  int     `json:"leftDurationSec"`
+	RightDurationSec int     `json:"rightDurationSec"`
+	AmountML         float64 `json:"amountMl"`
+	MilkType         string  `json:"milkType"`
+	FoodName         string  `json:"foodName"`
+	Reaction         string  `json:"reaction"`
+	Notes            string  `json:"notes"`
+	CreatedAt        string  `json:"createdAt"`
 }
 
 type Handler struct {
@@ -150,6 +168,63 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"baby": babyToMap(b),
+		}}
+	}
+
+	if strings.Contains(body, "feedingsessions") || strings.Contains(body, "feeding_sessions") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		feedingSessionsMu.RLock()
+		var list []map[string]interface{}
+		for _, s := range feedingSessions {
+			if s.BabyID == babyID {
+				list = append(list, feedingSessionToMap(s))
+			}
+		}
+		feedingSessionsMu.RUnlock()
+		if list == nil {
+			list = []map[string]interface{}{}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"feedingSessions": list,
+		}}
+	}
+
+	if strings.Contains(body, "feedingsession") && !strings.Contains(body, "feedingsessions") && !strings.Contains(body, "feeding_sessions") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		feedingSessionsMu.RLock()
+		s, ok := feedingSessions[id]
+		feedingSessionsMu.RUnlock()
+		if !ok {
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[s.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"feedingSession": feedingSessionToMap(s),
 		}}
 	}
 
@@ -438,6 +513,136 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
+	if strings.Contains(body, "createfeedingsession") || strings.Contains(body, "createFeedingSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		feedType := getVar(variables, "feedType")
+		if feedType == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "feedType required"}}}
+		}
+		s := FeedingSession{
+			ID:               uuid(),
+			BabyID:           babyID,
+			FeedType:         feedType,
+			StartedAt:        getVar(variables, "startedAt"),
+			EndedAt:          getVar(variables, "endedAt"),
+			LeftDurationSec:  getVarInt(variables, "leftDurationSec"),
+			RightDurationSec: getVarInt(variables, "rightDurationSec"),
+			AmountML:         getVarFloat(variables, "amountMl"),
+			MilkType:         getVar(variables, "milkType"),
+			FoodName:         getVar(variables, "foodName"),
+			Reaction:         getVar(variables, "reaction"),
+			Notes:            getVar(variables, "notes"),
+			CreatedAt:        time.Now().UTC().Format(time.RFC3339),
+		}
+		feedingSessionsMu.Lock()
+		feedingSessions[s.ID] = s
+		feedingSessionsMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"createFeedingSession": feedingSessionToMap(s),
+		}}
+	}
+
+	if strings.Contains(body, "updatefeedingsession") || strings.Contains(body, "updateFeedingSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		feedingSessionsMu.Lock()
+		s, exists := feedingSessions[id]
+		if !exists {
+			feedingSessionsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[s.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			feedingSessionsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		if feedType := getVar(variables, "feedType"); feedType != "" {
+			s.FeedType = feedType
+		}
+		if startedAt := getVar(variables, "startedAt"); startedAt != "" {
+			s.StartedAt = startedAt
+		}
+		if endedAt := getVar(variables, "endedAt"); endedAt != "" {
+			s.EndedAt = endedAt
+		}
+		if leftDur := getVarInt(variables, "leftDurationSec"); leftDur != 0 {
+			s.LeftDurationSec = leftDur
+		}
+		if rightDur := getVarInt(variables, "rightDurationSec"); rightDur != 0 {
+			s.RightDurationSec = rightDur
+		}
+		if amountML := getVarFloat(variables, "amountMl"); amountML != 0 {
+			s.AmountML = amountML
+		}
+		if milkType := getVar(variables, "milkType"); milkType != "" {
+			s.MilkType = milkType
+		}
+		if foodName := getVar(variables, "foodName"); foodName != "" {
+			s.FoodName = foodName
+		}
+		if reaction := getVar(variables, "reaction"); reaction != "" {
+			s.Reaction = reaction
+		}
+		if notes := getVar(variables, "notes"); notes != "" {
+			s.Notes = notes
+		}
+		feedingSessions[id] = s
+		feedingSessionsMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"updateFeedingSession": feedingSessionToMap(s),
+		}}
+	}
+
+	if strings.Contains(body, "deletefeedingsession") || strings.Contains(body, "deleteFeedingSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		var deleted *FeedingSession
+		feedingSessionsMu.Lock()
+		if s, exists := feedingSessions[id]; exists {
+			babiesMu.RLock()
+			b, babyOk := babies[s.BabyID]
+			babiesMu.RUnlock()
+			if babyOk && b.UserID == userID {
+				deleted = &s
+				delete(feedingSessions, id)
+			}
+		}
+		feedingSessionsMu.Unlock()
+		if deleted == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"deleteFeedingSession": feedingSessionToMap(*deleted),
+		}}
+	}
+
 	if strings.Contains(body, "createmeasurement") || strings.Contains(body, "createMeasurement") {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
@@ -624,6 +829,46 @@ func babyToMap(b BabyProfile) map[string]interface{} {
 		"photoUrl":  b.PhotoURL,
 		"createdAt": b.CreatedAt,
 		"userId":    b.UserID,
+	}
+}
+
+func getVarInt(vars map[string]interface{}, key string) int {
+	if vars == nil {
+		return 0
+	}
+	input, _ := vars["input"].(map[string]interface{})
+	if input != nil {
+		if v, ok := input[key].(float64); ok {
+			return int(v)
+		}
+		if v, ok := input[key].(int); ok {
+			return v
+		}
+	}
+	if v, ok := vars[key].(float64); ok {
+		return int(v)
+	}
+	if v, ok := vars[key].(int); ok {
+		return v
+	}
+	return 0
+}
+
+func feedingSessionToMap(s FeedingSession) map[string]interface{} {
+	return map[string]interface{}{
+		"id":               s.ID,
+		"babyId":           s.BabyID,
+		"feedType":         s.FeedType,
+		"startedAt":        s.StartedAt,
+		"endedAt":          s.EndedAt,
+		"leftDurationSec":  float64(s.LeftDurationSec),
+		"rightDurationSec": float64(s.RightDurationSec),
+		"amountMl":         s.AmountML,
+		"milkType":         s.MilkType,
+		"foodName":         s.FoodName,
+		"reaction":         s.Reaction,
+		"notes":            s.Notes,
+		"createdAt":        s.CreatedAt,
 	}
 }
 
