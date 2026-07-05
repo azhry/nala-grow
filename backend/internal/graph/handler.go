@@ -19,9 +19,21 @@ type storedUser struct {
 }
 
 var (
-	usersMu sync.RWMutex
-	users   = map[string]storedUser{}
+	usersMu  sync.RWMutex
+	users    = map[string]storedUser{}
+	babiesMu sync.RWMutex
+	babies   = map[string]BabyProfile{}
 )
+
+type BabyProfile struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	DOB       string `json:"dob"`
+	Sex       string `json:"sex"`
+	PhotoURL  string `json:"photoUrl"`
+	CreatedAt string `json:"createdAt"`
+	UserID    string `json:"userId"`
+}
 
 type Handler struct {
 	db   interface{ Close() }
@@ -68,12 +80,64 @@ func (h *Handler) Execute(ctx context.Context, query string, variables map[strin
 	}
 }
 
+func authenticatedUser(ctx context.Context, h *Handler) (string, ExecResult) {
+	token, _ := ctx.Value("raw_token").(string)
+	if token == "" {
+		return "", ExecResult{Errors: []GraphQLError{{Message: "not authenticated"}}}
+	}
+	if h.auth == nil {
+		return "", ExecResult{Errors: []GraphQLError{{Message: "not authenticated"}}}
+	}
+	claims, err := h.auth.JWT.ValidateToken(token)
+	if err != nil || claims == nil {
+		return "", ExecResult{Errors: []GraphQLError{{Message: "not authenticated"}}}
+	}
+	return claims.UserID, ExecResult{}
+}
+
 func (h *Handler) execQuery(ctx context.Context, query string, variables map[string]interface{}) ExecResult {
 	body := strings.ToLower(query)
 
 	if strings.Contains(body, "health") {
 		return ExecResult{Data: map[string]interface{}{
 			"health": NewHealth(),
+		}}
+	}
+
+	if strings.Contains(body, "baby") || strings.Contains(body, "babies") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		if strings.Contains(body, "babies") {
+			babiesMu.RLock()
+			var list []map[string]interface{}
+			for _, b := range babies {
+				if b.UserID == userID {
+					list = append(list, babyToMap(b))
+				}
+			}
+			babiesMu.RUnlock()
+			if list == nil {
+				list = []map[string]interface{}{}
+			}
+			return ExecResult{Data: map[string]interface{}{
+				"babies": list,
+			}}
+		}
+		// single baby by id
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[id]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"baby": babyToMap(b),
 		}}
 	}
 
@@ -220,6 +284,90 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
+	if strings.Contains(body, "createbaby") || strings.Contains(body, "createBaby") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		name := getVar(variables, "name")
+		if name == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "name required"}}}
+		}
+		baby := BabyProfile{
+			ID:        uuid(),
+			Name:      name,
+			DOB:       getVar(variables, "dob"),
+			Sex:       getVar(variables, "sex"),
+			PhotoURL:  getVar(variables, "photoUrl"),
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			UserID:    userID,
+		}
+		babiesMu.Lock()
+		babies[baby.ID] = baby
+		babiesMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"createBaby": babyToMap(baby),
+		}}
+	}
+
+	if strings.Contains(body, "updatebaby") || strings.Contains(body, "updateBaby") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		babiesMu.Lock()
+		b, ok := babies[id]
+		if !ok || b.UserID != userID {
+			babiesMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		if name := getVar(variables, "name"); name != "" {
+			b.Name = name
+		}
+		if dob := getVar(variables, "dob"); dob != "" {
+			b.DOB = dob
+		}
+		if sex := getVar(variables, "sex"); sex != "" {
+			b.Sex = sex
+		}
+		if photoURL := getVar(variables, "photoUrl"); photoURL != "" {
+			b.PhotoURL = photoURL
+		}
+		babies[id] = b
+		babiesMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"updateBaby": babyToMap(b),
+		}}
+	}
+
+	if strings.Contains(body, "deletebaby") || strings.Contains(body, "deleteBaby") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		var deleted *BabyProfile
+		babiesMu.Lock()
+		if b, exists := babies[id]; exists && b.UserID == userID {
+			deleted = &b
+			delete(babies, id)
+		}
+		babiesMu.Unlock()
+		if deleted == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"deleteBaby": babyToMap(*deleted),
+		}}
+	}
+
 	return ExecResult{Errors: []GraphQLError{{Message: "unknown mutation"}}}
 }
 
@@ -251,4 +399,16 @@ func uuid() string {
 func jsonBytes(v interface{}) []byte {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+func babyToMap(b BabyProfile) map[string]interface{} {
+	return map[string]interface{}{
+		"id":        b.ID,
+		"name":      b.Name,
+		"dob":       b.DOB,
+		"sex":       b.Sex,
+		"photoUrl":  b.PhotoURL,
+		"createdAt": b.CreatedAt,
+		"userId":    b.UserID,
+	}
 }
