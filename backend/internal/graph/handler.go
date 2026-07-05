@@ -27,6 +27,8 @@ var (
 	measurements       = map[string]Measurement{}
 	feedingSessionsMu  sync.RWMutex
 	feedingSessions    = map[string]FeedingSession{}
+	sleepSessionsMu    sync.RWMutex
+	sleepSessions      = map[string]SleepSession{}
 )
 
 type BabyProfile struct {
@@ -47,6 +49,16 @@ type Measurement struct {
 	Height            float64 `json:"height"`
 	HeadCircumference float64 `json:"headCircumference"`
 	CreatedAt         string  `json:"createdAt"`
+}
+
+type SleepSession struct {
+	ID        string `json:"id"`
+	BabyID    string `json:"babyId"`
+	StartedAt string `json:"startedAt"`
+	EndedAt   string `json:"endedAt"`
+	Location  string `json:"location"`
+	Notes     string `json:"notes"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type FeedingSession struct {
@@ -168,6 +180,63 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"baby": babyToMap(b),
+		}}
+	}
+
+	if strings.Contains(body, "sleepsessions") || strings.Contains(body, "sleep_sessions") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		sleepSessionsMu.RLock()
+		var list []map[string]interface{}
+		for _, s := range sleepSessions {
+			if s.BabyID == babyID {
+				list = append(list, sleepSessionToMap(s))
+			}
+		}
+		sleepSessionsMu.RUnlock()
+		if list == nil {
+			list = []map[string]interface{}{}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"sleepSessions": list,
+		}}
+	}
+
+	if strings.Contains(body, "sleepsession") && !strings.Contains(body, "sleepsessions") && !strings.Contains(body, "sleep_sessions") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		sleepSessionsMu.RLock()
+		s, ok := sleepSessions[id]
+		sleepSessionsMu.RUnlock()
+		if !ok {
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[s.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"sleepSession": sleepSessionToMap(s),
 		}}
 	}
 
@@ -513,6 +582,112 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
+	if strings.Contains(body, "createsleepsession") || strings.Contains(body, "createSleepSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		location := getVar(variables, "location")
+		if location == "" {
+			location = "crib"
+		}
+		s := SleepSession{
+			ID:        uuid(),
+			BabyID:    babyID,
+			StartedAt: getVar(variables, "startedAt"),
+			EndedAt:   getVar(variables, "endedAt"),
+			Location:  location,
+			Notes:     getVar(variables, "notes"),
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		}
+		sleepSessionsMu.Lock()
+		sleepSessions[s.ID] = s
+		sleepSessionsMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"createSleepSession": sleepSessionToMap(s),
+		}}
+	}
+
+	if strings.Contains(body, "updatesleepsession") || strings.Contains(body, "updateSleepSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		sleepSessionsMu.Lock()
+		s, exists := sleepSessions[id]
+		if !exists {
+			sleepSessionsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[s.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			sleepSessionsMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		if startedAt := getVar(variables, "startedAt"); startedAt != "" {
+			s.StartedAt = startedAt
+		}
+		if endedAt := getVar(variables, "endedAt"); endedAt != "" {
+			s.EndedAt = endedAt
+		}
+		if location := getVar(variables, "location"); location != "" {
+			s.Location = location
+		}
+		if notes := getVar(variables, "notes"); notes != "" {
+			s.Notes = notes
+		}
+		sleepSessions[id] = s
+		sleepSessionsMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"updateSleepSession": sleepSessionToMap(s),
+		}}
+	}
+
+	if strings.Contains(body, "deletesleepsession") || strings.Contains(body, "deleteSleepSession") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		var deleted *SleepSession
+		sleepSessionsMu.Lock()
+		if s, exists := sleepSessions[id]; exists {
+			babiesMu.RLock()
+			b, babyOk := babies[s.BabyID]
+			babiesMu.RUnlock()
+			if babyOk && b.UserID == userID {
+				deleted = &s
+				delete(sleepSessions, id)
+			}
+		}
+		sleepSessionsMu.Unlock()
+		if deleted == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"deleteSleepSession": sleepSessionToMap(*deleted),
+		}}
+	}
+
 	if strings.Contains(body, "createfeedingsession") || strings.Contains(body, "createFeedingSession") {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
@@ -852,6 +1027,18 @@ func getVarInt(vars map[string]interface{}, key string) int {
 		return v
 	}
 	return 0
+}
+
+func sleepSessionToMap(s SleepSession) map[string]interface{} {
+	return map[string]interface{}{
+		"id":        s.ID,
+		"babyId":    s.BabyID,
+		"startedAt": s.StartedAt,
+		"endedAt":   s.EndedAt,
+		"location":  s.Location,
+		"notes":     s.Notes,
+		"createdAt": s.CreatedAt,
+	}
 }
 
 func feedingSessionToMap(s FeedingSession) map[string]interface{} {
