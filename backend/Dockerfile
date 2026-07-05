@@ -1,20 +1,23 @@
-FROM python:3.11-slim AS builder
+# Build stage
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+COPY go.mod go.sum ./
+RUN go mod download
 
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY --from=builder /root/.local /root/.local
 COPY . .
+RUN CGO_ENABLED=0 go build -o /app/server ./cmd/server
 
-ENV PATH=/root/.local/bin:$PATH \
-    PYTHONPATH=/app \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Runtime stage
+FROM alpine:3.19
 
-EXPOSE 8000
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY --from=builder /app/server .
+COPY internal/db/migrations ./internal/db/migrations
+
+EXPOSE 8080
+CMD ["./server"]

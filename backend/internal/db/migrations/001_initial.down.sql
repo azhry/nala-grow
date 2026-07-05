@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS milestones;
+DROP TABLE IF EXISTS sleep_sessions;
+DROP TABLE IF EXISTS feeding_sessions;
+DROP TABLE IF EXISTS measurements;
+DROP TABLE IF EXISTS babies;
+DROP TABLE IF EXISTS users;
