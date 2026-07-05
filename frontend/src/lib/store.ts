@@ -21,6 +21,17 @@ export interface Measurement {
 
 export type UnitSystem = "metric" | "imperial"
 
+export type SleepLocation = "crib" | "bed" | "carrier" | "stroller" | "contact"
+
+export interface SleepSession {
+  id: string
+  baby_id: string
+  started_at: string
+  ended_at?: string
+  location?: SleepLocation
+  notes?: string
+}
+
 export type FeedType = "breast" | "bottle" | "solids"
 export type MilkType = "breast_milk" | "formula" | "water"
 export type FeedTemperature = "cold" | "room" | "warm"
@@ -52,6 +63,7 @@ interface AppState {
   measurements: Measurement[]
   unitSystem: UnitSystem
   feedSessions: FeedSession[]
+  sleepSessions: SleepSession[]
   _hasHydrated: boolean
   setUser: (user: AppState["user"]) => void
   setActiveBaby: (baby: BabyProfile | null) => void
@@ -66,6 +78,9 @@ interface AppState {
   addFeedSession: (session: FeedSession) => void
   updateFeedSession: (id: string, data: Partial<FeedSession>) => void
   deleteFeedSession: (id: string) => void
+  addSleepSession: (session: SleepSession) => void
+  updateSleepSession: (id: string, data: Partial<SleepSession>) => void
+  deleteSleepSession: (id: string) => void
   setHasHydrated: (v: boolean) => void
 }
 
@@ -78,6 +93,7 @@ export const useAppStore = create<AppState>()(
       measurements: [],
       unitSystem: "metric",
       feedSessions: [],
+      sleepSessions: [],
       _hasHydrated: false,
       setUser: (user) => set({ user }),
       setActiveBaby: (baby) => set({ activeBaby: baby }),
@@ -124,6 +140,18 @@ export const useAppStore = create<AppState>()(
       deleteFeedSession: (id) =>
         set((state) => ({
           feedSessions: state.feedSessions.filter((s) => s.id !== id),
+        })),
+      addSleepSession: (session) =>
+        set((state) => ({ sleepSessions: [...state.sleepSessions, session] })),
+      updateSleepSession: (id, data) =>
+        set((state) => ({
+          sleepSessions: state.sleepSessions.map((s) =>
+            s.id === id ? { ...s, ...data } : s
+          ),
+        })),
+      deleteSleepSession: (id) =>
+        set((state) => ({
+          sleepSessions: state.sleepSessions.filter((s) => s.id !== id),
         })),
       setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
