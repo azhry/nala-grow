@@ -14,6 +14,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/azhry/nala-grow/backend/internal/db"
+	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/azhry/nala-grow/backend/internal/graph"
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
@@ -53,7 +54,8 @@ func main() {
 		AllowCredentials: true,
 	}).Handler)
 
-	handler := graph.NewHandler(pool)
+	authSvc := auth.NewService(cfg.JWTSecret)
+	handler := graph.NewHandler(pool, authSvc)
 
 	r.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
