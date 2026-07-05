@@ -26,10 +26,6 @@ func signupAndLogin(t *testing.T, h *Handler, email, password string) (token, us
 	return
 }
 
-func authCtx(token string) context.Context {
-	return context.WithValue(context.Background(), "raw_token", token)
-}
-
 func TestBaby_Query(t *testing.T) {
 	t.Run("babies returns empty list initially", func(t *testing.T) {
 		h := newTestHandler()

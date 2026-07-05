@@ -188,7 +188,7 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-07-04T23:01:35.738Z
+- Last updated: 2026-07-05T07:14:05.505Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
@@ -213,25 +213,30 @@ If a transition script reports stale context, rerun the two commands above.
 - If the user requests rework, stop implementation and route back to `task_breakdown`.
 - Do not keep task, gate, credential, or design knowledge only in chat.
 - Do not edit `workflow-state.json` directly.
+- If context recovery or validation reports a state integrity error, stop; do not continue from untrusted state.
 - Do not use generic state-field mutation for status, task, gate, or lease updates.
 - Use `record-event.js` only for evidence, decisions, blockers, and corrections.
 - Use `transition.js` for top-level state transitions.
 - Use `transition-task.js` for task status transitions.
 - Use Linear as the task system of record when `LINEAR_API_KEY` is configured.
 - Before implementation, every task must have a Linear issue ID.
-- Dev tasks require test evidence, pushed branch, MR URL, passed MR status comment, and merged MR evidence before `verified`.
+- `implemented` requires scoped changed files and implementation evidence.
+- Dev tasks require test evidence, pushed branch, MR URL, passed MR status comment, passed MR check evidence, and merged MR evidence before `verified`.
+- Do not run raw `gh pr merge`; use `submit-task.js` so MR checks are inspected before merge.
 - After test failure, return to dev. After three dev/test loops, stop and ask the user to intervene.
 - Orchestrator may not edit project files or run dev/test directly during implementation.
-- Task transitions require a matching recorded subagent lease from `record-agent-spawn.js`.
+- Task transitions require a matching recorded exact-agent lease from `record-agent-spawn.js --agent <AGENT_NAME>`.
 - Test results require `testing` status and a matching test-agent lease.
 - `submit-task.js` refuses unrelated dirty files instead of staging the whole worktree.
+- `seal-state.js` is trusted manual repair only and must not be used as normal recovery.
 - Do not create a recurring spawn watcher unless a human explicitly asks for unattended background orchestration.
 
 ### Agent Dispatch
 
 When `agent_dispatch.spawn_requests[]` contains planned requests:
 
-- Use the available multi-agent spawn tool with the exact request prompt, then record the real returned/visible runtime id with `record-agent-spawn.js`.
+- Use the available multi-agent spawn tool with the exact request prompt and exact `.opencode/agents/agent-spec-*` agent named by the spawn request.
+- Record the real returned/visible runtime id with `record-agent-spawn.js ... --agent <AGENT_NAME>`.
 - Never invent, synthesize, or reuse subagent/session ids for leases.
 
 Useful commands:
@@ -240,7 +245,7 @@ Useful commands:
 cd ../my-harnesses/agent-spec-ops
 node scripts/read-context.js runs/NL-001/workflow-state.json --role orchestrator
 node scripts/plan-agent-dispatch.js runs/NL-001/workflow-state.json --enable-auto
-node scripts/record-agent-spawn.js runs/NL-001/workflow-state.json <SPAWN_ID> <AGENT_ID>
+node scripts/record-agent-spawn.js runs/NL-001/workflow-state.json <SPAWN_ID> <REAL_OPENCODE_SESSION_ID> --agent <AGENT_NAME>
 ```
 
 ### Linear Task Creation
@@ -271,13 +276,13 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | FE-002 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | FE-003 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | FE-004 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
-| FE-005 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
-| FE-006 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
-| FE-007 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
-| FE-008 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
-| FE-009 | frontend_dev | planned | nala-grow | frontend/, frontend/** |
-| BE-001 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-002 | backend_dev | planned | nala-grow | backend/, backend/** |
+| FE-005 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-006 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-007 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-008 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-009 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| BE-001 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
+| BE-002 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
 | BE-003 | backend_dev | planned | nala-grow | backend/, backend/** |
 | BE-004 | backend_dev | planned | nala-grow | backend/, backend/** |
 | BE-005 | backend_dev | planned | nala-grow | backend/, backend/** |
@@ -313,6 +318,17 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | QT-025 | frontend_test | verified | nala-grow | frontend/ |
 | FE-011 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 | FE-012 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| BT-001 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-002 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-003 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-004 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-005 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-006 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-007 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-008 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-009 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-010 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-011 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
 
 Before writing project files, verify scope:
 
@@ -325,7 +341,7 @@ Tests must be recorded by the matching test role after the task enters `testing`
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
-node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK_ID> --status passed --role <TEST_ROLE> --command "<COMMAND>" --output "..." --mr-comment-url "<URL>" --mr-comment-evidence "posted passed status" --merged --merge-commit "<SHA>" --merge-evidence "MR merged"
+node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK_ID> --status passed --role <TEST_ROLE> --command "<COMMAND>" --output "..." --mr-comment-url "<URL>" --mr-comment-evidence "posted passed status" --merge-check-evidence "<CHECKS_PASSED>" --merged --merge-commit "<SHA>" --merge-evidence "MR merged"
 ```
 
 ### Current Tasks
@@ -336,19 +352,19 @@ node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK
 | FE-002 | frontend_dev | verified | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
 | FE-003 | frontend_dev | verified | 1cc8205f-c5e7-46e4-b10f-7e09c0d0a0dd | Baby profile management |
 | FE-004 | frontend_dev | verified | d357b485-07ba-4f61-ac14-c02b1457020e | Dashboard with summary cards and quick log |
-| FE-005 | frontend_dev | planned | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
-| FE-006 | frontend_dev | planned | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
-| FE-007 | frontend_dev | planned | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
-| FE-008 | frontend_dev | planned | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
-| FE-009 | frontend_dev | planned | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
-| BE-001 | backend_dev | planned | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — FastAPI + PostgreSQL + Alembic |
-| BE-002 | backend_dev | planned | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset |
-| BE-003 | backend_dev | planned | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API |
-| BE-004 | backend_dev | planned | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API |
-| BE-005 | backend_dev | planned | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API |
-| BE-006 | backend_dev | planned | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep log API |
-| BE-007 | backend_dev | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API |
-| BE-008 | backend_dev | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation |
+| FE-005 | frontend_dev | verified | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
+| FE-006 | frontend_dev | verified | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
+| FE-007 | frontend_dev | verified | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
+| FE-008 | frontend_dev | verified | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
+| FE-009 | frontend_dev | verified | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
+| BE-001 | backend_dev | verified | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — Go + gqlgen + PostgreSQL |
+| BE-002 | backend_dev | verified | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset (Go + GraphQL) |
+| BE-003 | backend_dev | planned | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API (Go + GraphQL) |
+| BE-004 | backend_dev | planned | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API (Go + GraphQL) |
+| BE-005 | backend_dev | planned | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API (Go + GraphQL) |
+| BE-006 | backend_dev | planned | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep tracking API (Go + GraphQL) |
+| BE-007 | backend_dev | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API (Go + GraphQL) |
+| BE-008 | backend_dev | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation (Go) |
 | IN-001 | orchestrator | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
 | FE-010 | frontend_dev | verified | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
 | QT-001 | frontend_test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
@@ -378,17 +394,28 @@ node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK
 | QT-025 | frontend_test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
 | FE-011 | frontend_dev | verified | 052eb0a8-5187-4cfd-88d0-0b517218c5b2 | Remove auth barriers for no-backend development |
 | FE-012 | frontend_dev | verified | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
+| BT-001 | backend_test | verified | b8b0bd9c-9150-4e2e-867d-39abe6734426 | Go test infrastructure — testify, helpers, Makefile, test DB |
+| BT-002 | backend_test | verified | ba410670-e592-4542-b741-6095f2746f7d | Auth unit tests — JWT service, password service |
+| BT-003 | backend_test | planned | 0a36f06c-350f-4c01-9235-1fb5b5f8c3cf | Auth integration tests — GraphQL signup/login/reset flow |
+| BT-004 | backend_test | planned | 99742c9b-354c-4b48-afc9-06d44a207d98 | Middleware unit tests — auth, logging, recovery |
+| BT-005 | backend_test | planned | 11a2727e-46a7-47f2-8f9c-e2ee73751d78 | Database & scaffold tests — migration, health, handler dispatch |
+| BT-006 | backend_test | planned | 53d20230-ac46-46a0-b160-4956300149c6 | Baby profiles unit + integration tests (for BE-003) |
+| BT-007 | backend_test | planned | 8ce998f9-1fba-407b-b104-b98cfe4b067a | Growth measurements unit + integration tests (for BE-004) |
+| BT-008 | backend_test | planned | 16508f12-45b2-4190-b579-2145c6b57772 | Feeding log unit + integration tests (for BE-005) |
+| BT-009 | backend_test | planned | ea00077d-0949-490d-9857-74e569eddc24 | Sleep tracking unit + integration tests (for BE-006) |
+| BT-010 | backend_test | planned | 1a6f69f5-a236-4cd9-98d2-588c4e45be73 | Milestones unit + integration tests (for BE-007) |
+| BT-011 | backend_test | planned | 26138238-56f3-48e4-8a48-bb7cb3996911 | Export unit + integration tests (for BE-008) |
 
 ### Durable Knowledge
 
-- process_rule: FE-004 Dashboard: Created dashboard page with hero greeting, horizontal quick-action pills, bento summary cards, activity feed, daily insight card, and mobile FAB. Matches all three Stitch dashboard design variants.
-- process_rule: FE-010 rework: Fixed design-tokens.ts letterSpacing for headline-lg (-0.02em), headline-lg-mobile (-0.01em), label-md (0.05em).
-- process_rule: FE-002 rework: Replaced Google OAuth img tag with inline SVG (4 color paths: #4285F4, #34A853, #FBBC05, #EA4335) per Stitch login design.
-- event knowledge_recorded: Knowledge recorded: FE-010 rework: Fixed design-tokens.ts letterSpacing for headline-lg (-0.02em), headline-lg-mobile (-0.01em), label-md (0.05em).
-- event knowledge_recorded: Knowledge recorded: FE-002 rework: Replaced Google OAuth img tag with inline SVG (4 color paths: #4285F4, #34A853, #FBBC05, #EA4335) per Stitch login design.
-- event task_complete: All 3 rework tasks FE-010, FE-002, FE-004 verified
-- event artifact_generated: Generated project AGENTS.md for NL-001
-- event artifact_generated: Generated project AGENTS.md for NL-001
+- process_rule: BE-xxx tasks rework: stack changed from FastAPI+PostgreSQL+Alembic to Go+gqlgen+pgx+golang-migrate. All BE-xxx task definitions updated. Separate git worktree at ../nala-grow-backend on branch delivery/NL-001/BE-001-rework.
+- process_rule: BT-001: Backend test infrastructure set up - Makefile (test, test-unit, test-integration, test-coverage), internal/testutil package (NewTestHandler, ExecuteQuery, HasError helpers), smoke tests, testify as direct dependency, GitHub Actions workflow.
+- process_rule: BT-001 and BT-002 verified, merged to main, synced Linear to done
+- event linear_sync: Synced 1 tasks to Linear
+- event linear_sync: Synced 57 tasks to Linear
+- event task_implemented: FE-009 active -> implemented
+- event linear_sync: Synced 1 tasks to Linear
+- event task_complete: Export page implemented with CSV/PDF generation
 
 Record durable project learning with:
 
@@ -407,6 +434,5 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-07-04T23:02:09.257Z.
+Generated by agent-spec-ops at 2026-07-05T07:14:10.543Z.
 <!-- agent-spec-ops:managed:end -->
-
