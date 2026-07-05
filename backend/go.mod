@@ -4,9 +4,12 @@ go 1.25.0
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.17.1
+	github.com/google/uuid v1.4.0
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/rs/cors v1.11.0
+	golang.org/x/crypto v0.53.0
 )
 
 require (
@@ -18,7 +21,6 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
