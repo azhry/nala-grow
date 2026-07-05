@@ -198,6 +198,223 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
+	if strings.Contains(body, "exportcsv") || strings.Contains(body, "export_csv") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		dateFrom := getVar(variables, "dateFrom")
+		dateTo := getVar(variables, "dateTo")
+
+		csv := "Baby Growth Report\n"
+		csv += "Name," + csvEscape(b.Name) + "\n"
+		csv += "DOB," + csvEscape(b.DOB) + "\n"
+		csv += "Sex," + csvEscape(b.Sex) + "\n\n"
+
+		// Feeding sessions
+		feedingSessionsMu.RLock()
+		csv += "Feeding Sessions\n"
+		csv += "Feed Type,Started,Ended,Left (sec),Right (sec),Amount (ml),Milk Type,Food,Reaction,Notes\n"
+		feedCount := 0
+		for _, s := range feedingSessions {
+			if s.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
+				continue
+			}
+			csv += csvEscape(s.FeedType) + ","
+			csv += csvEscape(s.StartedAt) + ","
+			csv += csvEscape(s.EndedAt) + ","
+			csv += fmt.Sprintf("%d,%d,", s.LeftDurationSec, s.RightDurationSec)
+			csv += fmt.Sprintf("%.1f,", s.AmountML)
+			csv += csvEscape(s.MilkType) + ","
+			csv += csvEscape(s.FoodName) + ","
+			csv += csvEscape(s.Reaction) + ","
+			csv += csvEscape(s.Notes) + "\n"
+			feedCount++
+		}
+		feedingSessionsMu.RUnlock()
+		if feedCount == 0 {
+			csv += "No records found\n"
+		}
+		csv += "\n"
+
+		// Sleep sessions
+		sleepSessionsMu.RLock()
+		csv += "Sleep Sessions\n"
+		csv += "Sleep Location,Started,Ended,Notes\n"
+		sleepCount := 0
+		for _, s := range sleepSessions {
+			if s.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
+				continue
+			}
+			csv += csvEscape(s.Location) + ","
+			csv += csvEscape(s.StartedAt) + ","
+			csv += csvEscape(s.EndedAt) + ","
+			csv += csvEscape(s.Notes) + "\n"
+			sleepCount++
+		}
+		sleepSessionsMu.RUnlock()
+		if sleepCount == 0 {
+			csv += "No records found\n"
+		}
+		csv += "\n"
+
+		// Measurements
+		measurementsMu.RLock()
+		csv += "Growth Measurements\n"
+		csv += "Date,Weight (kg),Height (cm),Head Circumference (cm)\n"
+		measCount := 0
+		for _, m := range measurements {
+			if m.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(m.Date, dateFrom, dateTo) {
+				continue
+			}
+			csv += csvEscape(m.Date) + ","
+			csv += fmt.Sprintf("%.2f,", m.Weight)
+			csv += fmt.Sprintf("%.2f,", m.Height)
+			csv += fmt.Sprintf("%.2f\n", m.HeadCircumference)
+			measCount++
+		}
+		measurementsMu.RUnlock()
+		if measCount == 0 {
+			csv += "No records found\n"
+		}
+		csv += "\n"
+
+		// Milestones
+		milestonesMu.RLock()
+		csv += "Milestones\n"
+		csv += "Title,Category,Achieved At,Notes\n"
+		msCount := 0
+		for _, m := range milestones {
+			if m.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(m.AchievedAt, dateFrom, dateTo) {
+				continue
+			}
+			csv += csvEscape(m.Title) + ","
+			csv += csvEscape(m.Category) + ","
+			csv += csvEscape(m.AchievedAt) + ","
+			csv += csvEscape(m.Note) + "\n"
+			msCount++
+		}
+		milestonesMu.RUnlock()
+		if msCount == 0 {
+			csv += "No records found\n"
+		}
+
+		return ExecResult{Data: map[string]interface{}{
+			"exportCSV": csv,
+		}}
+	}
+
+	if strings.Contains(body, "exportdata") || strings.Contains(body, "export_data") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		dateFrom := getVar(variables, "dateFrom")
+		dateTo := getVar(variables, "dateTo")
+
+		// Feeding sessions
+		feedingSessionsMu.RLock()
+		var feedList []map[string]interface{}
+		for _, s := range feedingSessions {
+			if s.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
+				continue
+			}
+			feedList = append(feedList, feedingSessionToMap(s))
+		}
+		feedingSessionsMu.RUnlock()
+
+		// Sleep sessions
+		sleepSessionsMu.RLock()
+		var sleepList []map[string]interface{}
+		for _, s := range sleepSessions {
+			if s.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
+				continue
+			}
+			sleepList = append(sleepList, sleepSessionToMap(s))
+		}
+		sleepSessionsMu.RUnlock()
+
+		// Measurements
+		measurementsMu.RLock()
+		var measList []map[string]interface{}
+		for _, m := range measurements {
+			if m.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(m.Date, dateFrom, dateTo) {
+				continue
+			}
+			measList = append(measList, measurementToMap(m))
+		}
+		measurementsMu.RUnlock()
+
+		// Milestones
+		milestonesMu.RLock()
+		var msList []map[string]interface{}
+		for _, m := range milestones {
+			if m.BabyID != babyID {
+				continue
+			}
+			if !inDateRange(m.AchievedAt, dateFrom, dateTo) {
+				continue
+			}
+			msList = append(msList, milestoneToMap(m))
+		}
+		milestonesMu.RUnlock()
+
+		return ExecResult{Data: map[string]interface{}{
+			"exportData": map[string]interface{}{
+				"babyName":       b.Name,
+				"babyDob":        b.DOB,
+				"babySex":        b.Sex,
+				"feedSessions":   feedList,
+				"sleepSessions":  sleepList,
+				"measurements":   measList,
+				"milestones":     msList,
+				"dateFrom":       dateFrom,
+				"dateTo":         dateTo,
+			},
+		}}
+	}
+
 	if strings.Contains(body, "milestones") {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
@@ -1199,6 +1416,36 @@ func babyToMap(b BabyProfile) map[string]interface{} {
 		"createdAt": b.CreatedAt,
 		"userId":    b.UserID,
 	}
+}
+
+func csvEscape(s string) string {
+	if strings.Contains(s, ",") || strings.Contains(s, "\"") || strings.Contains(s, "\n") {
+		s = strings.ReplaceAll(s, "\"", "\"\"")
+		return "\"" + s + "\""
+	}
+	return s
+}
+
+func inDateRange(dateStr, from, to string) bool {
+	if from == "" && to == "" {
+		return true
+	}
+	if dateStr == "" {
+		// Items without a date are always included (can't filter)
+		return true
+	}
+	// Extract date portion (handle full timestamps like "2026-03-15T10:00:00Z")
+	datePart := dateStr
+	if len(dateStr) >= 10 {
+		datePart = dateStr[:10]
+	}
+	if from != "" && datePart < from {
+		return false
+	}
+	if to != "" && datePart > to {
+		return false
+	}
+	return true
 }
 
 func getVarBool(vars map[string]interface{}, key string) bool {
