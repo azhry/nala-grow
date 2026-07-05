@@ -56,6 +56,53 @@ export interface FeedSession {
   notes?: string
 }
 
+export type MilestoneCategory = "physical" | "cognitive" | "social" | "language"
+export type MilestoneAgeRange = "0-3" | "3-6" | "6-12" | "12-24"
+
+export interface MilestoneDefinition {
+  id: string
+  title: string
+  category: MilestoneCategory
+  age_range: MilestoneAgeRange
+}
+
+export interface Milestone {
+  id: string
+  baby_id: string
+  definition_id?: string
+  title: string
+  category: MilestoneCategory
+  age_range: MilestoneAgeRange
+  achieved: boolean
+  achieved_date?: string
+  notes?: string
+  photo_url?: string
+  is_custom: boolean
+}
+
+export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
+  { id: "m-0-3-1", title: "Lifts head when on tummy", category: "physical", age_range: "0-3" },
+  { id: "m-0-3-2", title: "Follows objects with eyes", category: "cognitive", age_range: "0-3" },
+  { id: "m-0-3-3", title: "Responds to sound", category: "cognitive", age_range: "0-3" },
+  { id: "m-0-3-4", title: "Makes cooing sounds", category: "language", age_range: "0-3" },
+  { id: "m-0-3-5", title: "Smiles at people", category: "social", age_range: "0-3" },
+  { id: "m-3-6-1", title: "Rolls over from tummy to back", category: "physical", age_range: "3-6" },
+  { id: "m-3-6-2", title: "Reaches for objects", category: "physical", age_range: "3-6" },
+  { id: "m-3-6-3", title: "Babbles and makes sounds", category: "language", age_range: "3-6" },
+  { id: "m-3-6-4", title: "Recognizes familiar faces", category: "social", age_range: "3-6" },
+  { id: "m-3-6-5", title: "Holds head steady", category: "physical", age_range: "3-6" },
+  { id: "m-6-12-1", title: "Sits without support", category: "physical", age_range: "6-12" },
+  { id: "m-6-12-2", title: "Crawls", category: "physical", age_range: "6-12" },
+  { id: "m-6-12-3", title: "Says first words (mama/dada)", category: "language", age_range: "6-12" },
+  { id: "m-6-12-4", title: "Waves goodbye", category: "social", age_range: "6-12" },
+  { id: "m-6-12-5", title: "Picks up small objects with thumb and finger", category: "physical", age_range: "6-12" },
+  { id: "m-12-24-1", title: "Walks independently", category: "physical", age_range: "12-24" },
+  { id: "m-12-24-2", title: "Says several single words", category: "language", age_range: "12-24" },
+  { id: "m-12-24-3", title: "Points to body parts", category: "cognitive", age_range: "12-24" },
+  { id: "m-12-24-4", title: "Scribbles with crayon", category: "cognitive", age_range: "12-24" },
+  { id: "m-12-24-5", title: "Drinks from a cup", category: "physical", age_range: "12-24" },
+]
+
 interface AppState {
   user: { id: string; email: string } | null
   activeBaby: BabyProfile | null
@@ -64,6 +111,7 @@ interface AppState {
   unitSystem: UnitSystem
   feedSessions: FeedSession[]
   sleepSessions: SleepSession[]
+  milestones: Milestone[]
   _hasHydrated: boolean
   setUser: (user: AppState["user"]) => void
   setActiveBaby: (baby: BabyProfile | null) => void
@@ -81,6 +129,9 @@ interface AppState {
   addSleepSession: (session: SleepSession) => void
   updateSleepSession: (id: string, data: Partial<SleepSession>) => void
   deleteSleepSession: (id: string) => void
+  addMilestone: (milestone: Milestone) => void
+  updateMilestone: (id: string, data: Partial<Milestone>) => void
+  deleteMilestone: (id: string) => void
   setHasHydrated: (v: boolean) => void
 }
 
@@ -94,6 +145,7 @@ export const useAppStore = create<AppState>()(
       unitSystem: "metric",
       feedSessions: [],
       sleepSessions: [],
+      milestones: [],
       _hasHydrated: false,
       setUser: (user) => set({ user }),
       setActiveBaby: (baby) => set({ activeBaby: baby }),
@@ -152,6 +204,18 @@ export const useAppStore = create<AppState>()(
       deleteSleepSession: (id) =>
         set((state) => ({
           sleepSessions: state.sleepSessions.filter((s) => s.id !== id),
+        })),
+      addMilestone: (milestone) =>
+        set((state) => ({ milestones: [...state.milestones, milestone] })),
+      updateMilestone: (id, data) =>
+        set((state) => ({
+          milestones: state.milestones.map((m) =>
+            m.id === id ? { ...m, ...data } : m
+          ),
+        })),
+      deleteMilestone: (id) =>
+        set((state) => ({
+          milestones: state.milestones.filter((m) => m.id !== id),
         })),
       setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
