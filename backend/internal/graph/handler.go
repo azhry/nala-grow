@@ -29,6 +29,8 @@ var (
 	feedingSessions    = map[string]FeedingSession{}
 	sleepSessionsMu    sync.RWMutex
 	sleepSessions      = map[string]SleepSession{}
+	milestonesMu       sync.RWMutex
+	milestones         = map[string]Milestone{}
 )
 
 type BabyProfile struct {
@@ -49,6 +51,19 @@ type Measurement struct {
 	Height            float64 `json:"height"`
 	HeadCircumference float64 `json:"headCircumference"`
 	CreatedAt         string  `json:"createdAt"`
+}
+
+type Milestone struct {
+	ID          string `json:"id"`
+	BabyID      string `json:"babyId"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	AchievedAt  string `json:"achievedAt"`
+	Note        string `json:"note"`
+	PhotoURL    string `json:"photoUrl"`
+	IsCustom    bool   `json:"isCustom"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 type SleepSession struct {
@@ -180,6 +195,63 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"baby": babyToMap(b),
+		}}
+	}
+
+	if strings.Contains(body, "milestones") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		milestonesMu.RLock()
+		var list []map[string]interface{}
+		for _, m := range milestones {
+			if m.BabyID == babyID {
+				list = append(list, milestoneToMap(m))
+			}
+		}
+		milestonesMu.RUnlock()
+		if list == nil {
+			list = []map[string]interface{}{}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"milestones": list,
+		}}
+	}
+
+	if strings.Contains(body, "milestone") && !strings.Contains(body, "milestones") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		milestonesMu.RLock()
+		m, ok := milestones[id]
+		milestonesMu.RUnlock()
+		if !ok {
+			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[m.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"milestone": milestoneToMap(m),
 		}}
 	}
 
@@ -579,6 +651,128 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"deleteBaby": babyToMap(*deleted),
+		}}
+	}
+
+	if strings.Contains(body, "createmilestone") || strings.Contains(body, "createMilestone") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		babyID := getVar(variables, "babyId")
+		if babyID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
+		}
+		babiesMu.RLock()
+		b, ok := babies[babyID]
+		babiesMu.RUnlock()
+		if !ok || b.UserID != userID {
+			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
+		}
+		title := getVar(variables, "title")
+		if title == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "title required"}}}
+		}
+		category := getVar(variables, "category")
+		if category == "" {
+			category = "general"
+		}
+		m := Milestone{
+			ID:          uuid(),
+			BabyID:      babyID,
+			Title:       title,
+			Description: getVar(variables, "description"),
+			Category:    category,
+			AchievedAt:  getVar(variables, "achievedAt"),
+			Note:        getVar(variables, "note"),
+			PhotoURL:    getVar(variables, "photoUrl"),
+			IsCustom:    getVarBool(variables, "isCustom"),
+			CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+		}
+		milestonesMu.Lock()
+		milestones[m.ID] = m
+		milestonesMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"createMilestone": milestoneToMap(m),
+		}}
+	}
+
+	if strings.Contains(body, "updatemilestone") || strings.Contains(body, "updateMilestone") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		milestonesMu.Lock()
+		m, exists := milestones[id]
+		if !exists {
+			milestonesMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
+		}
+		babiesMu.RLock()
+		b, babyOk := babies[m.BabyID]
+		babiesMu.RUnlock()
+		if !babyOk || b.UserID != userID {
+			milestonesMu.Unlock()
+			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
+		}
+		if title := getVar(variables, "title"); title != "" {
+			m.Title = title
+		}
+		if description := getVar(variables, "description"); description != "" {
+			m.Description = description
+		}
+		if category := getVar(variables, "category"); category != "" {
+			m.Category = category
+		}
+		if achievedAt := getVar(variables, "achievedAt"); achievedAt != "" {
+			m.AchievedAt = achievedAt
+		}
+		if note := getVar(variables, "note"); note != "" {
+			m.Note = note
+		}
+		if photoURL := getVar(variables, "photoUrl"); photoURL != "" {
+			m.PhotoURL = photoURL
+		}
+		if isCustom := getVarBool(variables, "isCustom"); isCustom {
+			m.IsCustom = isCustom
+		}
+		milestones[m.ID] = m
+		milestonesMu.Unlock()
+		return ExecResult{Data: map[string]interface{}{
+			"updateMilestone": milestoneToMap(m),
+		}}
+	}
+
+	if strings.Contains(body, "deletemilestone") || strings.Contains(body, "deleteMilestone") {
+		userID, errResult := authenticatedUser(ctx, h)
+		if errResult.Errors != nil {
+			return errResult
+		}
+		id := getVar(variables, "id")
+		if id == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		var deleted *Milestone
+		milestonesMu.Lock()
+		if m, exists := milestones[id]; exists {
+			babiesMu.RLock()
+			b, babyOk := babies[m.BabyID]
+			babiesMu.RUnlock()
+			if babyOk && b.UserID == userID {
+				deleted = &m
+				delete(milestones, id)
+			}
+		}
+		milestonesMu.Unlock()
+		if deleted == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"deleteMilestone": milestoneToMap(*deleted),
 		}}
 	}
 
@@ -1007,6 +1201,22 @@ func babyToMap(b BabyProfile) map[string]interface{} {
 	}
 }
 
+func getVarBool(vars map[string]interface{}, key string) bool {
+	if vars == nil {
+		return false
+	}
+	input, _ := vars["input"].(map[string]interface{})
+	if input != nil {
+		if v, ok := input[key].(bool); ok {
+			return v
+		}
+	}
+	if v, ok := vars[key].(bool); ok {
+		return v
+	}
+	return false
+}
+
 func getVarInt(vars map[string]interface{}, key string) int {
 	if vars == nil {
 		return 0
@@ -1027,6 +1237,21 @@ func getVarInt(vars map[string]interface{}, key string) int {
 		return v
 	}
 	return 0
+}
+
+func milestoneToMap(m Milestone) map[string]interface{} {
+	return map[string]interface{}{
+		"id":          m.ID,
+		"babyId":      m.BabyID,
+		"title":       m.Title,
+		"description": m.Description,
+		"category":    m.Category,
+		"achievedAt":  m.AchievedAt,
+		"note":        m.Note,
+		"photoUrl":    m.PhotoURL,
+		"isCustom":    m.IsCustom,
+		"createdAt":   m.CreatedAt,
+	}
 }
 
 func sleepSessionToMap(s SleepSession) map[string]interface{} {
