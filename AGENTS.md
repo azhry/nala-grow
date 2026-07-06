@@ -188,7 +188,7 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-07-05T07:14:05.505Z
+- Last updated: 2026-07-06T01:10:40.155Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
@@ -209,6 +209,8 @@ If a transition script reports stale context, rerun the two commands above.
 
 ### Non-Negotiable Workflow
 
+- A default/freeform OpenCode `build` or `general` session is not the harness orchestrator.
+- If this prompt was not launched through `/agent-spec-spawn` or `@agent-spec-orchestrator`, stop and ask the user to restart through the harness command/agent before planning, spawning, editing, submitting, or merging.
 - Do not treat a user prompt as direct coding work while this run is active.
 - If the user requests rework, stop implementation and route back to `task_breakdown`.
 - Do not keep task, gate, credential, or design knowledge only in chat.
@@ -223,6 +225,7 @@ If a transition script reports stale context, rerun the two commands above.
 - `implemented` requires scoped changed files and implementation evidence.
 - Dev tasks require test evidence, pushed branch, MR URL, passed MR status comment, passed MR check evidence, and merged MR evidence before `verified`.
 - Do not run raw `gh pr merge`; use `submit-task.js` so MR checks are inspected before merge.
+- `record-test-results.js` records tests and MR status comments only; dev-task MR check/merge evidence must come from `submit-task.js`.
 - After test failure, return to dev. After three dev/test loops, stop and ask the user to intervene.
 - Orchestrator may not edit project files or run dev/test directly during implementation.
 - Task transitions require a matching recorded exact-agent lease from `record-agent-spawn.js --agent <AGENT_NAME>`.
@@ -283,12 +286,12 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | FE-009 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 | BE-001 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
 | BE-002 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
-| BE-003 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-004 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-005 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-006 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-007 | backend_dev | planned | nala-grow | backend/, backend/** |
-| BE-008 | backend_dev | planned | nala-grow | backend/, backend/** |
+| BE-003 | backend_dev | verified | nala-grow | backend/, backend/** |
+| BE-004 | backend_dev | verified | nala-grow | backend/, backend/** |
+| BE-005 | backend_dev | verified | nala-grow | backend/, backend/** |
+| BE-006 | backend_dev | verified | nala-grow | backend/, backend/** |
+| BE-007 | backend_dev | verified | nala-grow | backend/, backend/** |
+| BE-008 | backend_dev | verified | nala-grow | backend/, backend/** |
 | IN-001 | orchestrator | planned | nala-grow | ./ |
 | FE-010 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | QT-001 | frontend_test | verified | nala-grow | frontend/ |
@@ -320,15 +323,25 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | FE-012 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 | BT-001 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-002 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-003 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-003 | backend_test | waived | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-004 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-005 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-006 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-007 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-008 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-009 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-010 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
-| BT-011 | backend_test | planned | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-006 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-007 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-008 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-009 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-010 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| BT-011 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
+| CE-001 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-002 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-003 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-004 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-005 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-006 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-007 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-008 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-009 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-010 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 
 Before writing project files, verify scope:
 
@@ -337,11 +350,13 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/check-write-scope.js runs/NL-001/workflow-state.json <TARGET_PATH> orchestrator
 ```
 
-Tests must be recorded by the matching test role after the task enters `testing`:
+Tests must be recorded by the matching test role after the task enters `testing`.
+Do not add `--merged`, `--merge-commit`, or `--merge-check-evidence` here for dev tasks:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
-node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK_ID> --status passed --role <TEST_ROLE> --command "<COMMAND>" --output "..." --mr-comment-url "<URL>" --mr-comment-evidence "posted passed status" --merge-check-evidence "<CHECKS_PASSED>" --merged --merge-commit "<SHA>" --merge-evidence "MR merged"
+node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK_ID> --status passed --role <TEST_ROLE> --command "<COMMAND>" --output "..." --mr-comment-url "<URL>" --mr-comment-evidence "posted passed status"
+node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-msg "feat: <TASK_ID>: summary" --test-command "<OPTIONAL_RECHECK_COMMAND>"
 ```
 
 ### Current Tasks
@@ -359,12 +374,12 @@ node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK
 | FE-009 | frontend_dev | verified | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
 | BE-001 | backend_dev | verified | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — Go + gqlgen + PostgreSQL |
 | BE-002 | backend_dev | verified | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset (Go + GraphQL) |
-| BE-003 | backend_dev | planned | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API (Go + GraphQL) |
-| BE-004 | backend_dev | planned | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API (Go + GraphQL) |
-| BE-005 | backend_dev | planned | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API (Go + GraphQL) |
-| BE-006 | backend_dev | planned | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep tracking API (Go + GraphQL) |
-| BE-007 | backend_dev | planned | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API (Go + GraphQL) |
-| BE-008 | backend_dev | planned | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation (Go) |
+| BE-003 | backend_dev | verified | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API (Go + GraphQL) |
+| BE-004 | backend_dev | verified | 2bfcb7df-fb4f-439a-a509-7fc6286896ec | Growth measurements and WHO percentile API (Go + GraphQL) |
+| BE-005 | backend_dev | verified | 458e6fb2-c4a5-4449-bd47-b1f1d75c3206 | Feeding log API (Go + GraphQL) |
+| BE-006 | backend_dev | verified | f6fe7732-142a-46d5-9d36-8211d54320c0 | Sleep tracking API (Go + GraphQL) |
+| BE-007 | backend_dev | verified | 83c8eae0-180c-43ea-803b-567be2674720 | Milestones API (Go + GraphQL) |
+| BE-008 | backend_dev | verified | 44635de0-31d6-4a0c-b6a8-3d25690095cf | Export API — PDF and CSV generation (Go) |
 | IN-001 | orchestrator | planned | bd2ac05a-e438-4727-8ec7-3425676d8083 | Docker compose and deployment configuration |
 | FE-010 | frontend_dev | verified | 7e954e62-f708-4457-a160-1fbd1b948b2a | Design component library — translate Stitch into composable React components |
 | QT-001 | frontend_test | verified | 709391db-2885-47c8-8744-81e39a1788d1 | Install & configure Jest + React Testing Library |
@@ -396,26 +411,36 @@ node scripts/record-test-results.js runs/NL-001/workflow-state.json --task <TASK
 | FE-012 | frontend_dev | verified | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
 | BT-001 | backend_test | verified | b8b0bd9c-9150-4e2e-867d-39abe6734426 | Go test infrastructure — testify, helpers, Makefile, test DB |
 | BT-002 | backend_test | verified | ba410670-e592-4542-b741-6095f2746f7d | Auth unit tests — JWT service, password service |
-| BT-003 | backend_test | planned | 0a36f06c-350f-4c01-9235-1fb5b5f8c3cf | Auth integration tests — GraphQL signup/login/reset flow |
+| BT-003 | backend_test | waived | 0a36f06c-350f-4c01-9235-1fb5b5f8c3cf | Auth integration tests — GraphQL signup/login/reset flow |
 | BT-004 | backend_test | planned | 99742c9b-354c-4b48-afc9-06d44a207d98 | Middleware unit tests — auth, logging, recovery |
 | BT-005 | backend_test | planned | 11a2727e-46a7-47f2-8f9c-e2ee73751d78 | Database & scaffold tests — migration, health, handler dispatch |
-| BT-006 | backend_test | planned | 53d20230-ac46-46a0-b160-4956300149c6 | Baby profiles unit + integration tests (for BE-003) |
-| BT-007 | backend_test | planned | 8ce998f9-1fba-407b-b104-b98cfe4b067a | Growth measurements unit + integration tests (for BE-004) |
-| BT-008 | backend_test | planned | 16508f12-45b2-4190-b579-2145c6b57772 | Feeding log unit + integration tests (for BE-005) |
-| BT-009 | backend_test | planned | ea00077d-0949-490d-9857-74e569eddc24 | Sleep tracking unit + integration tests (for BE-006) |
-| BT-010 | backend_test | planned | 1a6f69f5-a236-4cd9-98d2-588c4e45be73 | Milestones unit + integration tests (for BE-007) |
-| BT-011 | backend_test | planned | 26138238-56f3-48e4-8a48-bb7cb3996911 | Export unit + integration tests (for BE-008) |
+| BT-006 | backend_test | verified | 53d20230-ac46-46a0-b160-4956300149c6 | Baby profiles unit + integration tests (for BE-003) |
+| BT-007 | backend_test | verified | 8ce998f9-1fba-407b-b104-b98cfe4b067a | Growth measurements unit + integration tests (for BE-004) |
+| BT-008 | backend_test | verified | 16508f12-45b2-4190-b579-2145c6b57772 | Feeding log unit + integration tests (for BE-005) |
+| BT-009 | backend_test | verified | ea00077d-0949-490d-9857-74e569eddc24 | Sleep tracking unit + integration tests (for BE-006) |
+| BT-010 | backend_test | verified | 1a6f69f5-a236-4cd9-98d2-588c4e45be73 | Milestones unit + integration tests (for BE-007) |
+| BT-011 | backend_test | verified | 26138238-56f3-48e4-8a48-bb7cb3996911 | Export unit + integration tests (for BE-008) |
+| CE-001 | frontend_test | planned | 67de4273-89ae-4a92-9fe2-eb493ef164fc | Cypress E2E infrastructure setup + navigation tests |
+| CE-002 | frontend_test | planned | 32b31372-9df7-4d82-927e-0ef03c6e29a7 | Auth flow E2E tests — login, signup, password reset |
+| CE-003 | frontend_test | planned | 2a5bb809-0901-47d6-b27a-1128dec22985 | Dashboard E2E tests |
+| CE-004 | frontend_test | planned | f77b8ac0-ac40-4467-8d00-8511bb4b8995 | Feeding E2E tests — breast, bottle, solids |
+| CE-005 | frontend_test | planned | f76df0fb-f187-4911-9ac0-a986273e198f | Sleep E2E tests |
+| CE-006 | frontend_test | planned | e070710b-dcc2-4b4b-b911-189492e840e5 | Growth E2E tests |
+| CE-007 | frontend_test | planned | d6a122ed-f3c3-4da1-8504-bc3652c5c982 | Milestones E2E tests |
+| CE-008 | frontend_test | planned | 409065b2-1f73-4e29-87d8-2a2bc350528c | Profile management E2E tests |
+| CE-009 | frontend_test | planned | d3b837b7-24e1-45ba-9911-d67895516b33 | Export E2E tests |
+| CE-010 | frontend_test | planned | 0705c992-7692-4180-93d0-2e7f17499615 | Visual regression + responsive E2E tests |
 
 ### Durable Knowledge
 
-- process_rule: BE-xxx tasks rework: stack changed from FastAPI+PostgreSQL+Alembic to Go+gqlgen+pgx+golang-migrate. All BE-xxx task definitions updated. Separate git worktree at ../nala-grow-backend on branch delivery/NL-001/BE-001-rework.
 - process_rule: BT-001: Backend test infrastructure set up - Makefile (test, test-unit, test-integration, test-coverage), internal/testutil package (NewTestHandler, ExecuteQuery, HasError helpers), smoke tests, testify as direct dependency, GitHub Actions workflow.
 - process_rule: BT-001 and BT-002 verified, merged to main, synced Linear to done
+- process_rule: BE-003 and BT-006 verified: Baby profiles CRUD API with 16 unit tests passing and MR #27 merged to main
 - event linear_sync: Synced 1 tasks to Linear
-- event linear_sync: Synced 57 tasks to Linear
-- event task_implemented: FE-009 active -> implemented
 - event linear_sync: Synced 1 tasks to Linear
-- event task_complete: Export page implemented with CSV/PDF generation
+- event linear_sync: Synced 1 tasks to Linear
+- event linear_sync: Synced 1 tasks to Linear
+- event linear_sync: Synced 1 tasks to Linear
 
 Record durable project learning with:
 
@@ -434,5 +459,6 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-07-05T07:14:10.543Z.
+Generated by agent-spec-ops at 2026-07-06T01:12:30.975Z.
 <!-- agent-spec-ops:managed:end -->
+
