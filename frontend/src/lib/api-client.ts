@@ -1,3 +1,4 @@
+/** @deprecated Use graphql-client.ts instead. This file will be removed in FE-016. */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
 
 export class ApiError extends Error {

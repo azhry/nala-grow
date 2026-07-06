@@ -56,6 +56,9 @@ func main() {
 
 	authSvc := auth.NewService(cfg.JWTSecret)
 	handler := graph.NewHandler(pool, authSvc)
+	if cfg.GoogleClientID != "" {
+		handler.SetGoogleClientID(cfg.GoogleClientID)
+	}
 
 	r.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
@@ -130,14 +133,16 @@ type Config struct {
 	DatabaseURL   string
 	AllowedOrigin string
 	JWTSecret     string
+	GoogleClientID string
 }
 
 func loadConfig() Config {
 	return Config{
-		Port:          getEnv("PORT", "8080"),
-		DatabaseURL:   getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
-		AllowedOrigin: getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
-		JWTSecret:     getEnv("JWT_SECRET", "dev-secret-change-in-production"),
+		Port:           getEnv("PORT", "8080"),
+		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
+		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
+		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
+		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
 	}
 }
 

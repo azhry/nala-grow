@@ -93,12 +93,25 @@ type FeedingSession struct {
 }
 
 type Handler struct {
-	db   interface{ Close() }
-	auth *auth.Service
+	db        interface{ Close() }
+	auth      *auth.Service
+	googleVerifier *auth.GoogleTokenVerifier
+	resetTokens    *auth.ResetTokenStore
+	googleClientID string
 }
 
 func NewHandler(db interface{ Close() }, authSvc *auth.Service) *Handler {
-	return &Handler{db: db, auth: authSvc}
+	return &Handler{
+		db:             db,
+		auth:           authSvc,
+		googleVerifier: auth.NewGoogleTokenVerifier(),
+		resetTokens:    auth.NewResetTokenStore(),
+	}
+}
+
+// SetGoogleClientID configures the expected Google OAuth client ID for token verification.
+func (h *Handler) SetGoogleClientID(clientID string) {
+	h.googleClientID = clientID
 }
 
 type ExecResult struct {
@@ -731,6 +744,66 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
+	if strings.Contains(body, "loginwithgoogle") || strings.Contains(body, "login_with_google") {
+		idToken := getVar(variables, "idToken")
+		if idToken == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "idToken required"}}}
+		}
+		if h.auth == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+		}
+		googleUser, err := h.googleVerifier.VerifyIDToken(idToken, h.googleClientID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "invalid Google token: " + err.Error()}}}
+		}
+		// Look up existing user by email
+		var foundID string
+		var found storedUser
+		usersMu.RLock()
+		for id, u := range users {
+			if u.Email == googleUser.Email {
+				foundID = id
+				found = u
+				break
+			}
+		}
+		usersMu.RUnlock()
+		if foundID == "" {
+			// Create new user
+			foundID = uuid()
+			displayName := googleUser.Name
+			if displayName == "" {
+				displayName = googleUser.Email[:strings.Index(googleUser.Email, "@")]
+			}
+			// Generate a placeholder password hash (user logs in via Google only)
+			placeholderHash, _ := h.auth.Password.Hash(uuid() + uuid())
+			found = storedUser{
+				Email:        googleUser.Email,
+				PasswordHash: placeholderHash,
+				DisplayName:  displayName,
+			}
+			usersMu.Lock()
+			users[foundID] = found
+			usersMu.Unlock()
+		}
+		token, err := h.auth.JWT.GenerateToken(foundID, found.Email)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"loginWithGoogle": map[string]interface{}{
+				"token": token,
+				"user": map[string]interface{}{
+					"id":          foundID,
+					"email":       found.Email,
+					"displayName": found.DisplayName,
+					"photoUrl":    "",
+					"createdAt":   time.Now().UTC().Format(time.RFC3339),
+				},
+			},
+		}}
+	}
+
 	if strings.Contains(body, "login") {
 		email := getVar(variables, "email")
 		password := getVar(variables, "password")
@@ -776,12 +849,77 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 	}
 
 	if strings.Contains(body, "requestpasswordreset") || strings.Contains(body, "requestPasswordReset") {
+		email := getVar(variables, "email")
+		if email == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
+		}
+		// Check if user exists (but don't reveal to prevent email enumeration)
+		userExists := func() bool {
+			usersMu.RLock()
+			defer usersMu.RUnlock()
+			for _, u := range users {
+				if u.Email == email {
+					return true
+				}
+			}
+			return false
+		}()
+		if !userExists {
+			// Return success anyway to prevent email enumeration
+			return ExecResult{Data: map[string]interface{}{
+				"requestPasswordReset": true,
+			}}
+		}
+		tokenStr, err := h.resetTokens.GenerateToken(email)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "failed to generate reset token"}}}
+		}
+		// In dev/demo mode, return the token directly so the frontend can use it
 		return ExecResult{Data: map[string]interface{}{
-			"requestPasswordReset": true,
+			"requestPasswordReset": tokenStr,
 		}}
 	}
 
 	if strings.Contains(body, "resetpassword") || strings.Contains(body, "resetPassword") {
+		tokenStr := getVar(variables, "token")
+		newPassword := getVar(variables, "newPassword")
+		if tokenStr == "" || newPassword == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "token and newPassword required"}}}
+		}
+		email, err := h.resetTokens.ValidateToken(tokenStr)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "invalid or expired reset token"}}}
+		}
+		// Find the user by email
+		var foundID string
+		usersMu.RLock()
+		for id, u := range users {
+			if u.Email == email {
+				foundID = id
+				break
+			}
+		}
+		usersMu.RUnlock()
+		if foundID == "" {
+			return ExecResult{Errors: []GraphQLError{{Message: "user not found"}}}
+		}
+		// Hash the new password
+		if h.auth == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+		}
+		hash, err := h.auth.Password.Hash(newPassword)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
+		}
+		// Update the user's password
+		usersMu.Lock()
+		if u, ok := users[foundID]; ok {
+			u.PasswordHash = hash
+			users[foundID] = u
+		}
+		usersMu.Unlock()
+		// Invalidate the token
+		h.resetTokens.InvalidateToken(tokenStr)
 		return ExecResult{Data: map[string]interface{}{
 			"resetPassword": true,
 		}}

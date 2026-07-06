@@ -1,19 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { fetchBabies, createBaby, updateBaby, deleteBaby } from "../baby-service"
 
-const mockApiFetch = jest.fn()
+const mockGetBabies = jest.fn()
+const mockGqlCreateBaby = jest.fn()
+const mockGqlUpdateBaby = jest.fn()
+const mockGqlDeleteBaby = jest.fn()
 
-jest.mock("../api-client", () => ({
-  apiFetch: (...args: any[]) => mockApiFetch(...args),
-  ApiError: class ApiError extends Error {
-    status: number
-    traceId: string
-    constructor(status: number, message: string, traceId: string) {
-      super(message)
-      this.status = status
-      this.traceId = traceId
-    }
-  },
+jest.mock("../graphql-client", () => ({
+  getBabies: (...args: any[]) => mockGetBabies(...args),
+  createBaby: (...args: any[]) => mockGqlCreateBaby(...args),
+  updateBaby: (...args: any[]) => mockGqlUpdateBaby(...args),
+  deleteBaby: (...args: any[]) => mockGqlDeleteBaby(...args),
 }))
 
 describe("baby service", () => {
@@ -22,50 +19,52 @@ describe("baby service", () => {
   })
 
   describe("fetchBabies", () => {
-    it("calls GET /babies", async () => {
-      mockApiFetch.mockResolvedValue([])
+    it("calls getBabies from graphql client", async () => {
+      mockGetBabies.mockResolvedValue([])
       await fetchBabies()
-      expect(mockApiFetch).toHaveBeenCalledWith("/babies")
+      expect(mockGetBabies).toHaveBeenCalledWith()
     })
   })
 
   describe("createBaby", () => {
-    it("calls POST /babies with data", async () => {
-      const babyData = { name: "Lily", dob: "2024-06-12", sex: "female" as const }
-      mockApiFetch.mockResolvedValue({ id: "1", ...babyData })
+    it("calls createBaby from graphql client with mapped fields", async () => {
+      const babyData = { name: "Lily", dob: "2024-06-12", sex: "female" }
+      mockGqlCreateBaby.mockResolvedValue({ id: "1", name: "Lily", dob: "2024-06-12", sex: "female", photoUrl: "", createdAt: "", userId: "" })
       await createBaby(babyData)
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/babies",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify(babyData),
-        }),
+      expect(mockGqlCreateBaby).toHaveBeenCalledWith({
+        name: "Lily",
+        dob: "2024-06-12",
+        sex: "female",
+        photoUrl: undefined,
+      })
+    })
+
+    it("maps photo_url to photoUrl", async () => {
+      mockGqlCreateBaby.mockResolvedValue({ id: "1", name: "Lily", dob: "2024-06-12", sex: "female", photoUrl: "http://example.com/pic.jpg", createdAt: "", userId: "" })
+      await createBaby({ name: "Lily", photo_url: "http://example.com/pic.jpg" })
+      expect(mockGqlCreateBaby).toHaveBeenCalledWith(
+        expect.objectContaining({ photoUrl: "http://example.com/pic.jpg" })
       )
     })
   })
 
   describe("updateBaby", () => {
-    it("calls PATCH /babies/:id with data", async () => {
+    it("calls updateBaby from graphql client with mapped fields", async () => {
       const updates = { name: "Lily Updated" }
-      mockApiFetch.mockResolvedValue({ id: "1", name: "Lily Updated", dob: "2024-06-12", sex: "female" })
+      mockGqlUpdateBaby.mockResolvedValue({ id: "1", name: "Lily Updated", dob: "2024-06-12", sex: "female", photoUrl: "", createdAt: "", userId: "" })
       await updateBaby("1", updates)
-      expect(mockApiFetch).toHaveBeenCalledWith(
-        "/babies/1",
-        expect.objectContaining({
-          method: "PATCH",
-          body: JSON.stringify(updates),
-        }),
+      expect(mockGqlUpdateBaby).toHaveBeenCalledWith(
+        "1",
+        expect.objectContaining({ name: "Lily Updated" })
       )
     })
   })
 
   describe("deleteBaby", () => {
-    it("calls DELETE /babies/:id", async () => {
-      mockApiFetch.mockResolvedValue({})
+    it("calls deleteBaby from graphql client", async () => {
+      mockGqlDeleteBaby.mockResolvedValue({ id: "1", name: "Lily", dob: "2024-06-12", sex: "female", photoUrl: "", createdAt: "", userId: "" })
       await deleteBaby("1")
-      expect(mockApiFetch).toHaveBeenCalledWith("/babies/1", {
-        method: "DELETE",
-      })
+      expect(mockGqlDeleteBaby).toHaveBeenCalledWith("1")
     })
   })
 })
