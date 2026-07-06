@@ -188,7 +188,7 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-07-06T01:41:30.712Z
+- Last updated: 2026-07-06T03:14:27.531Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
@@ -217,6 +217,7 @@ If a transition script reports stale context, rerun the two commands above.
 - If the user requests rework, stop implementation and route back to `task_breakdown`.
 - Do not keep task, gate, credential, or design knowledge only in chat.
 - Do not edit `workflow-state.json` directly.
+- For task breakdown, write `runs/<DELIVERY_ID>/task-breakdown.json` and run `record-task-breakdown.js`; do not create temporary scripts or mutate `task_graph.tasks` directly.
 - If context recovery or validation reports a state integrity error, stop; do not continue from untrusted state.
 - Do not use generic state-field mutation for status, task, gate, or lease updates.
 - Use `record-event.js` only for evidence, decisions, blockers, and corrections.
@@ -260,6 +261,7 @@ Create task breakdown entries through the harness flow, then sync to Linear:
 
 ```bash
 cd ../my-harnesses/agent-spec-ops
+node scripts/record-task-breakdown.js runs/NL-001/workflow-state.json --file runs/NL-001/task-breakdown.json --dependencies-checked
 node scripts/sync-linear-task.js runs/NL-001/workflow-state.json --create
 node scripts/sync-linear-task.js runs/NL-001/workflow-state.json --audit
 node scripts/validate-state.js runs/NL-001/workflow-state.json
@@ -317,11 +319,11 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | QT-017 | frontend_test | verified | nala-grow | frontend/ |
 | QT-018 | frontend_test | verified | nala-grow | frontend/ |
 | QT-019 | frontend_test | verified | nala-grow | frontend/ |
-| QT-020 | frontend_test | planned | nala-grow | frontend/ |
-| QT-021 | frontend_test | planned | nala-grow | frontend/ |
+| QT-020 | frontend_test | verified | nala-grow | frontend/ |
+| QT-021 | frontend_test | verified | nala-grow | frontend/ |
 | QT-022 | frontend_test | verified | nala-grow | frontend/ |
 | QT-023 | frontend_test | verified | nala-grow | frontend/ |
-| QT-024 | frontend_test | planned | nala-grow | frontend/ |
+| QT-024 | frontend_test | verified | nala-grow | frontend/ |
 | QT-025 | frontend_test | verified | nala-grow | frontend/ |
 | FE-011 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 | FE-012 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
@@ -337,7 +339,7 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | BT-010 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-011 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
 | CE-001 | frontend_test | verified | nala-grow | frontend/, frontend/** |
-| CE-002 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-002 | frontend_test | verified | nala-grow | frontend/, frontend/** |
 | CE-003 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 | CE-004 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 | CE-005 | frontend_test | planned | nala-grow | frontend/, frontend/** |
@@ -346,6 +348,14 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | CE-008 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 | CE-009 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 | CE-010 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| BE-009 | backend_dev | implemented | nala-grow, backend | backend/, backend/** |
+| BE-010 | backend_dev | implemented | nala-grow, backend | backend/, backend/** |
+| FE-013 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
+| FE-014 | frontend_dev | planned | nala-grow, frontend | frontend/, frontend/** |
+| FE-015 | frontend_dev | planned | nala-grow, frontend | frontend/, frontend/** |
+| FE-016 | frontend_dev | planned | nala-grow, frontend | frontend/, frontend/** |
+| CE-011 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| CE-012 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 
 Before writing project files, verify scope:
 
@@ -405,11 +415,11 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 | QT-017 | frontend_test | verified | 336cb618-90e2-4583-97f9-d733d64e4ffe | Spinner unit tests |
 | QT-018 | frontend_test | verified | 87f4f5f0-a3f3-4dd2-9d23-5aedff704eda | Home page E2E smoke test |
 | QT-019 | frontend_test | verified | 38763cb2-66dc-481e-a9d5-edc0b8f9cf59 | Design System page E2E smoke test |
-| QT-020 | frontend_test | planned | c4e98170-f7bd-4b83-8ed4-153a217140aa | Hydration mismatch test |
-| QT-021 | frontend_test | planned | 0fdd2750-2b1e-4140-b02a-c3adb2c7f5c4 | Responsive layout test |
+| QT-020 | frontend_test | verified | c4e98170-f7bd-4b83-8ed4-153a217140aa | Hydration mismatch test |
+| QT-021 | frontend_test | verified | 0fdd2750-2b1e-4140-b02a-c3adb2c7f5c4 | Responsive layout test |
 | QT-022 | frontend_test | verified | 0ec02959-5e37-44cc-93ea-c29e7bf207d8 | Bottom tab navigation rendering test |
 | QT-023 | frontend_test | verified | 393fc71f-5b87-495f-a326-47642f6b2f13 | Visual regression infrastructure |
-| QT-024 | frontend_test | planned | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
+| QT-024 | frontend_test | verified | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
 | QT-025 | frontend_test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
 | FE-011 | frontend_dev | verified | 052eb0a8-5187-4cfd-88d0-0b517218c5b2 | Remove auth barriers for no-backend development |
 | FE-012 | frontend_dev | verified | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
@@ -425,7 +435,7 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 | BT-010 | backend_test | verified | 1a6f69f5-a236-4cd9-98d2-588c4e45be73 | Milestones unit + integration tests (for BE-007) |
 | BT-011 | backend_test | verified | 26138238-56f3-48e4-8a48-bb7cb3996911 | Export unit + integration tests (for BE-008) |
 | CE-001 | frontend_test | verified | 67de4273-89ae-4a92-9fe2-eb493ef164fc | Cypress E2E infrastructure setup + navigation tests |
-| CE-002 | frontend_test | planned | 32b31372-9df7-4d82-927e-0ef03c6e29a7 | Auth flow E2E tests — login, signup, password reset |
+| CE-002 | frontend_test | verified | 32b31372-9df7-4d82-927e-0ef03c6e29a7 | Auth flow E2E tests — login, signup, password reset |
 | CE-003 | frontend_test | planned | 2a5bb809-0901-47d6-b27a-1128dec22985 | Dashboard E2E tests |
 | CE-004 | frontend_test | planned | f77b8ac0-ac40-4467-8d00-8511bb4b8995 | Feeding E2E tests — breast, bottle, solids |
 | CE-005 | frontend_test | planned | f76df0fb-f187-4911-9ac0-a986273e198f | Sleep E2E tests |
@@ -434,17 +444,25 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 | CE-008 | frontend_test | planned | 409065b2-1f73-4e29-87d8-2a2bc350528c | Profile management E2E tests |
 | CE-009 | frontend_test | planned | d3b837b7-24e1-45ba-9911-d67895516b33 | Export E2E tests |
 | CE-010 | frontend_test | planned | 0705c992-7692-4180-93d0-2e7f17499615 | Visual regression + responsive E2E tests |
+| BE-009 | backend_dev | implemented | 75970391-6639-4c85-b57f-5f5534f219d2 | Google OAuth — loginWithGoogle(idToken) mutation |
+| BE-010 | backend_dev | implemented | b8499bdb-71c5-417e-9fa5-14f0c9ee00e0 | Real password reset — in-memory token store with expiry |
+| FE-013 | frontend_dev | implemented | 5fd3a343-42bf-4f7c-8d74-d338e6b40ca9 | GraphQL client for frontend |
+| FE-014 | frontend_dev | planned | 4cb0005f-99a0-4ffb-8c60-9a4311057057 | Auth rewrite — replace Supabase with backend GraphQL auth |
+| FE-015 | frontend_dev | planned | def031b9-7566-421d-a249-dce9ab0644c3 | Data wiring — connect pages to backend GraphQL APIs |
+| FE-016 | frontend_dev | planned | 306ba7e3-e895-4ca4-8a9c-9b65700ce30e | Supabase cleanup — remove all Supabase dependencies |
+| CE-011 | frontend_test | planned | ca9e58f7-574f-44c2-979a-20866ea71168 | Navigation E2E tests with running backend + seed data + cleanup |
+| CE-012 | frontend_test | planned | 7cc7e7a2-9fa2-444d-9194-ce811d12d4f2 | Auth flow E2E tests with running backend + seed data + cleanup |
 
 ### Durable Knowledge
 
-- process_rule: BT-001 and BT-002 verified, merged to main, synced Linear to done
-- process_rule: BE-003 and BT-006 verified: Baby profiles CRUD API with 16 unit tests passing and MR #27 merged to main
-- process_rule: CE-001 verified: Cypress E2E infrastructure set up with cypress.config.ts (port 3001, viewport 390x844), tsconfig, custom commands (getBySel, login, selectBaby), and 16 navigation tests passing (BottomTabNav 9, DesktopSidebar 4, Responsive 3). MR #36 merged to main (commit 470bac1108babfb98ce6df272bd3f5caf6867d24).
-- event task_complete: CE-001 testing -> verified
+- process_rule: CE-002 verified: Auth flow E2E tests — 16 Cypress E2E tests passing covering login, signup, password reset flows. MR #37 merged to main (commit 8f957fd005de99cd0274ae4265a8576cd6fe5380).
+- process_rule: QT-020 verified: Hydration mismatch test — 6/6 Playwright E2E tests passing (2 routes /, /design-system × 3 viewports mobile/tablet/desktop). Zero React SSR/CSR hydration warnings detected. PR #38 merged to main (commit f19482338bf93204c2de78d9177cb8bbdeff9a84).
+- process_rule: QT-024 verified: Home page visual baseline captured at 3 viewports (mobile iPhone 14, tablet 768x1024, desktop 1280x900) using Playwright toHaveScreenshot(). Test file home.spec.ts follows same pattern as design-system.spec.ts. MR #40 merged to main (commit 1b5000639163354103a1cf4727046823d1f54739).
 - event linear_sync: Synced 1 tasks to Linear
-- event task_complete: CE-001 MR merged: PR #36 merged to main (commit 470bac1108babfb98ce6df272bd3f5caf6867d24)
-- event knowledge_recorded: Knowledge recorded: CE-001 verified: Cypress E2E infrastructure set up with cypress.config.ts (port 3001, viewport 390x844), tsconfig, custom commands (getBySel, login, selectBaby), and 16 navigation tests passing (BottomTabNav 9, DesktopSidebar 4, Responsive 3). MR #36 merged to main (commit 470bac1108babfb98ce6df272bd3f5caf6867d24).
-- event artifact_generated: Generated project AGENTS.md for NL-001
+- event knowledge_recorded: Knowledge recorded: QT-024 verified: Home page visual baseline captured at 3 viewports (mobile iPhone 14, tablet 768x1024, desktop 1280x900) using Playwright toHaveScreenshot(). Test file home.spec.ts follows same pattern as design-system.spec.ts. MR #40 merged to main (commit 1b5000639163354103a1cf4727046823d1f54739).
+- event knowledge_recorded: Knowledge recorded: QT-020 verified: Hydration mismatch Playwright E2E test — 6/6 passing (2 routes /, /design-system × 3 viewports mobile/tablet/desktop). Zero React SSR/CSR hydration warnings detected. MR #38 merged to main (commit f19482338bf93204c2de78d9177cb8bbdeff9a84).
+- event knowledge_recorded: Knowledge recorded: QT-021 verified: Responsive layout Playwright E2E test — 117/117 passing across 13 routes at 3 viewports. No horizontal overflow at any viewport. MR #39 merged to main (commit 99b19e9).
+- event knowledge_recorded: Knowledge recorded: QT-024 verified: Home page visual baseline — 3/3 Playwright screenshots captured (mobile/tablet/desktop) with VISUAL_REGRESSION=1. Baseline stored in e2e/visual-regression/home.spec.ts-snapshots/. MR #40 merged to main (commit 1b50006).
 
 Record durable project learning with:
 
@@ -463,6 +481,6 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-07-06T01:43:24.836Z.
+Generated by agent-spec-ops at 2026-07-06T03:14:34.748Z.
 <!-- agent-spec-ops:managed:end -->
 
