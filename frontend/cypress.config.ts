@@ -7,6 +7,14 @@ export default defineConfig({
     specPattern: "cypress/e2e/**/*.cy.ts",
     video: false,
     screenshotOnRunFailure: true,
+    setupNodeEvents(on) {
+      on("task", {
+        log(message) {
+          console.log("[CYPRESS]", message)
+          return null
+        },
+      })
+    },
   },
   viewportWidth: 390,
   viewportHeight: 844,
