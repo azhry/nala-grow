@@ -19,11 +19,11 @@ describe("Auth Flow", () => {
       cy.contains("button", "Google").should("be.visible")
     })
 
-    it("shows error on submit with no Supabase configured", () => {
-      cy.get("#email").type("test@example.com")
-      cy.get("#password").type("password123")
+    it("shows error for invalid credentials", () => {
+      cy.get("#email").type("nonexistent@example.com")
+      cy.get("#password").type("WrongPass123")
       cy.contains("button", "Login").click()
-      cy.contains("Supabase is not configured", { timeout: 8000 }).should("be.visible")
+      cy.contains("invalid email or password", { timeout: 8000 }).should("be.visible")
     })
 
     it("toggles password visibility", () => {
@@ -42,12 +42,6 @@ describe("Auth Flow", () => {
     it("navigates to signup page", () => {
       cy.contains("Create an account").click()
       cy.url().should("include", "/signup")
-    })
-
-    it("redirects to dashboard when authenticated", () => {
-      cy.visit("/login?redirect=/dashboard")
-      cy.get("#email").type("test@example.com")
-      cy.get("#password").type("password123")
     })
   })
 
@@ -81,12 +75,13 @@ describe("Auth Flow", () => {
       cy.contains("Please accept the Terms of Service").should("be.visible")
     })
 
-    it("shows error on submit with no Supabase configured", () => {
-      cy.get("#email").type("test@example.com")
-      cy.get("#password").type("password123")
+    it("creates account and redirects to dashboard", () => {
+      const freshEmail = `e2e-signup-${Date.now()}@example.com`
+      cy.get("#email").type(freshEmail)
+      cy.get("#password").type("TestPass123")
       cy.get("#terms").check()
       cy.contains("button", "Create Account").click()
-      cy.contains("Supabase is not configured", { timeout: 8000 }).should("be.visible")
+      cy.url({ timeout: 10000 }).should("include", "/dashboard")
     })
 
     it("navigates to login page", () => {
@@ -112,10 +107,10 @@ describe("Auth Flow", () => {
       cy.contains("Back to login").should("be.visible")
     })
 
-    it("shows error on submit with no Supabase configured", () => {
+    it("shows success message after submitting email", () => {
       cy.get("#reset-email").type("test@example.com")
       cy.contains("button", "Send Reset Link").click()
-      cy.contains("Supabase is not configured", { timeout: 8000 }).should("be.visible")
+      cy.contains("Check Your Email", { timeout: 8000 }).should("be.visible")
     })
 
     it("navigates to login page", () => {
