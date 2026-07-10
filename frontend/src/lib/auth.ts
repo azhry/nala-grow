@@ -1,9 +1,19 @@
 "use client"
 
-import { createBrowserClient } from "@supabase/ssr"
-import type { Session, User } from "@supabase/supabase-js"
 import { ApiError } from "./api-client"
 import { useAppStore } from "./store"
+import {
+  login as gqlLogin,
+  signup as gqlSignup,
+  loginWithGoogle as gqlLoginWithGoogle,
+  requestPasswordReset as gqlRequestPasswordReset,
+  resetPassword as gqlResetPassword,
+  getMe as gqlGetMe,
+  setAuthToken,
+  clearAuthToken,
+} from "./graphql-client"
+import { GraphQLError } from "./graphql-types"
+import type { AuthResponse as GqlAuthResponse } from "./graphql-types"
 
 export interface AuthUser {
   id: string
@@ -15,73 +25,197 @@ export interface AuthSession {
   token: string
 }
 
-const SUPABASE_COOKIE_PATTERN = /^sb-.+-auth-token/
-const SESSION_DAYS = 30
+// ─── Token persistence ───────────────────────────────────────────────────────
 
-function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const TOKEN_KEY = "nalagrow-token"
 
-  if (!url || !anonKey) {
-    throw new ApiError(
-      500,
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-      "",
-    )
-  }
-
-  return { url, anonKey }
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(TOKEN_KEY)
 }
 
-export function getSupabaseClient() {
-  const { url, anonKey } = getSupabaseConfig()
+function storeToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+  setAuthToken(token)
+  useAppStore.getState().setToken(token)
+}
 
-  return createBrowserClient(url, anonKey, {
-    cookieOptions: {
-      maxAge: SESSION_DAYS * 24 * 60 * 60,
-      sameSite: "lax",
-    },
+function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+  clearAuthToken()
+  useAppStore.getState().setToken(null)
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+function mapGqlUserToAuthUser(gqlUser: {
+  id: string
+  email: string
+}): AuthUser {
+  return { id: gqlUser.id, email: gqlUser.email }
+}
+
+function persistAuthResponse(response: GqlAuthResponse): AuthSession {
+  storeToken(response.token)
+  const user = mapGqlUserToAuthUser(response.user)
+  useAppStore.getState().setUser(user)
+  return { user, token: response.token }
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export async function signInWithEmail(
+  email: string,
+  password: string,
+): Promise<AuthSession> {
+  try {
+    const response = await gqlLogin(email, password)
+    return persistAuthResponse(response)
+  } catch (err) {
+    if (err instanceof GraphQLError) {
+      throw new ApiError(401, err.message, "")
+    }
+    throw new ApiError(500, (err as Error).message, "")
+  }
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+): Promise<AuthSession> {
+  try {
+    const response = await gqlSignup(email, password)
+    return persistAuthResponse(response)
+  } catch (err) {
+    if (err instanceof GraphQLError) {
+      throw new ApiError(400, err.message, "")
+    }
+    throw new ApiError(500, (err as Error).message, "")
+  }
+}
+
+// ─── Google OAuth (GSI One Tap) ──────────────────────────────────────────────
+
+let gsiLoaded = false
+let gsiLoading: Promise<void> | null = null
+
+function loadGsiScript(): Promise<void> {
+  if (gsiLoaded) return Promise.resolve()
+  if (gsiLoading) return gsiLoading
+
+  gsiLoading = new Promise<void>((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("Cannot load GSI script: not in browser"))
+      return
+    }
+    const script = document.createElement("script")
+    script.src = "https://accounts.google.com/gsi/client"
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      gsiLoaded = true
+      resolve()
+    }
+    script.onerror = () => {
+      gsiLoading = null
+      reject(new Error("Failed to load Google Identity Services script"))
+    }
+    document.head.appendChild(script)
+  })
+
+  return gsiLoading
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+  if (!clientId) {
+    console.warn(
+      "Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID.",
+    )
+    return
+  }
+
+  await loadGsiScript()
+
+  return new Promise<void>((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const google = (window as any).google
+
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response: { credential: string }) => {
+        try {
+          const gqlResponse = await gqlLoginWithGoogle(response.credential)
+          persistAuthResponse(gqlResponse)
+          // Hard redirect to dashboard after successful Google sign-in
+          window.location.href = "/dashboard"
+        } catch (err) {
+          console.error("Google sign-in failed:", err)
+        }
+        resolve()
+      },
+      cancel_on_tap_outside: false,
+    })
+
+    google.accounts.id.prompt()
   })
 }
 
-function toAuthUser(user: User): AuthUser {
-  return {
-    id: user.id,
-    email: user.email ?? "",
+// ─── Password reset ──────────────────────────────────────────────────────────
+
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await gqlRequestPasswordReset(email)
+  } catch (err) {
+    if (err instanceof GraphQLError) {
+      throw new ApiError(400, err.message, "")
+    }
+    throw new ApiError(500, (err as Error).message, "")
   }
 }
 
-function persistSession(session: Session | null, user: User | null) {
-  const authUser = user ? toAuthUser(user) : null
-  useAppStore.getState().setUser(authUser)
-
-  return authUser && session
-    ? { user: authUser, token: session.access_token }
-    : null
+export async function updatePassword(
+  recoveryCode: string,
+  password: string,
+): Promise<void> {
+  try {
+    await gqlResetPassword(recoveryCode, password)
+  } catch (err) {
+    if (err instanceof GraphQLError) {
+      throw new ApiError(400, err.message, "")
+    }
+    throw new ApiError(500, (err as Error).message, "")
+  }
 }
 
-function throwApiError(message: string, status = 400): never {
-  throw new ApiError(status, message, "")
+// ─── Session management ──────────────────────────────────────────────────────
+
+export async function signOut(): Promise<void> {
+  clearStoredToken()
+  useAppStore.getState().setUser(null)
+  useAppStore.getState().setActiveBaby(null)
+  useAppStore.getState().setBabies([])
 }
 
 export async function getCurrentSession(): Promise<AuthSession | null> {
-  const {
-    data: { session },
-    error,
-  } = await getSupabaseClient().auth.getSession()
+  const token = getStoredToken()
+  if (!token) return null
 
-  if (error) throwApiError(error.message)
-  return session ? persistSession(session, session.user) : null
+  try {
+    const user = await gqlGetMe()
+    const authUser = mapGqlUserToAuthUser(user)
+    useAppStore.getState().setUser(authUser)
+    return { user: authUser, token }
+  } catch {
+    // Token is invalid or expired — clear it
+    clearStoredToken()
+    return null
+  }
 }
 
 export function getSessionToken(): string | null {
-  if (typeof document === "undefined") return null
-
-  const cookie = document.cookie
-    .split("; ")
-    .find((value) => SUPABASE_COOKIE_PATTERN.test(value.split("=")[0]))
-
-  return cookie ? decodeURIComponent(cookie.split("=")[1] ?? "") : null
+  return getStoredToken()
 }
 
 export function getSessionUser(): AuthUser | null {
@@ -89,104 +223,7 @@ export function getSessionUser(): AuthUser | null {
 }
 
 export function isAuthenticated(): boolean {
-  if (typeof document === "undefined") return false
-  return getSessionToken() !== null || getSessionUser() !== null
-}
-
-export async function signInWithEmail(
-  email: string,
-  password: string,
-): Promise<AuthSession> {
-  const { data, error } = await getSupabaseClient().auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) throwApiError(error.message)
-
-  const session = persistSession(data.session, data.user)
-  if (!session) throwApiError("Unable to start a Supabase session.")
-  return session
-}
-
-export async function signUpWithEmail(
-  email: string,
-  password: string,
-): Promise<AuthSession> {
-  const { data, error } = await getSupabaseClient().auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo:
-        typeof window === "undefined"
-          ? undefined
-          : `${window.location.origin}/dashboard`,
-    },
-  })
-
-  if (error) throwApiError(error.message)
-
-  const authUser = data.user ? toAuthUser(data.user) : null
-  if (authUser) useAppStore.getState().setUser(authUser)
-
-  return {
-    user: authUser ?? { id: "", email },
-    token: data.session?.access_token ?? "",
-  }
-}
-
-export async function signInWithGoogle() {
-  const { error } = await getSupabaseClient().auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo:
-        typeof window === "undefined"
-          ? undefined
-          : `${window.location.origin}/dashboard`,
-    },
-  })
-
-  if (error) throwApiError(error.message)
-}
-
-export async function resetPassword(email: string): Promise<void> {
-  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(
-    email,
-    {
-      redirectTo:
-        typeof window === "undefined"
-          ? undefined
-          : `${window.location.origin}/reset-password`,
-    },
-  )
-
-  if (error) throwApiError(error.message)
-}
-
-export async function updatePassword(
-  recoveryCode: string,
-  password: string,
-): Promise<void> {
-  const supabase = getSupabaseClient()
-
-  if (recoveryCode) {
-    const { data, error } =
-      await supabase.auth.exchangeCodeForSession(recoveryCode)
-
-    if (error) throwApiError(error.message)
-    persistSession(data.session, data.session?.user ?? null)
-  }
-
-  const { error } = await supabase.auth.updateUser({ password })
-  if (error) throwApiError(error.message)
-}
-
-export async function signOut() {
-  const { error } = await getSupabaseClient().auth.signOut()
-  if (error) throwApiError(error.message)
-
-  useAppStore.getState().setUser(null)
-  useAppStore.getState().setActiveBaby(null)
+  return getStoredToken() !== null
 }
 
 export { ApiError }
