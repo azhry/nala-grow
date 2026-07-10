@@ -105,6 +105,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
 
 interface AppState {
   user: { id: string; email: string } | null
+  token: string | null
   activeBaby: BabyProfile | null
   babies: BabyProfile[]
   measurements: Measurement[]
@@ -114,6 +115,7 @@ interface AppState {
   milestones: Milestone[]
   _hasHydrated: boolean
   setUser: (user: AppState["user"]) => void
+  setToken: (token: string | null) => void
   setActiveBaby: (baby: BabyProfile | null) => void
   setBabies: (babies: BabyProfile[]) => void
   addBaby: (baby: BabyProfile) => void
@@ -139,6 +141,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       user: null,
+      token: null,
       activeBaby: null,
       babies: [],
       measurements: [],
@@ -148,6 +151,7 @@ export const useAppStore = create<AppState>()(
       milestones: [],
       _hasHydrated: false,
       setUser: (user) => set({ user }),
+      setToken: (token) => set({ token }),
       setActiveBaby: (baby) => set({ activeBaby: baby }),
       setBabies: (babies) => set({ babies }),
       addBaby: (baby) =>
