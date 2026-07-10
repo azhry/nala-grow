@@ -1,8 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
+import {
+  createMeasurement,
+  updateMeasurement as updateMeasurementApi,
+  deleteMeasurement as deleteMeasurementApi,
+  fetchMeasurements,
+} from "@/lib/measurement-service"
 import { WhoChart, UnitToggle, MeasurementTable, MeasurementForm } from "@/components/growth"
 
 function generateId(): string {
@@ -54,6 +60,15 @@ export default function GrowthPage() {
   const deleteMeasurement = useAppStore((s) => s.deleteMeasurement)
   const setUnitSystem = useAppStore((s) => s.setUnitSystem)
 
+  const [fetched, setFetched] = useState(false)
+
+  useEffect(() => {
+    if (activeBaby?.id && !fetched) {
+      fetchMeasurements(activeBaby.id).catch(() => {})
+      setFetched(true)
+    }
+  }, [activeBaby?.id, fetched])
+
   const [showForm, setShowForm] = useState(false)
   const [editingMeasurement, setEditingMeasurement] = useState<Partial<Measurement> | undefined>(undefined)
 
@@ -78,12 +93,23 @@ export default function GrowthPage() {
 
   const handleSave = (data: Omit<Measurement, "id" | "baby_id">) => {
     if (editingMeasurement?.id) {
-      updateMeasurement(editingMeasurement.id, data)
-    } else {
-      addMeasurement({
+      const editId = editingMeasurement.id
+      updateMeasurementApi(editId, {
         ...data,
-        id: generateId(),
         baby_id: babyId,
+      }).catch(() => {
+        updateMeasurement(editId, data)
+      })
+    } else {
+      createMeasurement({
+        ...data,
+        baby_id: babyId,
+      }).catch(() => {
+        addMeasurement({
+          ...data,
+          id: generateId(),
+          baby_id: babyId,
+        })
       })
     }
     setShowForm(false)
@@ -96,7 +122,9 @@ export default function GrowthPage() {
   }
 
   const handleDelete = (id: string) => {
-    deleteMeasurement(id)
+    deleteMeasurementApi(id).catch(() => {
+      deleteMeasurement(id)
+    })
   }
 
   const openNewForm = () => {

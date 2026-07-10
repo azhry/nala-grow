@@ -53,7 +53,7 @@ jest.mock("@/lib/baby-service", () => ({
   updateBaby: (...args: any[]) => mockUpdateBaby(...args),
 }))
 
-jest.mock("@/lib/supabase-storage", () => ({
+jest.mock("@/lib/photo-utils", () => ({
   uploadBabyPhoto: (...args: any[]) => mockUploadBabyPhoto(...args),
 }))
 

@@ -8,6 +8,7 @@ import type {
   MilkType,
   FeedTemperature,
 } from "@/lib/store"
+import { createFeedSession, fetchFeedSessions } from "@/lib/feeding-service"
 import { DailySummary, FeedingTimeline } from "@/components/feeding"
 import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
@@ -28,6 +29,13 @@ export default function FeedingPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const feedSessions = useAppStore((s) => s.feedSessions)
   const addFeedSession = useAppStore((s) => s.addFeedSession)
+  const setFeedSessions = useAppStore((s) => s.setFeedSessions)
+
+  useEffect(() => {
+    if (activeBaby?.id) {
+      fetchFeedSessions(activeBaby.id).catch(() => {})
+    }
+  }, [activeBaby?.id, setFeedSessions])
 
   const babyId = activeBaby?.id ?? "sample"
   const babyName = activeBaby?.name ?? "Lily"
@@ -147,20 +155,33 @@ export default function FeedingPage() {
     return (Date.now() - lastFeedTime.getTime()) / 3600000
   }, [lastFeedTime])
 
-  const handleSaveBreast = () => {
+  const handleSaveBreast = async () => {
     const totalSec = leftSeconds + rightSeconds
     if (totalSec === 0 && manualDuration === 0) return
 
-    addFeedSession({
-      id: generateId(),
-      baby_id: babyId,
-      feed_type: "breast",
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      left_duration_sec: manualDuration > 0 ? manualDuration * 60 : leftSeconds,
-      right_duration_sec: manualDuration > 0 ? 0 : rightSeconds,
-      notes: breastNotes || undefined,
-    })
+    try {
+      await createFeedSession({
+        baby_id: babyId,
+        feed_type: "breast",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        left_duration_sec: manualDuration > 0 ? manualDuration * 60 : leftSeconds,
+        right_duration_sec: manualDuration > 0 ? 0 : rightSeconds,
+        notes: breastNotes || undefined,
+      })
+    } catch {
+      // Fall back to local-only save if backend unavailable
+      addFeedSession({
+        id: generateId(),
+        baby_id: babyId,
+        feed_type: "breast",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        left_duration_sec: manualDuration > 0 ? manualDuration * 60 : leftSeconds,
+        right_duration_sec: manualDuration > 0 ? 0 : rightSeconds,
+        notes: breastNotes || undefined,
+      })
+    }
 
     setRunningSide(null)
     setLeftSeconds(0)
@@ -169,18 +190,31 @@ export default function FeedingPage() {
     setBreastNotes("")
   }
 
-  const handleSaveBottle = () => {
-    addFeedSession({
-      id: generateId(),
-      baby_id: babyId,
-      feed_type: "bottle",
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      amount_ml: bottleAmount,
-      milk_type: milkType,
-      temperature,
-      notes: bottleNotes || undefined,
-    })
+  const handleSaveBottle = async () => {
+    try {
+      await createFeedSession({
+        baby_id: babyId,
+        feed_type: "bottle",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        amount_ml: bottleAmount,
+        milk_type: milkType,
+        temperature,
+        notes: bottleNotes || undefined,
+      })
+    } catch {
+      addFeedSession({
+        id: generateId(),
+        baby_id: babyId,
+        feed_type: "bottle",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        amount_ml: bottleAmount,
+        milk_type: milkType,
+        temperature,
+        notes: bottleNotes || undefined,
+      })
+    }
 
     setBottleAmount(120)
     setMilkType("breast_milk")
@@ -188,21 +222,35 @@ export default function FeedingPage() {
     setBottleNotes("")
   }
 
-  const handleSaveSolids = () => {
+  const handleSaveSolids = async () => {
     if (!foodName.trim()) return
 
-    addFeedSession({
-      id: generateId(),
-      baby_id: babyId,
-      feed_type: "solids",
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      food_name: foodName,
-      quantity: quantity || undefined,
-      quantity_unit: quantityUnit,
-      reaction: (reaction as FeedSession["reaction"]) || undefined,
-      notes: solidsNotes || undefined,
-    })
+    try {
+      await createFeedSession({
+        baby_id: babyId,
+        feed_type: "solids",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        food_name: foodName,
+        quantity: quantity || undefined,
+        quantity_unit: quantityUnit,
+        reaction: (reaction as FeedSession["reaction"]) || undefined,
+        notes: solidsNotes || undefined,
+      })
+    } catch {
+      addFeedSession({
+        id: generateId(),
+        baby_id: babyId,
+        feed_type: "solids",
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        food_name: foodName,
+        quantity: quantity || undefined,
+        quantity_unit: quantityUnit,
+        reaction: (reaction as FeedSession["reaction"]) || undefined,
+        notes: solidsNotes || undefined,
+      })
+    }
 
     setFoodName("")
     setQuantity(0)

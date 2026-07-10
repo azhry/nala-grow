@@ -4,6 +4,11 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useAppStore } from "@/lib/store"
 import type { SleepLocation } from "@/lib/store"
 import {
+  createSleepSession,
+  updateSleepSession as updateSleepSessionApi,
+  fetchSleepSessions,
+} from "@/lib/sleep-service"
+import {
   DailySleepSummary,
   SleepTimeline,
   SleepTimer,
@@ -26,6 +31,13 @@ export default function SleepPage() {
   const sleepSessions = useAppStore((s) => s.sleepSessions)
   const addSleepSession = useAppStore((s) => s.addSleepSession)
   const updateSleepSession = useAppStore((s) => s.updateSleepSession)
+  const setSleepSessions = useAppStore((s) => s.setSleepSessions)
+
+  useEffect(() => {
+    if (activeBaby?.id) {
+      fetchSleepSessions(activeBaby.id).catch(() => {})
+    }
+  }, [activeBaby?.id, setSleepSessions])
 
   const babyId = activeBaby?.id ?? "sample"
   const babyName = activeBaby?.name ?? "Lily"
@@ -62,12 +74,20 @@ export default function SleepPage() {
     setTimerRunning(true)
     setActiveTimerSessionId(id)
 
-    addSleepSession({
+    createSleepSession({
       id,
       baby_id: babyId,
       started_at: now,
       location: timerLocation,
       notes: timerNotes.trim() || undefined,
+    }).catch(() => {
+      addSleepSession({
+        id,
+        baby_id: babyId,
+        started_at: now,
+        location: timerLocation,
+        notes: timerNotes.trim() || undefined,
+      })
     })
   }, [babyId, timerLocation, timerNotes, addSleepSession])
 
@@ -75,7 +95,11 @@ export default function SleepPage() {
     if (!activeTimerSessionId) return
     const now = new Date().toISOString()
 
-    updateSleepSession(activeTimerSessionId, { ended_at: now })
+    updateSleepSessionApi(activeTimerSessionId, { started_at: undefined, ended_at: now }).catch(
+      () => {
+        updateSleepSession(activeTimerSessionId, { ended_at: now })
+      },
+    )
 
     setTimerRunning(false)
     setTimerElapsed(0)
@@ -86,13 +110,21 @@ export default function SleepPage() {
 
   const handleManualSave = useCallback(
     (data: { started_at: string; ended_at: string; location?: SleepLocation; notes?: string }) => {
-      addSleepSession({
-        id: generateId(),
+      createSleepSession({
         baby_id: babyId,
         started_at: data.started_at,
         ended_at: data.ended_at,
         location: data.location,
         notes: data.notes,
+      }).catch(() => {
+        addSleepSession({
+          id: generateId(),
+          baby_id: babyId,
+          started_at: data.started_at,
+          ended_at: data.ended_at,
+          location: data.location,
+          notes: data.notes,
+        })
       })
     },
     [babyId, addSleepSession],
