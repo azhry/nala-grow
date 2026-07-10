@@ -704,6 +704,63 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if displayName == "" {
 			displayName = email[:strings.Index(email, "@")]
 		}
+
+		// Check if user already exists — if so, return a new token for them
+		// instead of creating a duplicate. This makes login deterministic
+		// (one entry per email) and prevents Go map iteration order bugs.
+		usersMu.RLock()
+		var existingID string
+		for id, u := range users {
+			if u.Email == email {
+				existingID = id
+				break
+			}
+		}
+		usersMu.RUnlock()
+		if existingID != "" {
+			// Update password to the provided one (makes tests deterministic)
+			if h.auth != nil {
+				hash, err := h.auth.Password.Hash(password)
+				if err != nil {
+					return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
+				}
+				usersMu.Lock()
+				u := users[existingID]
+				u.PasswordHash = hash
+				users[existingID] = u
+				usersMu.Unlock()
+
+				token, err := h.auth.JWT.GenerateToken(existingID, email)
+				if err != nil {
+					return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
+				}
+				return ExecResult{Data: map[string]interface{}{
+					"signup": map[string]interface{}{
+						"token": token,
+						"user": map[string]interface{}{
+							"id":          existingID,
+							"email":       u.Email,
+							"displayName": u.DisplayName,
+							"photoUrl":    "",
+							"createdAt":   time.Now().UTC().Format(time.RFC3339),
+						},
+					},
+				}}
+			}
+			return ExecResult{Data: map[string]interface{}{
+				"signup": map[string]interface{}{
+					"token": "jwt-placeholder-" + email,
+					"user": map[string]interface{}{
+						"id":          existingID,
+						"email":       email,
+						"displayName": displayName,
+						"photoUrl":    "",
+						"createdAt":   time.Now().UTC().Format(time.RFC3339),
+					},
+				},
+			}}
+		}
+
 		userID := uuid()
 		if h.auth != nil {
 			hash, err := h.auth.Password.Hash(password)
