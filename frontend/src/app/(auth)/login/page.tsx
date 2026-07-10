@@ -1,8 +1,7 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signInWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
 
@@ -28,9 +27,11 @@ function getSafeRedirect(redirect: string | null) {
 }
 
 function LoginForm() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirectTo = getSafeRedirect(searchParams.get("redirect"))
+  let redirectTo = "/dashboard"
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search)
+    redirectTo = getSafeRedirect(params.get("redirect"))
+  }
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -44,13 +45,10 @@ function LoginForm() {
     setLoading(true)
     try {
       await signInWithEmail(email, password)
-      router.push(redirectTo)
+      window.location.href = redirectTo
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError("Something went wrong. Please try again.")
-      }
+      const msg = err instanceof ApiError ? err.message : "Something went wrong. Please try again."
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -144,7 +142,7 @@ function LoginForm() {
             </div>
 
             {error && (
-              <p className="ml-1 font-body-sm text-body-sm text-error">
+              <p data-testid="login-error" className="ml-1 font-body-sm text-body-sm text-error">
                 {error}
               </p>
             )}
@@ -208,15 +206,5 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-surface">
-          <Spinner size="lg" className="text-primary" />
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
-  )
+  return <LoginForm />
 }

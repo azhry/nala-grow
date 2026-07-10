@@ -9,169 +9,191 @@ import {
   signUpWithEmail,
   updatePassword,
 } from "../auth"
+import type { AuthResponse } from "../graphql-types"
 
-const mockAuth = {
-  getSession: jest.fn(),
-  exchangeCodeForSession: jest.fn(),
-  resetPasswordForEmail: jest.fn(),
-  signInWithOAuth: jest.fn(),
-  signInWithPassword: jest.fn(),
-  signOut: jest.fn(),
-  signUp: jest.fn(),
-  updateUser: jest.fn(),
-}
+// ─── GraphQL client mocks ────────────────────────────────────────────────────
+
+const mockLogin = jest.fn()
+const mockSignup = jest.fn()
+const mockLoginWithGoogle = jest.fn()
+const mockRequestPasswordReset = jest.fn()
+const mockResetPassword = jest.fn()
+const mockGetMe = jest.fn()
+const mockSetAuthToken = jest.fn()
+const mockClearAuthToken = jest.fn()
+
+jest.mock("../graphql-client", () => ({
+  login: (...args: unknown[]) => mockLogin(...args),
+  signup: (...args: unknown[]) => mockSignup(...args),
+  loginWithGoogle: (...args: unknown[]) => mockLoginWithGoogle(...args),
+  requestPasswordReset: (...args: unknown[]) => mockRequestPasswordReset(...args),
+  resetPassword: (...args: unknown[]) => mockResetPassword(...args),
+  getMe: (...args: unknown[]) => mockGetMe(...args),
+  setAuthToken: (...args: unknown[]) => mockSetAuthToken(...args),
+  clearAuthToken: (...args: unknown[]) => mockClearAuthToken(...args),
+}))
+
+// ─── Store mock ──────────────────────────────────────────────────────────────
 
 const mockSetUser = jest.fn()
+const mockSetToken = jest.fn()
 const mockSetActiveBaby = jest.fn()
-let mockUser: { id: string; email: string } | null = null
-
-jest.mock("@supabase/ssr", () => ({
-  createBrowserClient: jest.fn(() => ({
-    auth: mockAuth,
-  })),
-}))
+const mockSetBabies = jest.fn()
+let mockUserValue: { id: string; email: string } | null = null
 
 jest.mock("../store", () => ({
   useAppStore: {
     getState: () => ({
-      user: mockUser,
+      user: mockUserValue,
       setUser: mockSetUser,
+      setToken: mockSetToken,
       setActiveBaby: mockSetActiveBaby,
+      setBabies: mockSetBabies,
     }),
   },
 }))
 
+// ─── Test data ───────────────────────────────────────────────────────────────
+
 const sessionUser = { id: "user-1", email: "test@test.com" }
-const session = { access_token: "supabase-token", user: sessionUser }
+const authResponse: AuthResponse = {
+  token: "gql-token-123",
+  user: { ...sessionUser, displayName: "", photoUrl: "", createdAt: "" },
+}
+
+const TOKEN_KEY = "nalagrow-token"
 
 describe("auth service", () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUser = null
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key"
-    Object.defineProperty(document, "cookie", {
-      configurable: true,
-      writable: true,
-      value: "",
-    })
+    mockUserValue = null
+    localStorage.clear()
   })
 
   describe("signInWithEmail", () => {
-    it("uses Supabase email/password auth and persists the session user", async () => {
-      mockAuth.signInWithPassword.mockResolvedValue({
-        data: { session, user: sessionUser },
-        error: null,
-      })
+    it("calls GraphQL login and persists the session", async () => {
+      mockLogin.mockResolvedValue(authResponse)
 
       const result = await signInWithEmail("test@test.com", "password123")
 
-      expect(mockAuth.signInWithPassword).toHaveBeenCalledWith({
-        email: "test@test.com",
-        password: "password123",
-      })
+      expect(mockLogin).toHaveBeenCalledWith("test@test.com", "password123")
+      expect(localStorage.getItem(TOKEN_KEY)).toBe("gql-token-123")
+      expect(mockSetAuthToken).toHaveBeenCalledWith("gql-token-123")
+      expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
-      expect(result).toEqual({ user: sessionUser, token: "supabase-token" })
+      expect(result).toEqual({ user: sessionUser, token: "gql-token-123" })
+    })
+
+    it("wraps GraphQLError into ApiError", async () => {
+      const { GraphQLError } = await import("../graphql-types")
+      mockLogin.mockRejectedValue(
+        new GraphQLError([{ message: "Invalid credentials" }]),
+      )
+
+      await expect(
+        signInWithEmail("bad@test.com", "wrong"),
+      ).rejects.toThrow(/Invalid credentials/)
     })
   })
 
   describe("signUpWithEmail", () => {
-    it("uses Supabase signup with a dashboard redirect", async () => {
-      mockAuth.signUp.mockResolvedValue({
-        data: { session, user: sessionUser },
-        error: null,
-      })
+    it("calls GraphQL signup and persists the session", async () => {
+      mockSignup.mockResolvedValue(authResponse)
 
-      await signUpWithEmail("new@test.com", "password123")
+      const result = await signUpWithEmail("new@test.com", "password123")
 
-      expect(mockAuth.signUp).toHaveBeenCalledWith({
-        email: "new@test.com",
-        password: "password123",
-        options: { emailRedirectTo: "http://localhost/dashboard" },
-      })
+      expect(mockSignup).toHaveBeenCalledWith(
+        "new@test.com",
+        "password123",
+      )
+      expect(localStorage.getItem(TOKEN_KEY)).toBe("gql-token-123")
+      expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
+      expect(result).toEqual({ user: sessionUser, token: "gql-token-123" })
     })
   })
 
   describe("signInWithGoogle", () => {
-    it("starts Supabase Google OAuth with a dashboard redirect", async () => {
-      mockAuth.signInWithOAuth.mockResolvedValue({ data: {}, error: null })
+    it("warns when GOOGLE_CLIENT_ID is not configured", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation()
 
+      delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
       await signInWithGoogle()
 
-      expect(mockAuth.signInWithOAuth).toHaveBeenCalledWith({
-        provider: "google",
-        options: { redirectTo: "http://localhost/dashboard" },
-      })
+      expect(warnSpy).toHaveBeenCalledWith(
+        "Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID.",
+      )
+      warnSpy.mockRestore()
     })
   })
 
   describe("resetPassword", () => {
-    it("uses Supabase password reset email with reset redirect", async () => {
-      mockAuth.resetPasswordForEmail.mockResolvedValue({
-        data: {},
-        error: null,
-      })
+    it("calls GraphQL requestPasswordReset", async () => {
+      mockRequestPasswordReset.mockResolvedValue(true)
 
       await resetPassword("test@test.com")
 
-      expect(mockAuth.resetPasswordForEmail).toHaveBeenCalledWith(
-        "test@test.com",
-        { redirectTo: "http://localhost/reset-password" },
+      expect(mockRequestPasswordReset).toHaveBeenCalledWith("test@test.com")
+    })
+
+    it("wraps GraphQLError into ApiError", async () => {
+      const { GraphQLError } = await import("../graphql-types")
+      mockRequestPasswordReset.mockRejectedValue(
+        new GraphQLError([{ message: "Email not found" }]),
+      )
+
+      await expect(resetPassword("unknown@test.com")).rejects.toThrow(
+        /Email not found/,
       )
     })
   })
 
   describe("updatePassword", () => {
-    it("exchanges a recovery code before updating the password", async () => {
-      mockAuth.exchangeCodeForSession.mockResolvedValue({
-        data: { session },
-        error: null,
-      })
-      mockAuth.updateUser.mockResolvedValue({ data: {}, error: null })
+    it("calls GraphQL resetPassword with recovery code and new password", async () => {
+      mockResetPassword.mockResolvedValue(true)
 
       await updatePassword("recovery-code", "newpassword123")
 
-      expect(mockAuth.exchangeCodeForSession).toHaveBeenCalledWith(
+      expect(mockResetPassword).toHaveBeenCalledWith(
         "recovery-code",
+        "newpassword123",
       )
-      expect(mockAuth.updateUser).toHaveBeenCalledWith({
-        password: "newpassword123",
-      })
     })
   })
 
   describe("signOut", () => {
-    it("signs out through Supabase and clears local app state", async () => {
-      mockAuth.signOut.mockResolvedValue({ error: null })
+    it("clears token from localStorage and resets store state", async () => {
+      localStorage.setItem(TOKEN_KEY, "some-token")
 
       await signOut()
 
-      expect(mockAuth.signOut).toHaveBeenCalled()
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+      expect(mockClearAuthToken).toHaveBeenCalled()
+      expect(mockSetToken).toHaveBeenCalledWith(null)
       expect(mockSetUser).toHaveBeenCalledWith(null)
       expect(mockSetActiveBaby).toHaveBeenCalledWith(null)
+      expect(mockSetBabies).toHaveBeenCalledWith([])
     })
   })
 
   describe("getSessionToken", () => {
-    it("returns null when no Supabase auth cookie exists", () => {
+    it("returns null when no token exists", () => {
       expect(getSessionToken()).toBeNull()
     })
 
-    it("returns the Supabase auth cookie payload when present", () => {
-      document.cookie =
-        "sb-project-ref-auth-token=%7B%22access_token%22%3A%22abc%22%7D"
-      expect(getSessionToken()).toBe('{"access_token":"abc"}')
+    it("returns the token from localStorage when present", () => {
+      localStorage.setItem(TOKEN_KEY, "my-jwt-token")
+      expect(getSessionToken()).toBe("my-jwt-token")
     })
   })
 
   describe("isAuthenticated", () => {
-    it("returns false when there is no Supabase cookie or user", () => {
+    it("returns false when there is no token in localStorage", () => {
       expect(isAuthenticated()).toBe(false)
     })
 
-    it("returns true when the store has a Supabase user", () => {
-      mockUser = sessionUser
+    it("returns true when a token exists in localStorage", () => {
+      localStorage.setItem(TOKEN_KEY, "some-token")
       expect(isAuthenticated()).toBe(true)
     })
   })
