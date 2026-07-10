@@ -1,9 +1,15 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useAppStore } from "@/lib/store"
 import type { Milestone, MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
 import { MILESTONE_DEFINITIONS } from "@/lib/store"
+import {
+  createMilestone,
+  updateMilestone as updateMilestoneApi,
+  deleteMilestone as deleteMilestoneApi,
+  fetchMilestones,
+} from "@/lib/milestone-service"
 import {
   MilestoneCategoryChips,
   MilestoneTimeline,
@@ -23,6 +29,13 @@ export default function MilestonesPage() {
   const addMilestone = useAppStore((s) => s.addMilestone)
   const updateMilestone = useAppStore((s) => s.updateMilestone)
   const deleteMilestone = useAppStore((s) => s.deleteMilestone)
+  const setMilestones = useAppStore((s) => s.setMilestones)
+
+  useEffect(() => {
+    if (activeBaby?.id) {
+      fetchMilestones(activeBaby.id).catch(() => {})
+    }
+  }, [activeBaby?.id, setMilestones])
 
   const babyId = activeBaby?.id ?? "sample"
   const babyName = activeBaby?.name ?? "Lily"
@@ -85,20 +98,35 @@ export default function MilestonesPage() {
       )
 
       if (existing) {
-        updateMilestone(existing.id, { achieved: true, achieved_date: now })
+        updateMilestoneApi(existing.id, {
+          achieved: true,
+          achieved_date: now,
+          title: existing.title,
+        }).catch(() => {
+          updateMilestone(existing.id, { achieved: true, achieved_date: now })
+        })
       } else {
         const def = MILESTONE_DEFINITIONS.find((d) => d.id === id)
         if (def) {
-          addMilestone({
-            id: generateId(),
+          createMilestone({
             baby_id: babyId,
-            definition_id: def.id,
             title: def.title,
             category: def.category,
-            age_range: def.age_range,
             achieved: true,
             achieved_date: now,
             is_custom: false,
+          }).catch(() => {
+            addMilestone({
+              id: generateId(),
+              baby_id: babyId,
+              definition_id: def.id,
+              title: def.title,
+              category: def.category,
+              age_range: def.age_range,
+              achieved: true,
+              achieved_date: now,
+              is_custom: false,
+            })
           })
         }
       }
@@ -108,22 +136,32 @@ export default function MilestonesPage() {
 
   const handleDelete = useCallback(
     (id: string) => {
-      deleteMilestone(id)
+      deleteMilestoneApi(id).catch(() => {
+        deleteMilestone(id)
+      })
     },
     [deleteMilestone],
   )
 
   const handleCustomSave = useCallback(
     (data: { title: string; category: MilestoneCategory; age_range: MilestoneAgeRange; notes?: string }) => {
-      addMilestone({
-        id: generateId(),
+      createMilestone({
         baby_id: babyId,
         title: data.title,
         category: data.category,
-        age_range: data.age_range,
-        achieved: false,
-        notes: data.notes,
         is_custom: true,
+        notes: data.notes,
+      }).catch(() => {
+        addMilestone({
+          id: generateId(),
+          baby_id: babyId,
+          title: data.title,
+          category: data.category,
+          age_range: data.age_range,
+          achieved: false,
+          notes: data.notes,
+          is_custom: true,
+        })
       })
       setShowForm(false)
     },

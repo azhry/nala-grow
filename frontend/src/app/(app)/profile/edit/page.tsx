@@ -6,7 +6,7 @@ import { PhotoUpload, Spinner, SuccessOverlay } from "@/components/ui"
 import { updateBaby } from "@/lib/baby-service"
 import { useAppStore } from "@/lib/store"
 import { ApiError } from "@/lib/api-client"
-import { uploadBabyPhoto } from "@/lib/supabase-storage"
+import { uploadBabyPhoto } from "@/lib/photo-utils"
 
 function EditProfileForm() {
   const router = useRouter()

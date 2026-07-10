@@ -121,16 +121,20 @@ interface AppState {
   addBaby: (baby: BabyProfile) => void
   updateBaby: (id: string, data: Partial<BabyProfile>) => void
   deleteBaby: (id: string) => void
+  setMeasurements: (measurements: Measurement[]) => void
   addMeasurement: (m: Measurement) => void
   updateMeasurement: (id: string, data: Partial<Measurement>) => void
   deleteMeasurement: (id: string) => void
   setUnitSystem: (unit: UnitSystem) => void
+  setFeedSessions: (sessions: FeedSession[]) => void
   addFeedSession: (session: FeedSession) => void
   updateFeedSession: (id: string, data: Partial<FeedSession>) => void
   deleteFeedSession: (id: string) => void
+  setSleepSessions: (sessions: SleepSession[]) => void
   addSleepSession: (session: SleepSession) => void
   updateSleepSession: (id: string, data: Partial<SleepSession>) => void
   deleteSleepSession: (id: string) => void
+  setMilestones: (milestones: Milestone[]) => void
   addMilestone: (milestone: Milestone) => void
   updateMilestone: (id: string, data: Partial<Milestone>) => void
   deleteMilestone: (id: string) => void
@@ -172,6 +176,7 @@ export const useAppStore = create<AppState>()(
           activeBaby:
             state.activeBaby?.id === id ? null : state.activeBaby,
         })),
+      setMeasurements: (measurements) => set({ measurements }),
       addMeasurement: (m) =>
         set((state) => ({ measurements: [...state.measurements, m] })),
       updateMeasurement: (id, data) =>
@@ -185,6 +190,7 @@ export const useAppStore = create<AppState>()(
           measurements: state.measurements.filter((m) => m.id !== id),
         })),
       setUnitSystem: (unit) => set({ unitSystem: unit }),
+      setFeedSessions: (sessions) => set({ feedSessions: sessions }),
       addFeedSession: (session) =>
         set((state) => ({ feedSessions: [...state.feedSessions, session] })),
       updateFeedSession: (id, data) =>
@@ -197,6 +203,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           feedSessions: state.feedSessions.filter((s) => s.id !== id),
         })),
+      setSleepSessions: (sessions) => set({ sleepSessions: sessions }),
       addSleepSession: (session) =>
         set((state) => ({ sleepSessions: [...state.sleepSessions, session] })),
       updateSleepSession: (id, data) =>
@@ -209,6 +216,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           sleepSessions: state.sleepSessions.filter((s) => s.id !== id),
         })),
+      setMilestones: (milestones) => set({ milestones }),
       addMilestone: (milestone) =>
         set((state) => ({ milestones: [...state.milestones, milestone] })),
       updateMilestone: (id, data) =>
