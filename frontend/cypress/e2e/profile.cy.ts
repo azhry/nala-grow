@@ -145,14 +145,14 @@ describe("CE-008: Profile Management E2E (real backend)", () => {
   describe("Bottom tab navigation", () => {
     it("navigates to profile via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Profile").click()
+      cy.get("nav.md\\:hidden").contains("Profile").click()
       cy.url({ timeout: 10000 }).should("include", "/profile")
       cy.contains("h1", "Manage Profiles").should("be.visible")
     })
 
     it("profile tab is highlighted when on profile page", () => {
       cy.visit("/profile/manage")
-      cy.get("nav").within(() => {
+      cy.get("nav.md\\:hidden").within(() => {
         cy.contains("Profile").closest("a")
           .should("have.attr", "class")
           .and("match", /bg-primary-container/)

@@ -352,7 +352,7 @@ describe("CE-009: Export E2E (real backend)", () => {
   describe("Navigation", () => {
     it("navigates to export page via bottom tab nav Profile link", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Profile").click()
+      cy.get("nav.md\\:hidden").contains("Profile").click()
       cy.url({ timeout: 10000 }).should("include", "/profile")
     })
 

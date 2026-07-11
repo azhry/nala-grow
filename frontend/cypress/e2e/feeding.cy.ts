@@ -279,7 +279,7 @@ describe("CE-004: Feeding Log E2E (real backend)", () => {
   describe("Navigation", () => {
     it("navigates to feeding page via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Feeding").click()
+      cy.get("nav.md\\:hidden").contains("Feeding").click()
       cy.url({ timeout: 10000 }).should("include", "/feeding")
       cy.contains("h1", "Feeding Log").should("be.visible")
     })
@@ -292,7 +292,7 @@ describe("CE-004: Feeding Log E2E (real backend)", () => {
 
     it("feeding tab is highlighted when on feeding page", () => {
       cy.visit("/feeding")
-      cy.get("nav").within(() => {
+      cy.get("nav.md\\:hidden").within(() => {
         cy.contains("Feeding").closest("a")
           .should("have.attr", "class")
           .and("match", /bg-primary-container/)

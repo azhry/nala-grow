@@ -107,57 +107,57 @@ describe("CE-011: Navigation E2E with Backend", () => {
     it("has all 6 bottom tab links", () => {
       const tabs = ["Home", "Growth", "Feeding", "Sleep", "Milestones", "Profile"];
       tabs.forEach((label) => {
-        cy.get("nav").contains("a", label).should("exist");
+        cy.get("nav.md\\:hidden").contains("a", label).should("exist");
       });
     });
 
     it("Home tab is active on dashboard", () => {
-      cy.get("nav").contains("a", "Home").should("have.class", "bg-primary-container");
+      cy.get("nav.md\\:hidden").contains("a", "Home").should("have.class", "bg-primary-container");
     });
 
     it("navigates to Growth page and back", () => {
-      cy.get("nav").contains("a", "Growth").click();
+      cy.get("nav.md\\:hidden").contains("a", "Growth").click();
       cy.url().should("include", "/growth");
       cy.contains("h1", /Growth Tracking/).should("be.visible");
-      cy.get("nav").contains("a", "Home").click();
+      cy.get("nav.md\\:hidden").contains("a", "Home").click();
       cy.url().should("include", "/dashboard");
     });
 
     it("navigates to Feeding page and back", () => {
-      cy.get("nav").contains("a", "Feeding").click();
+      cy.get("nav.md\\:hidden").contains("a", "Feeding").click();
       cy.url().should("include", "/feeding");
       cy.contains("h1", "Feeding Log").should("be.visible");
-      cy.get("nav").contains("a", "Home").click();
+      cy.get("nav.md\\:hidden").contains("a", "Home").click();
       cy.url().should("include", "/dashboard");
     });
 
     it("navigates to Sleep page and back", () => {
-      cy.get("nav").contains("a", "Sleep").click();
+      cy.get("nav.md\\:hidden").contains("a", "Sleep").click();
       cy.url().should("include", "/sleep");
       cy.contains("h1", "Sleep Tracking").should("be.visible");
-      cy.get("nav").contains("a", "Home").click();
+      cy.get("nav.md\\:hidden").contains("a", "Home").click();
       cy.url().should("include", "/dashboard");
     });
 
     it("navigates to Milestones page and back", () => {
-      cy.get("nav").contains("a", "Milestones").click();
+      cy.get("nav.md\\:hidden").contains("a", "Milestones").click();
       cy.url().should("include", "/milestones");
       cy.contains("h1", "Milestones").should("be.visible");
-      cy.get("nav").contains("a", "Home").click();
+      cy.get("nav.md\\:hidden").contains("a", "Home").click();
       cy.url().should("include", "/dashboard");
     });
 
     it("navigates to Profile page", () => {
-      cy.get("nav").contains("a", "Profile").click({ force: true });
+      cy.get("nav.md\\:hidden").contains("a", "Profile").click({ force: true });
       cy.url().should("match", /\/profile/);
     });
 
     it("only highlights the active tab at a time", () => {
-      cy.get("nav").contains("a", "Home").should("have.class", "bg-primary-container");
-      cy.get("nav").contains("a", "Growth").click();
+      cy.get("nav.md\\:hidden").contains("a", "Home").should("have.class", "bg-primary-container");
+      cy.get("nav.md\\:hidden").contains("a", "Growth").click();
       cy.url().should("include", "/growth");
-      cy.get("nav").contains("a", "Growth").should("have.class", "bg-primary-container");
-      cy.get("nav").contains("a", "Home").should("not.have.class", "bg-primary-container");
+      cy.get("nav.md\\:hidden").contains("a", "Growth").should("have.class", "bg-primary-container");
+      cy.get("nav.md\\:hidden").contains("a", "Home").should("not.have.class", "bg-primary-container");
     });
   });
 
@@ -279,7 +279,7 @@ describe("CE-011: Navigation E2E with Backend", () => {
     it("shows bottom tabs on mobile (390px)", () => {
       cy.viewport(390, 844);
       cy.visit("/dashboard");
-      cy.get("nav").should("be.visible");
+      cy.get("nav.md\\:hidden").should("be.visible");
       cy.get("aside").should("not.be.visible");
     });
 

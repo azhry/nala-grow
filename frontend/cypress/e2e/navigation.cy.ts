@@ -83,51 +83,51 @@ describe("CE-011: Navigation E2E Tests", () => {
     it("renders all 6 bottom tab links", () => {
       const tabs = ["Home", "Growth", "Feeding", "Sleep", "Milestones", "Profile"]
       tabs.forEach((label) => {
-        cy.get("nav").contains("a", label).should("exist")
+        cy.get("nav.md\\:hidden").contains("a", label).should("exist")
       })
     })
 
     it("has Home active by default on /dashboard", () => {
-      cy.get("nav").contains("a", "Home").should("have.class", "bg-primary-container")
+      cy.get("nav.md\\:hidden").contains("a", "Home").should("have.class", "bg-primary-container")
     })
 
     it("navigates to /growth when clicking Growth tab", () => {
-      cy.get("nav").contains("a", "Growth").click()
+      cy.get("nav.md\\:hidden").contains("a", "Growth").click()
       cy.url().should("include", "/growth")
     })
 
     it("navigates to /feeding when clicking Feeding tab", () => {
-      cy.get("nav").contains("a", "Feeding").click()
+      cy.get("nav.md\\:hidden").contains("a", "Feeding").click()
       cy.url().should("include", "/feeding")
     })
 
     it("navigates to /sleep when clicking Sleep tab", () => {
-      cy.get("nav").contains("a", "Sleep").click()
+      cy.get("nav.md\\:hidden").contains("a", "Sleep").click()
       cy.url().should("include", "/sleep")
     })
 
     it("navigates to /milestones when clicking Milestones tab", () => {
-      cy.get("nav").contains("a", "Milestones").click()
+      cy.get("nav.md\\:hidden").contains("a", "Milestones").click()
       cy.url().should("include", "/milestones")
     })
 
     it("navigates to /profile when clicking Profile tab", () => {
-      cy.get("nav").contains("a", "Profile").click({ force: true })
+      cy.get("nav.md\\:hidden").contains("a", "Profile").click({ force: true })
       cy.url().should("include", "/profile")
     })
 
     it("navigates back to /dashboard when clicking Home tab", () => {
-      cy.get("nav").contains("a", "Growth").click()
+      cy.get("nav.md\\:hidden").contains("a", "Growth").click()
       cy.url().should("include", "/growth")
-      cy.get("nav").contains("a", "Home").click()
+      cy.get("nav.md\\:hidden").contains("a", "Home").click()
       cy.url().should("include", "/dashboard")
     })
 
     it("highlights only the active tab", () => {
-      cy.get("nav").contains("a", "Home").should("have.class", "bg-primary-container")
+      cy.get("nav.md\\:hidden").contains("a", "Home").should("have.class", "bg-primary-container")
       const inactiveTabs = ["Growth", "Feeding", "Sleep", "Milestones", "Profile"]
       inactiveTabs.forEach((label) => {
-        cy.get("nav").contains("a", label).should("not.have.class", "bg-primary-container")
+        cy.get("nav.md\\:hidden").contains("a", label).should("not.have.class", "bg-primary-container")
       })
     })
   })
@@ -273,7 +273,7 @@ describe("CE-011: Navigation E2E Tests", () => {
     it("shows BottomTabNav on mobile viewport", () => {
       cy.viewport(390, 844)
       cy.visit("/dashboard")
-      cy.get("nav").should("be.visible")
+      cy.get("nav.md\\:hidden").should("be.visible")
       cy.get("aside").should("not.be.visible")
     })
 

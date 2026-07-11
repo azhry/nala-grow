@@ -124,16 +124,16 @@ describe("CE-003: Dashboard E2E (real backend)", () => {
   describe("Bottom tab navigation", () => {
     it("navigates via bottom tab nav links", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Home").should("be.visible")
-      cy.get("nav").contains("Feeding").should("be.visible")
-      cy.get("nav").contains("Sleep").should("be.visible")
-      cy.get("nav").contains("Milestones").should("be.visible")
-      cy.get("nav").contains("Profile").should("be.visible")
+      cy.get("nav.md\\:hidden").contains("Home").should("be.visible")
+      cy.get("nav.md\\:hidden").contains("Feeding").should("be.visible")
+      cy.get("nav.md\\:hidden").contains("Sleep").should("be.visible")
+      cy.get("nav.md\\:hidden").contains("Milestones").should("be.visible")
+      cy.get("nav.md\\:hidden").contains("Profile").should("be.visible")
     })
 
     it("highlights Home tab when on dashboard", () => {
       cy.visit("/dashboard")
-      cy.get("nav").within(() => {
+      cy.get("nav.md\\:hidden").within(() => {
         cy.contains("Home").closest("a")
           .should("have.attr", "class")
           .and("match", /bg-primary-container/)
@@ -142,7 +142,7 @@ describe("CE-003: Dashboard E2E (real backend)", () => {
 
     it("navigates to feeding page via bottom tab", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Feeding").click()
+      cy.get("nav.md\\:hidden").contains("Feeding").click()
       cy.url({ timeout: 10000 }).should("include", "/feeding")
       cy.contains("h1", "Feeding Log").should("be.visible")
     })
