@@ -207,37 +207,41 @@ export async function signup(
   password: string,
   displayName?: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(SIGNUP_MUTATION, {
-    email,
-    password,
-    displayName: displayName ?? undefined,
-  })
+  return execute<AuthResponse>(
+    SIGNUP_MUTATION,
+    {
+      email,
+      password,
+      displayName: displayName ?? undefined,
+    },
+    { auth: false },
+  )
 }
 
 export async function login(
   email: string,
   password: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(LOGIN_MUTATION, { email, password })
+  return execute<AuthResponse>(LOGIN_MUTATION, { email, password }, { auth: false })
 }
 
 export async function loginWithGoogle(
   idToken: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(LOGIN_GOOGLE_MUTATION, { idToken })
+  return execute<AuthResponse>(LOGIN_GOOGLE_MUTATION, { idToken }, { auth: false })
 }
 
 export async function requestPasswordReset(
   email: string
 ): Promise<boolean> {
-  return execute<boolean>(REQUEST_PASSWORD_RESET_MUTATION, { email })
+  return execute<boolean>(REQUEST_PASSWORD_RESET_MUTATION, { email }, { auth: false })
 }
 
 export async function resetPassword(
   token: string,
   newPassword: string
 ): Promise<boolean> {
-  return execute<boolean>(RESET_PASSWORD_MUTATION, { token, newPassword })
+  return execute<boolean>(RESET_PASSWORD_MUTATION, { token, newPassword }, { auth: false })
 }
 
 export async function getMe(): Promise<AuthUser> {

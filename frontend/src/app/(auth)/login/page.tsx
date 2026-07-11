@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signInWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
 
@@ -27,11 +28,7 @@ function getSafeRedirect(redirect: string | null) {
 }
 
 function LoginForm() {
-  let redirectTo = "/dashboard"
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search)
-    redirectTo = getSafeRedirect(params.get("redirect"))
-  }
+  const router = useRouter()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -39,13 +36,19 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  function getRedirect(): string {
+    if (typeof window === "undefined") return "/dashboard"
+    const params = new URLSearchParams(window.location.search)
+    return getSafeRedirect(params.get("redirect"))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     setLoading(true)
     try {
       await signInWithEmail(email, password)
-      window.location.href = redirectTo
+      router.push(getRedirect())
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Something went wrong. Please try again."
       setError(msg)
