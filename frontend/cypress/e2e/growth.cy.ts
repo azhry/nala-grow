@@ -176,13 +176,13 @@ describe("CE-006: Growth Tracking E2E (real backend)", () => {
   describe("Navigation", () => {
     it("navigates to growth page via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Milestones").click()
+      cy.get("nav.md\\:hidden").contains("Milestones").click()
       cy.url({ timeout: 10000 }).should("include", "/milestones")
     })
 
     it("navigates to growth page via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Milestones").click()
+      cy.get("nav.md\\:hidden").contains("Milestones").click()
       cy.visit("/growth")
       cy.contains("h1", "Growth Tracking").should("be.visible")
     })

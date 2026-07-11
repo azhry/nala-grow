@@ -220,14 +220,14 @@ describe("CE-005: Sleep Tracking E2E (real backend)", () => {
   describe("Navigation", () => {
     it("navigates to sleep page via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Sleep").click()
+      cy.get("nav.md\\:hidden").contains("Sleep").click()
       cy.url({ timeout: 10000 }).should("include", "/sleep")
       cy.contains("h1", "Sleep Tracking").should("be.visible")
     })
 
     it("sleep tab is highlighted when on sleep page", () => {
       cy.visit("/sleep")
-      cy.get("nav").within(() => {
+      cy.get("nav.md\\:hidden").within(() => {
         cy.contains("Sleep").closest("a")
           .should("have.attr", "class")
           .and("match", /bg-primary-container/)

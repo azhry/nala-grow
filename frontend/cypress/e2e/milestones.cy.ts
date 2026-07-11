@@ -277,14 +277,14 @@ describe("CE-007: Milestones E2E (real backend)", () => {
   describe("Navigation", () => {
     it("navigates to milestones page via bottom tab nav", () => {
       cy.visit("/dashboard")
-      cy.get("nav").contains("Milestones").click()
+      cy.get("nav.md\\:hidden").contains("Milestones").click()
       cy.url({ timeout: 10000 }).should("include", "/milestones")
       cy.contains("h1", "Milestones").should("be.visible")
     })
 
     it("milestones tab is highlighted when on milestones page", () => {
       cy.visit("/milestones")
-      cy.get("nav").within(() => {
+      cy.get("nav.md\\:hidden").within(() => {
         cy.contains("Milestones").closest("a")
           .should("have.attr", "class")
           .and("match", /bg-primary-container/)
