@@ -47,6 +47,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger)
 	r.Use(middleware.Recovery)
+	r.Use(middleware.Auth)
 	r.Use(cors.New(cors.Options{
 		AllowedOrigins:   []string{cfg.AllowedOrigin},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
