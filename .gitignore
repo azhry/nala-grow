@@ -4,6 +4,7 @@ notes.txt
 node_modules
 .next
 .swc
+*.tsbuildinfo
 # Build artifacts
 backend/nala-grow-backend.exe
 *.bak
