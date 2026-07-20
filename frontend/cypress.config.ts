@@ -7,6 +7,7 @@ export default defineConfig({
     specPattern: "cypress/e2e/**/*.cy.ts",
     video: false,
     screenshotOnRunFailure: true,
+    defaultCommandTimeout: 10000,
     setupNodeEvents(on) {
       on("task", {
         log(message) {
@@ -14,6 +15,12 @@ export default defineConfig({
           return null
         },
       })
+    },
+    webServer: {
+      command: "node scripts/e2e-setup.js",
+      url: "http://localhost:3000",
+      timeout: 60000,
+      reuseExistingServer: true,
     },
   },
   viewportWidth: 390,
