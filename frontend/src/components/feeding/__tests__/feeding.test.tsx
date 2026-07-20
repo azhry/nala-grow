@@ -227,4 +227,194 @@ describe("FeedingTimeline", () => {
     render(<FeedingTimeline sessions={sessions} />)
     expect(screen.getByText("Reaction")).toBeInTheDocument()
   })
+
+  it("displays bottle amount with milk type label", () => {
+    const sessions = [
+      makeSession({ id: "b1", feed_type: "bottle", amount_ml: 120, milk_type: "breast_milk" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("120ml Breastmilk")).toBeInTheDocument()
+  })
+
+  it("displays breast session duration as total minutes", () => {
+    const sessions = [
+      makeSession({ id: "br1", feed_type: "breast", left_duration_sec: 600, right_duration_sec: 300 }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("15m total")).toBeInTheDocument()
+  })
+
+  it("displays breast left and right tags with individual durations", () => {
+    const sessions = [
+      makeSession({ id: "br2", feed_type: "breast", left_duration_sec: 600, right_duration_sec: 300 }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Left (10m)")).toBeInTheDocument()
+    expect(screen.getByText("Right (5m)")).toBeInTheDocument()
+  })
+
+  it("displays solids with quantity in 'name • amountUnit' format", () => {
+    const sessions = [
+      makeSession({ id: "s1", feed_type: "solids", food_name: "Banana", quantity: 2, quantity_unit: "tbsp" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Banana • 2tbsp")).toBeInTheDocument()
+  })
+
+  it("displays loved reaction tag", () => {
+    const sessions = [
+      makeSession({ id: "s2", feed_type: "solids", food_name: "Sweet Potato", reaction: "loved" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Loved it!")).toBeInTheDocument()
+  })
+
+  it("displays interested reaction tag", () => {
+    const sessions = [
+      makeSession({ id: "s3", feed_type: "solids", food_name: "Carrot", reaction: "interested" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Interested")).toBeInTheDocument()
+  })
+
+  it("displays disliked reaction tag", () => {
+    const sessions = [
+      makeSession({ id: "s4", feed_type: "solids", food_name: "Pea", reaction: "disliked" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Disliked")).toBeInTheDocument()
+  })
+
+  it("displays formula bottle with correct label", () => {
+    const sessions = [
+      makeSession({ id: "b2", feed_type: "bottle", amount_ml: 200, milk_type: "formula" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("200ml Formula")).toBeInTheDocument()
+  })
+
+  it("displays water bottle with correct label", () => {
+    const sessions = [
+      makeSession({ id: "b3", feed_type: "bottle", amount_ml: 60, milk_type: "water" }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("60ml Water")).toBeInTheDocument()
+  })
+
+  it("displays solids without quantity when quantity is zero", () => {
+    const sessions = [
+      makeSession({ id: "s5", feed_type: "solids", food_name: "Avocado", quantity: 0 }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Avocado")).toBeInTheDocument()
+  })
+
+  it("renders multiple sessions sorted by time", () => {
+    const now = new Date()
+    const sessions = [
+      makeSession({ id: "m1", feed_type: "bottle", amount_ml: 100, started_at: new Date(now.getTime() - 3600000).toISOString() }),
+      makeSession({ id: "m2", feed_type: "breast", left_duration_sec: 300, right_duration_sec: 300, started_at: now.toISOString() }),
+    ]
+    render(<FeedingTimeline sessions={sessions} />)
+    expect(screen.getByText("Breastfeed")).toBeInTheDocument()
+    expect(screen.getByText("Bottle Feed")).toBeInTheDocument()
+  })
+})
+
+describe("BottleForm range slider", () => {
+  it("renders range input with correct min/max/step", () => {
+    const { container } = render(
+      <BottleForm
+        amountMl={120}
+        milkType="breast_milk"
+        temperature="room"
+        notes=""
+        onAmountChange={jest.fn()}
+        onMilkTypeChange={jest.fn()}
+        onTemperatureChange={jest.fn()}
+        onNotesChange={jest.fn()}
+      />,
+    )
+    const rangeInput = container.querySelector('input[type="range"]') as HTMLInputElement
+    expect(rangeInput).toBeInTheDocument()
+    expect(rangeInput).toHaveAttribute("min", "0")
+    expect(rangeInput).toHaveAttribute("max", "300")
+    expect(rangeInput).toHaveAttribute("step", "5")
+    expect(rangeInput).toHaveAttribute("value", "120")
+  })
+})
+
+describe("SolidsForm quantity input", () => {
+  it("renders quantity number input with min and step attributes", () => {
+    const { container } = render(
+      <SolidsForm
+        foodName=""
+        quantity={0}
+        quantityUnit="tbsp"
+        reaction=""
+        notes=""
+        onFoodNameChange={jest.fn()}
+        onQuantityChange={jest.fn()}
+        onQuantityUnitChange={jest.fn()}
+        onReactionChange={jest.fn()}
+        onNotesChange={jest.fn()}
+      />,
+    )
+    const numberInput = container.querySelector('input[type="number"]') as HTMLInputElement
+    expect(numberInput).toBeInTheDocument()
+    expect(numberInput).toHaveAttribute("min", "0")
+    expect(numberInput).toHaveAttribute("step", "0.5")
+  })
+
+  it("selects reaction values for all types", () => {
+    const onReactionChange = jest.fn()
+    render(
+      <SolidsForm
+        foodName=""
+        quantity={0}
+        quantityUnit="tbsp"
+        reaction=""
+        notes=""
+        onFoodNameChange={jest.fn()}
+        onQuantityChange={jest.fn()}
+        onQuantityUnitChange={jest.fn()}
+        onReactionChange={onReactionChange}
+        onNotesChange={jest.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByText("Interested"))
+    expect(onReactionChange).toHaveBeenCalledWith("interested")
+    fireEvent.click(screen.getByText("Disliked"))
+    expect(onReactionChange).toHaveBeenCalledWith("disliked")
+    // "Reaction" text appears in both the label and the button — use getAllByText
+    const reactionTexts = screen.getAllByText("Reaction")
+    const reactionButton = reactionTexts.find((el) => el.closest("button"))?.closest("button") as HTMLElement
+    fireEvent.click(reactionButton)
+    expect(onReactionChange).toHaveBeenCalledWith("reaction")
+  })
+})
+
+describe("DailySummary zero totals", () => {
+  it("displays '0ml' and '0 mins' when totals are zero", () => {
+    render(
+      <DailySummary
+        bottleTotalMl={0}
+        breastTotalMins={0}
+        barData={[{ label: "6 AM", heightPct: 5, title: "6 AM: 0ml" }]}
+      />,
+    )
+    expect(screen.getByText("0ml")).toBeInTheDocument()
+    expect(screen.getByText("0 mins")).toBeInTheDocument()
+  })
+
+  it("displays 'Daily Summary' heading", () => {
+    render(
+      <DailySummary
+        bottleTotalMl={0}
+        breastTotalMins={0}
+        barData={[]}
+      />,
+    )
+    expect(screen.getByText("Daily Summary")).toBeInTheDocument()
+  })
 })

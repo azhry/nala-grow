@@ -188,7 +188,7 @@ handoffs, and context compaction.
 - Delivery: NL-001
 - Title: NalaGrow
 - State: implementation_in_progress
-- Last updated: 2026-07-07T21:11:10.554Z
+- Last updated: 2026-07-20T14:12:45.408Z
 - Harness path from this repo: `../my-harnesses/agent-spec-ops`
 - Workflow state: `../my-harnesses/agent-spec-ops/runs/NL-001/workflow-state.json`
 - Run directory: `../my-harnesses/agent-spec-ops/runs/NL-001/`
@@ -284,15 +284,15 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 
 | Task | Role | Status | Allowed repos | Allowed paths |
 | --- | --- | --- | --- | --- |
-| FE-001 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
+| FE-001 | frontend_dev | failed | nala-grow | frontend/, frontend/** |
 | FE-002 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | FE-003 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | FE-004 | frontend_dev | verified | nala-grow | frontend/, frontend/** |
 | FE-005 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
-| FE-006 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
-| FE-007 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
-| FE-008 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
-| FE-009 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-006 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
+| FE-007 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
+| FE-008 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
+| FE-009 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
 | BE-001 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
 | BE-002 | backend_dev | verified | nala-grow, backend | backend/, backend/** |
 | BE-003 | backend_dev | verified | nala-grow | backend/, backend/** |
@@ -329,7 +329,7 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | QT-024 | frontend_test | verified | nala-grow | frontend/ |
 | QT-025 | frontend_test | verified | nala-grow | frontend/ |
 | FE-011 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
-| FE-012 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| FE-012 | frontend_dev | failed | nala-grow, frontend | frontend/, frontend/** |
 | BT-001 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-002 | backend_test | verified | nala-grow-backend, nala-grow | backend/, backend/** |
 | BT-003 | backend_test | waived | nala-grow-backend, nala-grow | backend/, backend/** |
@@ -354,11 +354,21 @@ If task graph state is missing, stop and return to `task_breakdown` before attem
 | BE-009 | backend_dev | implemented | nala-grow, backend | backend/, backend/** |
 | BE-010 | backend_dev | implemented | nala-grow, backend | backend/, backend/** |
 | FE-013 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
-| FE-014 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
+| FE-014 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
 | FE-015 | frontend_dev | implemented | nala-grow, frontend | frontend/, frontend/** |
 | FE-016 | frontend_dev | not_applicable | nala-grow, frontend | frontend/, frontend/** |
 | CE-011 | frontend_test | planned | nala-grow | frontend/, frontend/** |
 | CE-012 | frontend_test | planned | nala-grow | frontend/, frontend/** |
+| BT-012 | backend_test | waived | nala-grow | backend/**, frontend/cypress/** |
+| QT-026 | frontend_test | planned | nala-grow | frontend/** |
+| QT-027 | frontend_test | planned | nala-grow | frontend/** |
+| QT-028 | frontend_test | planned | nala-grow | frontend/** |
+| QT-029 | frontend_test | planned | nala-grow | frontend/** |
+| QT-030 | frontend_test | planned | nala-grow | frontend/** |
+| QT-031 | frontend_test | planned | nala-grow | frontend/** |
+| FE-017 | frontend_dev | verified | nala-grow, frontend | frontend/, frontend/** |
+| CE-013 | frontend_test | verified | nala-grow, frontend | frontend/, frontend/** |
+| CE-014 | frontend_test | active | nala-grow, frontend | frontend/, frontend/** |
 
 Before writing project files, verify scope:
 
@@ -380,15 +390,15 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 
 | ID | Role | Status | Linear | Title |
 | --- | --- | --- | --- | --- |
-| FE-001 | frontend_dev | verified | 6ea895b2-4ae1-45a7-b429-2d68b4bdeab8 | Frontend scaffold — Next.js 14 + Tailwind + PWA |
+| FE-001 | frontend_dev | failed | 6ea895b2-4ae1-45a7-b429-2d68b4bdeab8 | Frontend scaffold — Next.js 14 + Tailwind + PWA |
 | FE-002 | frontend_dev | verified | ade26bbc-060c-4d59-b99f-f613be9e6af6 | Auth screens — login, signup, password reset |
 | FE-003 | frontend_dev | verified | 1cc8205f-c5e7-46e4-b10f-7e09c0d0a0dd | Baby profile management |
 | FE-004 | frontend_dev | verified | d357b485-07ba-4f61-ac14-c02b1457020e | Dashboard with summary cards and quick log |
 | FE-005 | frontend_dev | verified | a44fedc1-ca41-465b-8c23-33a7ddc9c837 | Growth tracking — measurements and WHO charts |
-| FE-006 | frontend_dev | verified | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
-| FE-007 | frontend_dev | verified | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
-| FE-008 | frontend_dev | verified | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
-| FE-009 | frontend_dev | verified | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
+| FE-006 | frontend_dev | implemented | 7f517771-aabe-46e5-b259-99c69695e341 | Feeding log — breast, bottle, solids with timers |
+| FE-007 | frontend_dev | implemented | 7e2f5942-b120-4bde-877a-eb7559fde17c | Sleep tracking with timer and timeline |
+| FE-008 | frontend_dev | implemented | 8f895fd1-ec5f-42ef-8c03-3f0ff376c06c | Milestones timeline |
+| FE-009 | frontend_dev | implemented | fb60e50a-badb-4732-b975-d6c1862b3f4a | Export — PDF growth report and CSV data |
 | BE-001 | backend_dev | verified | ea1b3638-8d6b-4535-bbbb-37062fbf2802 | Backend scaffold — Go + gqlgen + PostgreSQL |
 | BE-002 | backend_dev | verified | 90bc8b69-d805-4e88-abe8-1a5e1b05a2be | Auth API — signup, login, OAuth, password reset (Go + GraphQL) |
 | BE-003 | backend_dev | verified | d788a562-cabc-4588-a628-3dcdd5b1b5a9 | Baby profiles API (Go + GraphQL) |
@@ -425,7 +435,7 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 | QT-024 | frontend_test | verified | d450c542-fe27-4b2e-a843-2cfb2c5a24f2 | Home page visual baseline |
 | QT-025 | frontend_test | verified | 3772873c-e82c-41e4-bf8f-bb178b40feaa | Design System page visual baseline |
 | FE-011 | frontend_dev | verified | 052eb0a8-5187-4cfd-88d0-0b517218c5b2 | Remove auth barriers for no-backend development |
-| FE-012 | frontend_dev | verified | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
+| FE-012 | frontend_dev | failed | 433faf3c-f32c-4acc-ae73-c6acb8e0790b | Fix login page left side background per Stitch design |
 | BT-001 | backend_test | verified | b8b0bd9c-9150-4e2e-867d-39abe6734426 | Go test infrastructure — testify, helpers, Makefile, test DB |
 | BT-002 | backend_test | verified | ba410670-e592-4542-b741-6095f2746f7d | Auth unit tests — JWT service, password service |
 | BT-003 | backend_test | waived | 0a36f06c-350f-4c01-9235-1fb5b5f8c3cf | Auth integration tests — GraphQL signup/login/reset flow |
@@ -450,21 +460,31 @@ node scripts/submit-task.js runs/NL-001/workflow-state.json <TASK_ID> --commit-m
 | BE-009 | backend_dev | implemented | 75970391-6639-4c85-b57f-5f5534f219d2 | Google OAuth — loginWithGoogle(idToken) mutation |
 | BE-010 | backend_dev | implemented | b8499bdb-71c5-417e-9fa5-14f0c9ee00e0 | Real password reset — in-memory token store with expiry |
 | FE-013 | frontend_dev | implemented | 5fd3a343-42bf-4f7c-8d74-d338e6b40ca9 | GraphQL client for frontend |
-| FE-014 | frontend_dev | implemented | 4cb0005f-99a0-4ffb-8c60-9a4311057057 | Auth rewrite — replace Supabase with backend GraphQL auth |
+| FE-014 | frontend_dev | verified | 4cb0005f-99a0-4ffb-8c60-9a4311057057 | Auth rewrite — replace Supabase with backend GraphQL auth |
 | FE-015 | frontend_dev | implemented | def031b9-7566-421d-a249-dce9ab0644c3 | Data wiring — connect pages to backend GraphQL APIs |
 | FE-016 | frontend_dev | not_applicable | 306ba7e3-e895-4ca4-8a9c-9b65700ce30e | Supabase cleanup — remove all Supabase dependencies |
 | CE-011 | frontend_test | planned | ca9e58f7-574f-44c2-979a-20866ea71168 | Navigation E2E tests with running backend + seed data + cleanup |
 | CE-012 | frontend_test | planned | 7cc7e7a2-9fa2-444d-9194-ce811d12d4f2 | Auth flow E2E tests with running backend + seed data + cleanup |
+| BT-012 | backend_test | waived | 35e9ffc4-e674-41ab-a2d8-761b6eed564e | Audit PR #41 with unit, integration, and headed Cypress E2E |
+| QT-026 | frontend_test | planned | 0a23aa47-5077-46cb-9335-459dc91f3e64 | Audit PR #42 with unit, integration, and headed Cypress E2E |
+| QT-027 | frontend_test | planned | 22013d9f-6fbd-422e-b28e-082988b9fa48 | Audit PR #43 with unit, integration, and headed Cypress E2E |
+| QT-028 | frontend_test | planned | ed1cd075-66df-4f52-ae5f-038ea3aa4ebe | Audit PR #44 with unit, integration, and headed Cypress E2E |
+| QT-029 | frontend_test | planned | b6af9eb4-a416-4ccf-8327-15698515252b | Audit PR #45 with unit, integration, and headed Cypress E2E |
+| QT-030 | frontend_test | planned | 7e5a44d0-4941-451b-b9e0-339406214fc0 | Audit PR #46 with unit, integration, and headed Cypress E2E |
+| QT-031 | frontend_test | planned | f53b0bef-1314-43e1-b4ec-44b5ca039491 | Audit PR #47 with unit, integration, and headed Cypress E2E |
+| FE-017 | frontend_dev | verified | 1318a950-cec8-4da3-a0b7-78ad7ca4ec0f | Fix auth flow — signup/login don't redirect to dashboard |
+| CE-013 | frontend_test | verified | 58ae5a77-e6d0-4b23-ba60-b34cb1eabc89 | Fix bottom tab nav selector in all Cypress E2E tests |
+| CE-014 | frontend_test | active | ac26c57d-bf2e-4af1-bfa4-deb6d4b87c23 | Fix E2E test assertion mismatches — headings, selectors, CSS patterns |
 
 ### Durable Knowledge
 
 - process_rule: CE-002 verified: Auth flow E2E tests — 16 Cypress E2E tests passing covering login, signup, password reset flows. MR #37 merged to main (commit 8f957fd005de99cd0274ae4265a8576cd6fe5380).
 - process_rule: QT-020 verified: Hydration mismatch test — 6/6 Playwright E2E tests passing (2 routes /, /design-system × 3 viewports mobile/tablet/desktop). Zero React SSR/CSR hydration warnings detected. PR #38 merged to main (commit f19482338bf93204c2de78d9177cb8bbdeff9a84).
 - process_rule: QT-024 verified: Home page visual baseline captured at 3 viewports (mobile iPhone 14, tablet 768x1024, desktop 1280x900) using Playwright toHaveScreenshot(). Test file home.spec.ts follows same pattern as design-system.spec.ts. MR #40 merged to main (commit 1b5000639163354103a1cf4727046823d1f54739).
-- event task_transition: FE-016 planned -> not_applicable
 - event linear_sync: Synced 1 tasks to Linear
-- event knowledge_recorded: Knowledge recorded: FE-014 verified: Auth rewrite complete — Supabase auth replaced with backend GraphQL. Google OAuth via GSI script, password reset via backend in-memory token store, JWT stored in Zustand + localStorage. All 208 unit tests pass.
-- event artifact_generated: Generated project AGENTS.md for NL-001
+- event linear_sync: Synced 85 tasks to Linear
+- event task_started: CE-014 planned -> active
+- event linear_sync: Synced 1 tasks to Linear
 - event artifact_generated: Generated project AGENTS.md for NL-001
 
 Record durable project learning with:
@@ -484,6 +504,6 @@ cd ../my-harnesses/agent-spec-ops
 node scripts/generate-project-agents.js runs/NL-001/workflow-state.json --project-repo ../../nala-grow --role orchestrator
 ```
 
-Generated by agent-spec-ops at 2026-07-07T21:16:25.515Z.
+Generated by agent-spec-ops at 2026-07-20T14:16:19.585Z.
 <!-- agent-spec-ops:managed:end -->
 
