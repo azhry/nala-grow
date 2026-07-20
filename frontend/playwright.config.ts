@@ -10,10 +10,10 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 1,
   reporter: process.env.CI ? "github" : "list",
   webServer: {
-    command: process.env.CI ? "npm run start" : "npm run dev",
+    command: "node scripts/e2e-setup-playwright.js",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 30000,
+    reuseExistingServer: false,
+    timeout: 120000,
   },
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",

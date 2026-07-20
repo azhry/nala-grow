@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// e2e-setup.js — Cross-platform: starts DB (Docker), backend, frontend.
-// Keeps alive so Cypress can kill it → trap cleanup runs.
-const { execSync, spawn } = require("child_process")
+// e2e-setup-playwright.js — lifecycle for Playwright E2E.
+// Starts Postgres, resets DB, starts backend, starts frontend,
+// then blocks until Playwright terminates this process.
+
+const { spawn, execSync } = require("child_process")
 const http = require("http")
 const path = require("path")
-const fs = require("fs")
 
 const BACKEND_PORT = 8080
 const FRONTEND_PORT = 3000
+const POSTGRES_PORT = 5432
 const DB_CONTAINER = "nalagrow-pg"
 const REPO_ROOT = path.resolve(__dirname, "../..")
 const BACKEND_DIR = path.join(REPO_ROOT, "backend")
@@ -20,22 +22,39 @@ function log(msg) {
   console.log(`[e2e-setup] ${msg}`)
 }
 
-function waitForPort(port, timeoutMs = 30000) {
+function killPort(port) {
+  try {
+    const isWin = process.platform === "win32"
+    if (isWin) {
+      const out = execSync(`netstat -ano | findstr ":${port}"`, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
+      const pids = [...new Set(
+        out.split("\n")
+          .map(l => l.trim().split(/\s+/).pop())
+          .filter(Boolean)
+      )]
+      pids.forEach(pid => {
+        try { execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" }) } catch {}
+      })
+    } else {
+      execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { stdio: "ignore" })
+    }
+  } catch {}
+}
+
+function waitForPort(port, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     const start = Date.now()
     const check = () => {
-      const req = http.get(`http://localhost:${port}`, (res) => {
+      http.get(`http://localhost:${port}`, (res) => {
         res.resume()
         resolve()
-      })
-      req.on("error", () => {
+      }).on("error", () => {
         if (Date.now() - start > timeoutMs) {
           reject(new Error(`Port ${port} not ready after ${timeoutMs}ms`))
         } else {
           setTimeout(check, 1000)
         }
       })
-      req.end()
     }
     check()
   })
@@ -58,21 +77,15 @@ function cleanup() {
   log("Done")
 }
 
-process.on("SIGINT", () => { cleanup(); process.exit(0) })
-process.on("SIGTERM", () => { cleanup(); process.exit(0) })
-process.on("exit", () => { cleanup() })
-
-function killPort(port) {
+function resetDatabase() {
+  log("Resetting database...")
   try {
-    const isWin = process.platform === "win32"
-    if (isWin) {
-      const out = execSync(`netstat -ano | grep ":${port}"`, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
-      const pids = [...new Set(out.split("\n").map(l => l.trim().split(/\s+/).pop()).filter(Boolean))]
-      pids.forEach(pid => { try { execSync(`taskkill //F //PID ${pid}`, { stdio: "ignore" }) } catch {} })
-    } else {
-      execSync(`lsof -ti:${port} | xargs kill -9`, { stdio: "ignore" })
-    }
-  } catch {}
+    execSync(`docker exec ${DB_CONTAINER} psql -U nalagrow -c "DROP DATABASE IF EXISTS nalagrow_test;"`, { stdio: "ignore" })
+    execSync(`docker exec ${DB_CONTAINER} psql -U nalagrow -c "CREATE DATABASE nalagrow_test;"`, { stdio: "ignore" })
+    log("Database reset complete")
+  } catch (e) {
+    log(`Database reset failed: ${e.message}`)
+  }
 }
 
 async function main() {
@@ -86,30 +99,36 @@ async function main() {
   try {
     const ps = execSync("docker ps --format {{.Names}}", { encoding: "utf8" })
     if (ps.includes(DB_CONTAINER)) {
-      log("DB already running")
+      log("DB already running, resetting...")
+      resetDatabase()
     } else {
       try {
         execSync(`docker start ${DB_CONTAINER}`, { stdio: "ignore" })
       } catch {
         execSync(
-          `docker run -d --name ${DB_CONTAINER} -e POSTGRES_USER=nalagrow -e POSTGRES_PASSWORD=nalagrow -e POSTGRES_DB=nalagrow -p 5432:5432 postgres:16-alpine`,
+          `docker run -d --name ${DB_CONTAINER} -e POSTGRES_USER=nalagrow -e POSTGRES_PASSWORD=nalagrow -e POSTGRES_DB=nalagrow -p ${POSTGRES_PORT}:5432 postgres:16-alpine`,
           { stdio: "ignore" }
         )
       }
     }
   } catch {
-    log("ERROR: Docker not available"); process.exit(1)
+    log("ERROR: Docker not available")
+    process.exit(1)
   }
 
   log("Waiting for DB...")
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       execSync(`docker exec ${DB_CONTAINER} pg_isready -U nalagrow -q`, { stdio: "ignore" })
-      log("DB is ready"); break
+      log("DB is ready")
+      break
     } catch {}
-    if (i === 29) { log("ERROR: DB not ready"); process.exit(1) }
+    if (i === 59) { log("ERROR: DB not ready"); process.exit(1) }
     await new Promise(r => setTimeout(r, 1000))
   }
+
+  // Reset DB before each run
+  resetDatabase()
 
   // --- Backend ---
   log("Starting backend...")
@@ -119,11 +138,14 @@ async function main() {
     env: {
       ...process.env,
       ALLOWED_ORIGIN: `http://localhost:${FRONTEND_PORT}`,
-      DATABASE_URL: "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable",
+      DATABASE_URL: `postgres://nalagrow:nalagrow@localhost:${POSTGRES_PORT}/nalagrow_test?sslmode=disable`,
     },
-    stdio: "ignore",
+    stdio: ["pipe", "pipe", "pipe"],
     shell: true,
   })
+
+  backendProc.stdout.on("data", (d) => log(`[backend] ${d.toString().trim()}`))
+  backendProc.stderr.on("data", (d) => log(`[backend] ${d.toString().trim()}`))
   backendProc.on("error", (e) => { log(`Backend error: ${e.message}`); process.exit(1) })
 
   log("Waiting for backend...")
@@ -137,9 +159,12 @@ async function main() {
   const isWin = process.platform === "win32"
   frontendProc = spawn(isWin ? "npm.cmd" : "npm", ["run", "dev"], {
     cwd: FRONTEND_DIR,
-    stdio: "ignore",
+    stdio: ["pipe", "pipe", "pipe"],
     shell: true,
   })
+
+  frontendProc.stdout.on("data", (d) => log(`[frontend] ${d.toString().trim()}`))
+  frontendProc.stderr.on("data", (d) => log(`[frontend] ${d.toString().trim()}`))
   frontendProc.on("error", (e) => { log(`Frontend error: ${e.message}`); process.exit(1) })
 
   log("Waiting for frontend...")
@@ -148,9 +173,13 @@ async function main() {
     log("Frontend is ready")
   } catch (e) { log(e.message); process.exit(1) }
 
-  log("All services running. Waiting for Cypress to finish...")
-  // Keep process alive — Cypress kills this, triggering cleanup
+  log("All services running. Waiting for Playwright to finish...")
+
+  process.stdin.on("end", () => { cleanup(); process.exit(0) })
+  process.on("SIGTERM", () => { cleanup(); process.exit(0) })
+  process.on("SIGINT", () => { cleanup(); process.exit(0) })
+
   await new Promise(() => {})
 }
 
-main()
+main().catch((e) => { log(`Fatal: ${e.message}`); process.exit(1) })

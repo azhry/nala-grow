@@ -5,6 +5,4 @@ out/
 test-results/
 test-output/
 playwright-report/
-cypress/screenshots/
-cypress/videos/
 
