@@ -42,10 +42,16 @@ function formatTime(iso: string): string {
 function FeedingTimeline({ sessions }: FeedingTimelineProps) {
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
-        <span className="material-symbols-outlined text-5xl mb-4">restaurant</span>
-        <p className="font-body-md text-body-md">No feeds recorded yet today.</p>
-        <p className="font-label-md text-label-md">Start by logging a feed above.</p>
+      <div className="flex flex-col items-center justify-center py-12 gap-1">
+        <span className="material-symbols-outlined text-4xl text-on-surface-variant/60">
+          restaurant
+        </span>
+        <p className="font-body-md text-body-md text-on-surface-variant">
+          No feeds recorded yet today.
+        </p>
+        <p className="font-label-md text-label-md text-on-surface-variant">
+          Start by logging a feed above.
+        </p>
       </div>
     )
   }
