@@ -10,9 +10,7 @@
     "test:unit": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=github",
-    "test:e2e:update": "playwright test --update-snapshots",
-    "test:cypress": "cypress run --e2e",
-    "test:cypress:open": "cypress open"
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -32,7 +30,6 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.0",
-    "cypress": "^15.18.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
     "jest": "^30.4.2",

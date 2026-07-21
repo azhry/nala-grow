@@ -10,3 +10,4 @@ backend/nala-grow-backend.exe
 .env
 .env.local
 .env.production
+.codex
