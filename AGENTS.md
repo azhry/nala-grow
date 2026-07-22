@@ -19,13 +19,27 @@
 - For Linear, GitHub, issue, PR, or release work, read [delivery workflow](.agents/workflows/delivery.md) in full.
 - For creating or editing an agent skill, read [skill workflow](.agents/workflows/skills.md) in full.
 
+## Task-ID protocol
+
+For a request containing a Linear issue ID such as `AZH-385`:
+
+1. Read `./.agents/config.md` without printing it.
+2. Read [the delivery workflow](.agents/workflows/delivery.md) in full before any task-specific repository search, shell command, or implementation.
+3. Use the connected Linear tool. If it is not immediately visible, discover the available tools first.
+4. Do not call Linear directly with `curl`, GraphQL, REST, or credentials from `config.md` unless the connected Linear tool is genuinely unavailable and the user explicitly approves that fallback.
+5. Read the issue, relations, comments, project, and valid team statuses.
+6. If the description is incomplete, analyze it first and update it with the [Linear issue-description template](.agents/templates/linear-issue-description.md).
+7. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
+
 ## Credentials and delivery preflight
 
 - Never print, echo, commit, or transmit `.agents/config.md` or any secret value.
 - Do not dot-source config files. Load only allowlisted `KEY=value` entries into the current process environment without output.
+- Reading config does not load environment variables. Never assume `$env:LINEAR_API_KEY`, `$env:GH_TOKEN`, or similar exists.
+- Prefer authenticated connectors for Linear and GitHub. Do not manually inject project secrets into `curl` or other direct HTTP commands.
 - Before changing code for a task that requires GitHub delivery:
-  1. Load the configured GitHub token into `GH_TOKEN`.
-  2. Run a non-interactive authentication and repository-access check.
+  1. Resolve the intended GitHub CLI executable with `Get-Command gh -All`; do not assume a PATH-resolved `gh` is the official GitHub CLI.
+  2. Run a non-interactive authentication and repository-access check with the official CLI, without overriding its keyring credential.
   3. Verify the GitHub connector can access the repository if it will be used.
 - If authentication or repository access fails, stop before implementation, record the blocker in Linear, and tell the user exactly which credential/integration must be fixed.
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
