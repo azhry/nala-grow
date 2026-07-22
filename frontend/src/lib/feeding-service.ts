@@ -4,6 +4,7 @@ import {
   getFeedingSessions as gqlGetFeedingSessions,
   createFeedingSession as gqlCreateFeedingSession,
   deleteFeedingSession as gqlDeleteFeedingSession,
+  updateFeedingSession as gqlUpdateFeedingSession,
 } from "./graphql-client"
 import type { FeedingSession } from "./graphql-types"
 import { useAppStore } from "./store"
@@ -59,4 +60,23 @@ export async function createFeedSession(
 export async function deleteFeedSession(id: string): Promise<void> {
   await gqlDeleteFeedingSession(id)
   useAppStore.getState().deleteFeedSession(id)
+}
+
+export async function updateFeedSession(
+  id: string,
+  data: Partial<StoreFeedSession>,
+): Promise<void> {
+  await gqlUpdateFeedingSession(id, {
+    feedType: data.feed_type,
+    startedAt: data.started_at,
+    endedAt: data.ended_at,
+    leftDurationSec: data.left_duration_sec,
+    rightDurationSec: data.right_duration_sec,
+    amountMl: data.amount_ml,
+    milkType: data.milk_type,
+    foodName: data.food_name,
+    reaction: data.reaction,
+    notes: data.notes,
+  })
+  useAppStore.getState().updateFeedSession(id, data)
 }
