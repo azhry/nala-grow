@@ -29,12 +29,15 @@ For a request containing a Linear issue ID such as `AZH-385`:
 4. If the connected Linear tool is genuinely unavailable after discovery, immediately use the documented Linear API fallback. Use the official schema or documentation, load only the required credential without output, and never guess requests or bypass an authorization failure.
 5. Read the issue, relations, comments, project, and valid team statuses.
 6. If the description is incomplete, analyze it first and update it with the [Linear issue-description template](.agents/templates/linear-issue-description.md).
-7. Preserve user-supplied reference material (including HTML, screenshots, designs, and examples) verbatim. Add the implementation contract around it; never replace, trim, or paraphrase the reference unless the user explicitly asks.
-8. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
+7. A mockup, full HTML file, screenshot, or one-line request is reference material, not an implementation-ready task description. Before implementation, add the template's Category, confirmed code-backed analysis, scope boundaries, implementation plan, Definition of Done, and correctness checks to the Linear description.
+8. Preserve user-supplied reference material (including HTML, screenshots, designs, and examples) verbatim. Add the implementation contract around it; never replace, trim, or paraphrase the reference unless the user explicitly asks.
+9. The Linear update is a hard readiness gate: private reasoning, a todo list, a chat summary, or a code comment does not satisfy it. Verify the tracker mutation succeeded and re-read the description before creating a branch, editing implementation files, moving the issue active, or delegating implementation.
+10. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
 
 ## Credentials and delivery preflight
 
 - Never print, echo, commit, or transmit `.agents/config.md` or any secret value.
+- Do not use a generic file-read tool that renders `.agents/config.md` into a transcript. Load only the allowlisted key needed for the immediate operation through a non-printing secret-loading mechanism; do not recover or copy a literal credential from prior conversation, tool output, memory, or a previous command.
 - Do not dot-source config files. Load only allowlisted `KEY=value` entries into the current process environment without output.
 - Reading config does not export values into the current shell environment. Never assume a credential environment variable is available.
 - Prefer authenticated connectors for Linear and GitHub. Do not manually inject project secrets into `curl` or other direct HTTP commands.
@@ -44,5 +47,7 @@ For a request containing a Linear issue ID such as `AZH-385`:
   3. Verify the GitHub connector can access the repository if it will be used.
 - If authentication or repository access fails, stop before implementation, record the blocker in Linear, and tell the user exactly which credential/integration must be fixed.
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
+- Do not write, edit, generate, or stage implementation files until the GitHub delivery preflight succeeds and a `task/<topic>` branch has been created from `main`. If unrelated work makes that unsafe, use an isolated worktree or stop and report the blocker.
 - Never report a check as passed, a build as successful, or a task as complete unless the recorded command exited successfully. State pre-existing failures separately with the exact command and affected path; do not describe a partial compile or filtered output as a successful build.
+- Do not use a pipeline, filter, `findstr`, `Select-String`, or a later command's exit code to claim that a build, typecheck, lint, or test passed. Run the exact verification command unfiltered first and record its exit status; filters are diagnostic-only.
 - Before staging and again before handoff, inspect `git status --short` and preserve unrelated files. Put generated screenshots, browser traces, lint captures, and other diagnostics outside the repository or in an ignored temporary directory; remove only artifacts created by the current task.

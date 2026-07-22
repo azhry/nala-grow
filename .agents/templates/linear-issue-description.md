@@ -6,6 +6,8 @@ Use this template when creating a task or when an existing task is too incomplet
 
 **[Bug | Feature | Refactor | Chore | Research] — [short category qualifier].**
 
+> Readiness rule: a design reference by itself is incomplete. Before implementation begins, this description must contain every heading in this template, with evidence-based content rather than a private agent plan.
+
 ## Problem analysis
 
 ### Reference material
