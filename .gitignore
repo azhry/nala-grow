@@ -3,6 +3,8 @@
 !.agents/skills/**
 !.agents/workflows/
 !.agents/workflows/**
+!.agents/templates/
+!.agents/templates/**
 skills-lock.json
 notes.txt
 node_modules

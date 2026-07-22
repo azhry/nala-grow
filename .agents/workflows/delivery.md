@@ -5,6 +5,9 @@ Apply this workflow to Linear, GitHub, issue, pull-request, and release work.
 ## Linear
 
 - Read the named issue before changing it; verify its team, project, state, relations, and constraints.
+- Before implementation, assess whether the description is sufficient for an independent agent to execute. When it is empty, ambiguous, or missing acceptance criteria, inspect the relevant code, tests, and related work first, then update the Linear description using the [issue-description template](../templates/linear-issue-description.md).
+- The description must identify the task category, confirmed problem analysis and scope boundaries, an implementation plan, Definition of Done, and correctness checks. Clearly label hypotheses and open questions; do not present them as confirmed defects.
+- Treat the updated Linear description as the implementation contract. Do not begin implementation until it gives a future agent enough information to understand the intended behavior, out-of-scope work, and how success will be verified.
 - Move work to the team's active state when implementation begins. Attach the PR and move it to the available review state when handoff starts.
 - Mark work complete only when the PR is merged or the user/team workflow confirms completion.
 - Use exact IDs for mutations and report changed fields plus blockers.
