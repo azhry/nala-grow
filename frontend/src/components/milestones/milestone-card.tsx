@@ -7,13 +7,15 @@ interface MilestoneCardProps {
   onAchieve?: (id: string) => void
   onDelete?: (id: string) => void
   showActions?: boolean
+  imageRotate?: string
+  tapeStyle?: string
 }
 
-const categoryColors: Record<MilestoneCategory, { bg: string; text: string; label: string }> = {
-  physical: { bg: "bg-accent-coral/20", text: "text-accent-coral", label: "Physical" },
-  cognitive: { bg: "bg-tertiary/20", text: "text-tertiary", label: "Cognitive" },
-  social: { bg: "bg-secondary/20", text: "text-secondary", label: "Social" },
-  language: { bg: "bg-primary-container/30", text: "text-on-primary-container", label: "Language" },
+const categoryLabels: Record<MilestoneCategory, { primary: string; secondary?: string }> = {
+  physical: { primary: "Physical", secondary: "Motor Skills" },
+  cognitive: { primary: "Cognitive" },
+  social: { primary: "Social", secondary: "Emotional" },
+  language: { primary: "Language" },
 }
 
 function formatDate(iso?: string): string {
@@ -26,14 +28,15 @@ function formatDate(iso?: string): string {
   }
 }
 
-function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: MilestoneCardProps) {
-  const colors = categoryColors[milestone.category]
+function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle }: MilestoneCardProps): JSX.Element {
+  const labels = categoryLabels[milestone.category]
+  const hasSecondary = Boolean(labels.secondary)
 
   return (
     <div className="relative scrapbook-card bg-surface-container-lowest p-gutter rounded-2xl shadow-[0_8px_20px_rgba(126,182,173,0.15)] flex flex-col md:flex-row gap-gutter transition-all hover:translate-y-[-4px]">
-      <div className="tape-effect" />
+      <div className={["tape-effect", tapeStyle].filter(Boolean).join(" ") || undefined} />
 
-      <div className="w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white bg-surface-container-high flex items-center justify-center shrink-0">
+      <div className={["w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white transform", imageRotate].join(" ")}>
         {milestone.photo_url ? (
           <img
             alt={milestone.title}
@@ -41,9 +44,9 @@ function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: M
             src={milestone.photo_url}
           />
         ) : (
-          <span className="material-symbols-outlined text-5xl text-outline-variant">
-            child_care
-          </span>
+          <div className="w-full h-full bg-surface-container-high flex items-center justify-center">
+            <span className="material-symbols-outlined text-5xl text-outline-variant">child_care</span>
+          </div>
         )}
       </div>
 
@@ -67,12 +70,17 @@ function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: M
           </p>
         )}
 
-        <div className="mt-2 flex gap-2 flex-wrap">
-          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors.bg} ${colors.text}`}>
-            {colors.label}
+        <div className="mt-2 flex gap-2 flex-wrap items-center">
+          <span className="px-3 py-1 bg-primary-container/20 text-on-primary-container rounded-full text-[10px] font-bold uppercase tracking-wider">
+            {labels.primary}
           </span>
+          {hasSecondary && (
+            <span className="px-3 py-1 bg-tertiary-container/20 text-on-tertiary-container rounded-full text-[10px] font-bold uppercase tracking-wider">
+              {labels.secondary}
+            </span>
+          )}
           {!milestone.achieved && showActions && (
-            <>
+            <div className="flex gap-2 ml-auto">
               {onAchieve && (
                 <button
                   type="button"
@@ -93,7 +101,7 @@ function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: M
                   Delete
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

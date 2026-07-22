@@ -22,60 +22,48 @@ const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "12-24": "12–24 Months",
 }
 
-function getBabyAgeRange(dob: string): MilestoneAgeRange | null {
+function getBabyAgeMonths(dob: string): number | null {
   try {
     const birth = new Date(dob)
     const now = new Date()
-    const months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
-    if (months < 0) return null
-    if (months < 3) return "0-3"
-    if (months < 6) return "3-6"
-    if (months < 12) return "6-12"
-    if (months < 24) return "12-24"
-    return "12-24"
+    return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
   } catch {
     return null
   }
 }
 
+function getCurrentAgeRange(dob: string): MilestoneAgeRange | null {
+  const months = getBabyAgeMonths(dob)
+  if (months === null || months < 0) return null
+  if (months < 3) return "0-3"
+  if (months < 6) return "3-6"
+  if (months < 12) return "6-12"
+  return "12-24"
+}
+
+function formatShortDate(iso?: string): string {
+  if (!iso) return ""
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  } catch {
+    return ""
+  }
+}
+
 function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
-  const achieved = milestones.filter((m) => m.achieved)
-  const upcoming = milestones.filter((m) => !m.achieved)
+  const currentRange = babyDob ? getCurrentAgeRange(babyDob) : null
+  const currentLabel = currentRange ? ageRangeLabels[currentRange].replace(" Months", "m") : ""
 
-  const babyRange = babyDob ? getBabyAgeRange(babyDob) : null
+  const achievedList = milestones
+    .filter((m) => m.achieved)
+    .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
 
-  const achievedDefs = achieved
-    .map((m) => MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id))
-    .filter(Boolean)
+  const upcomingList = milestones
+    .filter((m) => !m.achieved)
+    .sort((a, b) => a.title.localeCompare(b.title))
 
-  const upcomingDefs = upcoming
-    .map((m) => {
-      if (m.is_custom) return { id: m.id, title: m.title, category: m.category, age_range: m.age_range }
-      return MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id)
-    })
-    .filter(Boolean)
-
-  const ranges: MilestoneAgeRange[] = ["0-3", "3-6", "6-12", "12-24"]
-
-  const achievedGrouped = ranges.reduce(
-    (acc, range) => {
-      acc[range] = achievedDefs.filter((d) => d && d.age_range === range) as typeof achievedDefs
-      return acc
-    },
-    {} as Record<MilestoneAgeRange, typeof achievedDefs>,
-  )
-
-  const upcomingGrouped = ranges.reduce(
-    (acc, range) => {
-      acc[range] = upcomingDefs.filter((d) => d && d.age_range === range) as typeof upcomingDefs
-      return acc
-    },
-    {} as Record<MilestoneAgeRange, typeof upcomingDefs>,
-  )
-
-  const hasAny = ranges.some((r) => achievedGrouped[r].length > 0 || upcomingGrouped[r].length > 0)
-
-  if (!hasAny) {
+  if (achievedList.length === 0 && upcomingList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-on-surface-variant">
         <span className="material-symbols-outlined text-4xl mb-3">celebration</span>
@@ -86,79 +74,53 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary">trending_up</span>
-        <h3 className="font-headline-md text-headline-md text-primary">Current Goals</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">trending_up</span>
+          <h3 className="font-headline-md text-headline-md text-primary">Current Goals</h3>
+        </div>
+        {currentRange && (
+          <span className="bg-white/50 px-3 py-1 rounded-full text-label-md font-bold">
+            {currentLabel}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
-        {ranges.map((range) => {
-          const achievedItems = achievedGrouped[range]
-          const upcomingItems = upcomingGrouped[range]
-          if (achievedItems.length === 0 && upcomingItems.length === 0) return null
+        {achievedList.map((m, idx) => (
+          <div
+            key={m.id}
+            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm"
+            style={idx > 0 ? { opacity: 0.7 } : undefined}
+          >
+            <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-on-surface">{m.title}</p>
+              <p className="text-xs text-on-surface-variant">
+                {m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved"}
+              </p>
+            </div>
+          </div>
+        ))}
 
-          const isCurrentRange = babyRange === range
-          const isPastRange = babyRange && ranges.indexOf(range) < ranges.indexOf(babyRange)
-          const isFutureRange = babyRange && ranges.indexOf(range) > ranges.indexOf(babyRange)
+        {upcomingList.map((m) => {
+          const def = MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id)
 
           return (
             <div
-              key={range}
-              className={[
-                "rounded-xl p-gutter",
-                isCurrentRange ? "bg-primary-container/10 border border-primary/20" : "bg-surface-container-low",
-              ].join(" ")}
+              key={m.id}
+              className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
             >
-              <div className="flex items-center gap-2 mb-2">
-                {isPastRange && <span className="material-symbols-outlined text-on-surface-variant text-sm">check_circle</span>}
-                {isCurrentRange && <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />}
-                <h4 className={[
-                  "font-label-md text-label-md",
-                  isPastRange ? "text-on-surface-variant" : "text-primary",
-                ].join(" ")}>
-                  {ageRangeLabels[range]}
-                </h4>
+              <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
+                <span className="material-symbols-outlined">add</span>
               </div>
-
-              <div className="space-y-1.5">
-                {achievedItems.map((def) => (
-                  <div
-                    key={def.id}
-                    className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm opacity-70"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined fill-1">check</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-on-surface">{def.title}</p>
-                      <p className="text-xs text-on-surface-variant">Achieved</p>
-                    </div>
-                  </div>
-                ))}
-
-                {upcomingItems.map((def) => (
-                  <div
-                    key={def.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/50 hover:border-primary transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                      {categoryIcons[def.category]}
-                    </span>
-                    <span className="font-body-sm text-body-sm text-on-surface flex-1">
-                      {def.title}
-                    </span>
-                    <span className="material-symbols-outlined text-outline-variant text-[16px]">
-                      chevron_right
-                    </span>
-                  </div>
-                ))}
+              <div className="flex-1">
+                <p className="font-bold text-on-surface">{m.title}</p>
+                <p className="text-xs text-primary font-bold">Upcoming</p>
               </div>
-
-              {isFutureRange && (
-                <p className="font-label-md text-label-md text-on-surface-variant mt-2">
-                  Coming up next
-                </p>
-              )}
+              <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
             </div>
           )
         })}

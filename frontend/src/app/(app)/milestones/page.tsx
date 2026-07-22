@@ -91,11 +91,6 @@ export default function MilestonesPage() {
     [seededMilestones, ageFilter],
   )
 
-  const achievedCount = useMemo(
-    () => seededMilestones.filter((m) => m.achieved).length,
-    [seededMilestones],
-  )
-
   const handleAchieve = useCallback(
     (id: string) => {
       const now = new Date().toISOString()
@@ -202,43 +197,54 @@ export default function MilestonesPage() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-          <div className="lg:col-span-8 space-y-stack-md">
-            <MilestoneProgress achieved={achievedCount} total={MILESTONE_DEFINITIONS.length} />
+        <div className="flex flex-col gap-stack-lg">
+          <MilestoneProgress achieved={filteredSeeded.filter(m => m.achieved).length} total={MILESTONE_DEFINITIONS.length} />
 
-            <section className="flex flex-col gap-stack-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
-                  Choose Age Range
-                </h3>
-                <button className="text-primary font-label-md text-label-md underline">
-                  View Developmental Guidelines
-                </button>
-              </div>
-              <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-2 px-2">
-                {(["all", "0-3", "3-6", "6-12", "12-24"] as const).map((range) => (
+          <section className="flex flex-col gap-stack-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
+                Choose Age Range
+              </h3>
+              <button className="text-primary font-label-md text-label-md underline">
+                View Developmental Guidelines
+              </button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-2 px-2">
+              {(["all", "0-3", "3-6", "6-12", "12-24"] as const).map((range, idx) => {
+                const active = ageFilter === range
+                const base = "flex-shrink-0 rounded-full font-label-md text-label-md transition-colors"
+                if (active) {
+                  return (
+                    <button
+                      key={range}
+                      type="button"
+                      onClick={() => setAgeFilter(range)}
+                      className={`${base} px-8 py-3 bg-primary text-on-primary font-bold shadow-md scale-105`}
+                    >
+                      {range === "all" ? "All" : ageRangeLabels[range]}
+                    </button>
+                  )
+                }
+
+                return (
                   <button
                     key={range}
                     type="button"
                     onClick={() => setAgeFilter(range)}
-                    className={[
-                      "flex-shrink-0 px-6 py-3 rounded-full font-label-md text-label-md transition-colors",
-                      ageFilter === range
-                        ? "bg-primary text-on-primary font-bold shadow-md scale-105"
-                        : "bg-surface-container-highest text-on-surface-variant hover:bg-primary-container/20",
-                    ].join(" ")}
+                    className={`${base} px-6 py-3 bg-secondary-container text-on-secondary-container shadow-sm border border-outline-variant/30 hover:bg-primary-container`}
                   >
                     {range === "all" ? "All" : ageRangeLabels[range]}
                   </button>
-                ))}
-              </div>
-            </section>
+                )
+              })}
+            </div>
+          </section>
 
-            <section className="bg-white rounded-2xl p-stack-md soft-shadow">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-stack-md">
-                <h3 className="font-headline-md text-headline-md text-primary">
-                  Milestone Timeline
-                </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-stack-lg">
+            <div className="lg:col-span-2 flex flex-col gap-stack-md">
+              <div className="flex items-center gap-base">
+                <span className="material-symbols-outlined text-primary">auto_awesome</span>
+                <h2 className="font-headline-md text-headline-md">{babyName}&apos;s Journey</h2>
               </div>
 
               <MilestoneTimeline
@@ -246,40 +252,40 @@ export default function MilestonesPage() {
                 onAchieve={handleAchieve}
                 onDelete={handleDelete}
               />
-            </section>
-          </div>
+            </div>
 
-          <div className="lg:col-span-4 space-y-stack-md">
-            <section className="bg-surface-container-high rounded-3xl p-stack-md flex flex-col gap-stack-md sticky top-24">
-              {showForm ? (
-                <div>
-                  <div className="flex items-center justify-between mb-stack-md">
-                    <h3 className="font-headline-md text-headline-md text-primary">
-                      Custom Milestone
-                    </h3>
+            <div className="lg:col-span-1 space-y-stack-md">
+              <section className="bg-surface-container-high rounded-3xl p-stack-md flex flex-col gap-stack-md sticky top-24">
+                {showForm ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-stack-md">
+                      <h3 className="font-headline-md text-headline-md text-primary">
+                        Custom Milestone
+                      </h3>
+                    </div>
+                    <MilestoneForm
+                      onSave={handleCustomSave}
+                      onCancel={() => setShowForm(false)}
+                    />
                   </div>
-                  <MilestoneForm
-                    onSave={handleCustomSave}
-                    onCancel={() => setShowForm(false)}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <UpcomingMilestones
-                    milestones={babyMilestones}
-                    babyDob={babyDob || undefined}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="w-full mt-4 py-4 bg-surface-container-high text-primary rounded-2xl font-headline-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">add_circle</span>
-                    Add Custom Milestone
-                  </button>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div>
+                    <UpcomingMilestones
+                      milestones={babyMilestones}
+                      babyDob={babyDob || undefined}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(true)}
+                      className="w-full mt-4 py-4 bg-surface-container-high text-primary rounded-2xl font-headline-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">add_circle</span>
+                      Add Custom Milestone
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>
           </div>
         </div>
       </div>

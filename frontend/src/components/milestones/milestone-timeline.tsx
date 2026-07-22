@@ -47,10 +47,10 @@ function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelin
   }
 
   return (
-    <div className="relative pl-10 space-y-10">
+    <div className="relative pl-10 space-y-8">
       <div className="absolute left-[11px] top-2 bottom-2 w-[2px] timeline-line opacity-30" />
 
-      {ranges.map((range) => {
+      {ranges.map((range, rangeIdx) => {
         const items = grouped[range]
         if (items.length === 0) return null
 
@@ -67,12 +67,14 @@ function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelin
                 {ageRangeLabels[range]}
               </h3>
               <div className="space-y-3">
-                {items.map((milestone) => (
+                {items.map((milestone, idx) => (
                   <MilestoneCard
                     key={milestone.id}
                     milestone={milestone}
                     onAchieve={onAchieve}
                     onDelete={onDelete}
+                    imageRotate={idx % 2 === 0 ? "-rotate-1" : "rotate-2"}
+                    tapeStyle={idx % 2 === 0 ? undefined : "transform: translateX(-50%) rotate(3deg); background: rgba(126, 182, 173, 0.2);"}
                   />
                 ))}
               </div>
