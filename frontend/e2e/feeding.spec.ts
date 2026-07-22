@@ -58,7 +58,7 @@ test.describe("CE-004: Feeding Log E2E (Playwright)", () => {
 
   async function seedBabyInStore(page: import("@playwright/test").Page) {
     await page.goto("/feeding")
-    await page.evaluate(({ babyId }) => {
+    const evalResult = await page.evaluate(({ babyId }) => {
       const storeData = {
         user: null,
         token: null,
@@ -92,8 +92,65 @@ test.describe("CE-004: Feeding Log E2E (Playwright)", () => {
         _hasHydrated: true,
       }
       localStorage.setItem("nalagrow-store", JSON.stringify(storeData))
+      localStorage.setItem("nalagrow-test", "test-value")
+      return {
+        hasStore: !!localStorage.getItem("nalagrow-store"),
+        hasTest: !!localStorage.getItem("nalagrow-test"),
+        storePreview: JSON.stringify(JSON.parse(localStorage.getItem("nalagrow-store") || "{}").activeBaby),
+      }
     }, { babyId })
+    console.log("EVAL RESULT BEFORE RELOAD:", JSON.stringify(evalResult))
     await page.reload()
+    const afterReload = await page.evaluate(() => {
+      const raw = localStorage.getItem("nalagrow-store")
+      if (!raw) return "NO_STORE"
+      const parsed = JSON.parse(raw)
+      return {
+        hasActiveBaby: !!parsed.activeBaby,
+        activeBabyId: parsed.activeBaby?.id,
+        hasToken: !!parsed.token,
+        fullStore: raw,
+      }
+    })
+    console.log("AFTER RELOAD:", JSON.stringify(afterReload).slice(0, 500))
+    const testValue = await page.evaluate(() => localStorage.getItem("nalagrow-test"))
+    console.log("TEST VALUE AFTER RELOAD:", testValue)
+  }
+
+  async function seedFeedingSessionViaApi(
+    page: import("@playwright/test").Page,
+    input: {
+      feedType: string
+      startedAt?: string
+      endedAt?: string
+      leftDurationSec?: number
+      rightDurationSec?: number
+      amountMl?: number
+      milkType?: string
+      foodName?: string
+      reaction?: string
+      notes?: string
+    },
+  ) {
+    const mutation = `mutation createFeedingSession($babyId: ID!, $feedType: String!, $startedAt: String, $endedAt: String, $leftDurationSec: Int, $rightDurationSec: Int, $amountMl: Float, $milkType: String, $foodName: String, $reaction: String, $notes: String) {
+      createFeedingSession(babyId: $babyId, feedType: $feedType, startedAt: $startedAt, endedAt: $endedAt, leftDurationSec: $leftDurationSec, rightDurationSec: $rightDurationSec, amountMl: $amountMl, milkType: $milkType, foodName: $foodName, reaction: $reaction, notes: $notes) {
+        id
+        babyId
+        feedType
+        startedAt
+        endedAt
+        leftDurationSec
+        rightDurationSec
+        amountMl
+        milkType
+        foodName
+        reaction
+        notes
+      }
+    }`
+
+    const res = await gql(mutation, { babyId, ...input }, authToken)
+    return res as { data: { createFeedingSession: { id: string } } }
   }
 
   test("navigates to feeding page via bottom tab nav", async ({ page }) => {
@@ -101,6 +158,49 @@ test.describe("CE-004: Feeding Log E2E (Playwright)", () => {
     await page.getByRole("navigation").getByRole("link", { name: "Feeding" }).click()
     await expect(page).toHaveURL(/\/feeding/)
     await expect(page.getByRole("heading", { name: "Feeding Log" })).toBeVisible()
+  })
+
+  test("loads seeded feeding sessions from backend API", async ({ page }) => {
+    console.log("BABY ID:", babyId)
+    const sessionRes = await seedFeedingSessionViaApi(page, {
+      feedType: "breast",
+      startedAt: new Date(Date.now() - 3600000).toISOString(),
+      endedAt: new Date(Date.now() - 2700000).toISOString(),
+      leftDurationSec: 300,
+      rightDurationSec: 150,
+    })
+    console.log("SEED SESSION RESPONSE:", JSON.stringify(sessionRes).slice(0, 500))
+
+    let graphqlCalled = false
+    page.on("request", (req) => {
+      if (req.url().includes("/graphql") && req.postData()?.includes("getFeedingSessions")) {
+        graphqlCalled = true
+        console.log("PAGE GRAPHQL CALL:", req.postData()?.slice(0, 300))
+      }
+    })
+
+    await seedBabyInStore(page)
+    await page.waitForLoadState("networkidle")
+    await page.waitForTimeout(2000)
+
+    console.log("graphqlCalled:", graphqlCalled)
+
+    const activeBaby = await page.evaluate(() => {
+      const storeData = localStorage.getItem("nalagrow-store")
+      if (!storeData) return "NO_STORE"
+      try {
+        const parsed = JSON.parse(storeData)
+        return parsed.activeBaby?.id || "NO_ACTIVE_BABY"
+      } catch {
+        return "PARSE_ERROR"
+      }
+    })
+    console.log("activeBaby in store:", activeBaby)
+
+    await expect(page.getByText("Breastfeed")).toBeVisible()
+    await expect(page.getByText("8m total")).toBeVisible()
+    await expect(page.getByText("Left (5m)")).toBeVisible()
+    await expect(page.getByText("Right (3m)")).toBeVisible()
   })
 
   test("loads feeding page with heading and default breast tab", async ({ page }) => {

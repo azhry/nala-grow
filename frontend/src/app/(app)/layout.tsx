@@ -8,7 +8,7 @@ export default function AppLayout({
   return (
     <>
       <DesktopSidebar />
-      <main className="min-h-dvh lg:ml-64 pb-nav md:pb-0">{children}</main>
+      <main className="min-h-dvh pb-nav md:ml-64 md:pb-0">{children}</main>
       <BottomTabNav />
     </>
   )

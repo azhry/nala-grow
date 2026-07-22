@@ -42,17 +42,26 @@ function formatTime(iso: string): string {
 function FeedingTimeline({ sessions }: FeedingTimelineProps) {
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-1">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/60">
-          restaurant
-        </span>
-        <p className="font-body-md text-body-md text-on-surface-variant">
-          No feeds recorded yet today.
-        </p>
-        <p className="font-label-md text-label-md text-on-surface-variant">
-          Start by logging a feed above.
-        </p>
-      </div>
+      <section className="lg:col-span-12 min-h-[280px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
+        <div className="flex justify-between items-center mb-stack-lg">
+          <h3 className="font-headline-md text-headline-md text-primary">Timeline (Last 24h)</h3>
+          <button className="text-primary font-label-md flex items-center gap-1 hover:underline">
+            View History
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+          <span className="material-symbols-outlined text-4xl text-on-surface-variant/60">
+            restaurant
+          </span>
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            No feeds recorded yet today.
+          </p>
+          <p className="font-label-md text-label-md text-on-surface-variant">
+            Start by logging a feed above.
+          </p>
+        </div>
+      </section>
     )
   }
 

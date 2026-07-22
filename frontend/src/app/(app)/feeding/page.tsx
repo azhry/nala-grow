@@ -125,6 +125,7 @@ export default function FeedingPage() {
 
   const barData = useMemo(() => {
     const slots = ["6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
+    const emptyStateHeights = [40, 70, 55, 90, 60, 20]
     const maxMl = Math.max(
       ...todaySessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
       1,
@@ -138,7 +139,12 @@ export default function FeedingPage() {
           return h >= hour && h < hour + 3
         })
         .reduce((acc, s) => acc + (s.amount_ml ?? 0), 0)
-      return { label, heightPct: Math.max(5, (total / maxMl) * 100), title: `${label}: ${total}ml` }
+      const isEmptyDay = todaySessions.length === 0
+      return {
+        label,
+        heightPct: isEmptyDay ? emptyStateHeights[i] : Math.max(5, (total / maxMl) * 100),
+        title: isEmptyDay ? `${label}: no feeds recorded` : `${label}: ${total}ml`,
+      }
     })
   }, [todaySessions])
 
@@ -268,8 +274,8 @@ export default function FeedingPage() {
   }, [feedSessions, babyId])
 
   return (
-    <div className="pb-stack-lg">
-      <div className="px-container-margin md:px-stack-lg py-stack-md max-w-7xl mx-auto">
+    <div className="min-h-full bg-warm-cream pb-stack-lg">
+      <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
         <header className="flex justify-between items-center mb-stack-lg">
           <div>
             <h1 className="font-headline-lg text-headline-lg text-primary">Feeding Log</h1>
@@ -308,9 +314,16 @@ export default function FeedingPage() {
             barData={barData}
           />
 
-          <section className="lg:col-span-4 bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
+          <section className="lg:col-span-4 min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
             <div className="flex justify-between items-center mb-stack-md">
               <h3 className="font-headline-md text-headline-md text-primary">Record Feed</h3>
+              <button
+                type="button"
+                aria-label="Close feed entry"
+                className="text-on-surface-variant opacity-60 transition-opacity hover:opacity-100"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
 
             <div className="flex bg-surface-container-low rounded-xl p-1 mb-stack-md">
