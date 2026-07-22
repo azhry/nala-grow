@@ -43,7 +43,7 @@ const JOURNEY_CARDS: Milestone[] = [
     achieved: true,
     achieved_date: "2023-10-12",
     notes: "We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely.",
-    photo_url: PLACEHOLDER_PHOTO(0),
+    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDkMVqCflDXBExLNx0tJyW__uPJ2XAFC-lSu16AjbteC0QIQ-BHurfuv7QuWGg_0vl6P66qN2SU33a1hAiqgO5UIDapp5dWtPpSQqPREP2BejhDcCCGHs00KuJsZKMdw-h-cohvhkSf-80bMzDYJdZjaSbApEgHUNc5mDlmR7ZW2_8JBIpCmgEoU4D0t4nlHXak0t6rv7Pk1J6yQSuzYuomN8XWbJtxFUh4pLDzDGBHrL7264bz7BfXs24Y4rpW6cpbEI32l4pPWfU",
     is_custom: false,
   },
   {
@@ -56,7 +56,7 @@ const JOURNEY_CARDS: Milestone[] = [
     achieved: true,
     achieved_date: "2023-11-28",
     notes: "Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!",
-    photo_url: PLACEHOLDER_PHOTO(1),
+    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxYfFlw2qma4MN0_Hy6KleKOP5040YNL67i_4g2ZhNMKa18kDiTdYr2hpalsuQqZYCWRuTlC2QCZUxfmOGG4L0lK9nGTuYMkgGIa8kDipRL3ndDuGg6ocJgmeAHKf-YG-5wg8L11Myfj1_gw0-XiIsahAS4OTr5v-wGETaJtvdWY1nuDSSAVL5eB2jg8NJ3pQjmOLtSUhkAjJDaSSqv31u8xf3NqoRP4s3IJLOjGhP8oMU5IQvSfWwlzitwjaYK1qgb7vx7L4Af6A",
     is_custom: false,
   },
 ]
