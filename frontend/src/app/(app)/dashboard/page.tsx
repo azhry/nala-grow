@@ -6,9 +6,9 @@ import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", href: "/feeding/log", color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", href: "/sleep/log", color: "surface" },
-  { label: "Log Growth", icon: "monitoring", href: "/growth/log", color: "surface" },
+  { label: "Log Feed", icon: "restaurant", href: "/feeding", color: "primary" },
+  { label: "Log Sleep", icon: "bedtime", href: "/sleep", color: "surface" },
+  { label: "Log Growth", icon: "monitoring", href: "/growth", color: "surface" },
 ] as const
 
 const activities = [
@@ -27,6 +27,7 @@ const colorMap: Record<string, string> = {
 export default function DashboardPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const [fabOpen, setFabOpen] = useState(false)
+  const [showAllActivities, setShowAllActivities] = useState(false)
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -61,7 +62,7 @@ export default function DashboardPage() {
                   : "bg-surface-container-highest text-primary border border-primary/20",
               ].join(" ")}
             >
-              <span className="material-symbols-outlined">{action.icon}</span>
+              <span aria-hidden="true" className="material-symbols-outlined">{action.icon}</span>
               {action.label}
             </Link>
           ))}
@@ -125,12 +126,18 @@ export default function DashboardPage() {
               <h3 className="font-headline-sm text-headline-sm text-on-surface">
                 Recent Activities
               </h3>
-              <button className="text-body-sm font-bold text-primary hover:underline">
-                View All
+              <button
+                type="button"
+                className="text-body-sm font-bold text-primary hover:underline"
+                aria-expanded={showAllActivities}
+                aria-controls="recent-activities"
+                onClick={() => setShowAllActivities((isShowingAll) => !isShowingAll)}
+              >
+                {showAllActivities ? "Show Less" : "View All"}
               </button>
             </div>
-            <div className="space-y-base">
-              {activities.map((item, i) => (
+            <div id="recent-activities" className="space-y-base">
+              {(showAllActivities ? activities : activities.slice(0, 3)).map((item, i) => (
                 <div
                   key={i}
                   className="flex items-center gap-gutter rounded-2xl border border-transparent bg-background/50 p-gutter transition-colors hover:border-primary/10 hover:bg-primary-container/5"
@@ -175,11 +182,33 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      <FAB
-        icon="add"
-        onClick={() => setFabOpen(!fabOpen)}
-        className="md:hidden"
-      />
+      <div className="md:hidden">
+        {fabOpen && (
+          <nav
+            id="mobile-quick-actions"
+            aria-label="Quick logging actions"
+            className="fixed bottom-40 right-6 z-40 flex flex-col gap-2 rounded-2xl border border-primary/10 bg-surface-container-lowest p-2 shadow-lg"
+          >
+            {quickActions.map((action) => (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-body-sm font-bold text-primary hover:bg-primary-container/10"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{action.icon}</span>
+                {action.label}
+              </Link>
+            ))}
+          </nav>
+        )}
+        <FAB
+          icon={fabOpen ? "close" : "add"}
+          aria-label={fabOpen ? "Close quick logging actions" : "Open quick logging actions"}
+          aria-expanded={fabOpen}
+          aria-controls="mobile-quick-actions"
+          onClick={() => setFabOpen((isOpen) => !isOpen)}
+        />
+      </div>
     </div>
   )
 }
