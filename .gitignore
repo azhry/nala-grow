@@ -1,4 +1,6 @@
-.agents
+.agents/*
+!.agents/skills/
+!.agents/skills/**
 skills-lock.json
 notes.txt
 node_modules
