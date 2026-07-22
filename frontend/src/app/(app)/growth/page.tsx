@@ -9,7 +9,7 @@ import {
   deleteMeasurement as deleteMeasurementApi,
   fetchMeasurements,
 } from "@/lib/measurement-service"
-import { WhoChart, UnitToggle, MeasurementTable, MeasurementForm } from "@/components/growth"
+import { WhoChart, MeasurementTable, MeasurementForm } from "@/components/growth"
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -149,17 +149,28 @@ export default function GrowthPage() {
 
   return (
     <div className="pb-stack-lg">
-      <div className="px-container-margin md:px-stack-lg py-stack-md max-w-7xl mx-auto">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
+        <div className="flex items-center gap-3"><span className="material-symbols-outlined text-primary md:hidden">menu</span><span className="font-headline-md text-headline-md text-primary">NalaGrow</span></div>
+        <div className="hidden w-full max-w-sm items-center rounded-full bg-surface-container px-4 py-2 md:flex"><span className="material-symbols-outlined mr-2 text-on-surface-variant">search</span><span className="font-body-sm text-body-sm text-on-surface-variant">Search records...</span></div>
+        <div className="flex items-center gap-4"><button aria-label="Notifications" className="relative text-on-surface-variant" type="button"><span className="material-symbols-outlined">notifications</span><span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-error" /></button><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary">{babyName.slice(0, 1)}</div></div>
+      </header>
+      <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface">
-              Growth Tracking — {babyName}
+              Growth Tracking - {babyName}
             </h1>
             <p className="font-body-md text-body-md text-on-surface-variant">
               Monitoring {babyName}&apos;s healthy development journey.
             </p>
           </div>
-          <UnitToggle unit={unitSystem} onChange={setUnitSystem} />
+          <div className="flex items-center gap-2 rounded-full bg-surface-container p-1">
+            {(["metric", "imperial"] as const).map((option) => (
+              <button key={option} type="button" aria-pressed={unitSystem === option} onClick={() => setUnitSystem(option)} className={["rounded-full px-4 py-2 font-label-md text-label-md transition-colors", unitSystem === option ? "bg-primary text-on-primary shadow-soft" : "text-on-surface-variant"].join(" ")}>
+                {option === "metric" ? "Metric (kg/cm)" : "Imperial (lb/in)"}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
@@ -304,6 +315,11 @@ export default function GrowthPage() {
           </div>
         </div>
       </div>
+
+      <footer className="mx-auto max-w-7xl border-t border-outline-variant/30 px-container-margin py-8 text-center">
+        <p className="font-body-sm text-body-sm text-on-surface-variant">NalaGrow is a tool to support your parenting journey. Always consult with a healthcare professional for medical advice.</p>
+        <div className="mt-4 flex justify-center gap-6 font-label-md text-label-md text-primary"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/help">Help Center</a></div>
+      </footer>
 
       <MeasurementForm
         open={showForm}

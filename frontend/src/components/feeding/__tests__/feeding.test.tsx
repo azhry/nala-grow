@@ -185,12 +185,16 @@ describe("DailySummary", () => {
     expect(screen.getByText("35 mins")).toBeInTheDocument()
   })
 
-  it("renders one bar per barData entry", () => {
+  it("renders the Stitch paired-bar reference chart when no feeds are recorded", () => {
     const { container } = render(
       <DailySummary bottleTotalMl={0} breastTotalMins={0} barData={barData} />,
     )
     const bars = container.querySelectorAll(".rounded-t-lg")
-    expect(bars.length).toBe(barData.length)
+    expect(bars.length).toBe(12)
+    expect(screen.getByText("Bottle (ml)")).toBeInTheDocument()
+    expect(screen.getByText("Breast (min)")).toBeInTheDocument()
+    expect(screen.getByText("250ml")).toBeInTheDocument()
+    expect(screen.getByText("125ml")).toBeInTheDocument()
   })
 })
 

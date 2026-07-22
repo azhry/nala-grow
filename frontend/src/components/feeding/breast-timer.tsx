@@ -34,7 +34,7 @@ function BreastTimer({
             type="button"
             onClick={() => onToggleSide("left")}
             className={[
-              "py-5 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-95 group",
+              "py-4 rounded-2xl flex flex-col items-center gap-1 transition-all active:scale-95 group",
               runningSide === "left"
                 ? "timer-active text-white shadow-lg"
                 : "bg-surface-container text-primary hover:bg-surface-container-high",
@@ -56,7 +56,7 @@ function BreastTimer({
             type="button"
             onClick={() => onToggleSide("right")}
             className={[
-              "py-5 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-95 group",
+              "py-4 rounded-2xl flex flex-col items-center gap-1 transition-all active:scale-95 group",
               runningSide === "right"
                 ? "timer-active text-white shadow-lg"
                 : "bg-surface-container text-primary hover:bg-surface-container-high",

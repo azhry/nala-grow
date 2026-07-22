@@ -22,23 +22,35 @@ function log(msg) {
   console.log(`[e2e-setup] ${msg}`)
 }
 
-function killPort(port) {
+async function killPort(port) {
   try {
     const isWin = process.platform === "win32"
     if (isWin) {
-      const out = execSync(`netstat -ano | findstr ":${port}"`, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
+      const out = execSync(`netstat -ano | findstr "LISTENING" | findstr ":${port} "`, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
       const pids = [...new Set(
         out.split("\n")
           .map(l => l.trim().split(/\s+/).pop())
           .filter(Boolean)
+          .filter(pid => /^\d+$/.test(pid))
       )]
-      pids.forEach(pid => {
+      for (const pid of pids) {
         try { execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" }) } catch {}
-      })
+      }
+      for (let i = 0; i < 30; i++) {
+        try {
+          execSync(`netstat -ano | findstr "LISTENING" | findstr ":${port} "`, { encoding: "utf8", stdio: "ignore" })
+          if (i === 29) throw new Error(`Port ${port} still in use after killing processes`)
+        } catch {
+          break
+        }
+        await new Promise(r => setTimeout(r, 500))
+      }
     } else {
       execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { stdio: "ignore" })
     }
-  } catch {}
+  } catch (e) {
+    log(`killPort ${port} failed: ${e.message}`)
+  }
 }
 
 function waitForPort(port, timeoutMs = 60000) {
@@ -91,8 +103,8 @@ function resetDatabase() {
 async function main() {
   // --- Kill stale processes ---
   log("Killing stale processes on ports 3000, 8080...")
-  killPort(FRONTEND_PORT)
-  killPort(BACKEND_PORT)
+  await killPort(FRONTEND_PORT)
+  await killPort(BACKEND_PORT)
 
   // --- PostgreSQL ---
   log("Starting PostgreSQL...")
@@ -175,9 +187,17 @@ async function main() {
 
   log("All services running. Waiting for Playwright to finish...")
 
-  process.stdin.on("end", () => { cleanup(); process.exit(0) })
-  process.on("SIGTERM", () => { cleanup(); process.exit(0) })
-  process.on("SIGINT", () => { cleanup(); process.exit(0) })
+  let shuttingDown = false
+  const shutdown = () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    cleanup()
+    setTimeout(() => process.exit(0), 3000)
+  }
+
+  process.stdin.on("end", shutdown)
+  process.on("SIGTERM", shutdown)
+  process.on("SIGINT", shutdown)
 
   await new Promise(() => {})
 }

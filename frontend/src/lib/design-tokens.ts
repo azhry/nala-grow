@@ -1,4 +1,5 @@
 export const designColors = {
+  "warm-cream": "#fdf5e6",
   surface: "#f0fcf9",
   "surface-dim": "#d1dcda",
   "surface-bright": "#f0fcf9",
