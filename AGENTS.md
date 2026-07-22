@@ -35,11 +35,11 @@ For a request containing a Linear issue ID such as `AZH-385`:
 
 - Never print, echo, commit, or transmit `.agents/config.md` or any secret value.
 - Do not dot-source config files. Load only allowlisted `KEY=value` entries into the current process environment without output.
-- Reading config does not load environment variables. Never assume `$env:LINEAR_API_KEY`, `$env:GH_TOKEN`, or similar exists.
+- Reading config does not export values into the current shell environment. Never assume a credential environment variable is available.
 - Prefer authenticated connectors for Linear and GitHub. Do not manually inject project secrets into `curl` or other direct HTTP commands.
 - Before changing code for a task that requires GitHub delivery:
-  1. Resolve the intended GitHub CLI executable with `Get-Command gh -All`; do not assume a PATH-resolved `gh` is the official GitHub CLI.
-  2. Run a non-interactive authentication and repository-access check with the official CLI, without overriding its keyring credential.
+  1. Resolve the intended GitHub CLI executable with a platform-appropriate path-inspection command. Verify that it is the official GitHub CLI, not an npm package, shell alias, or wrapper.
+  2. Run a non-interactive authentication and repository-access check with that resolved executable, without overriding a working stored credential.
   3. Verify the GitHub connector can access the repository if it will be used.
 - If authentication or repository access fails, stop before implementation, record the blocker in Linear, and tell the user exactly which credential/integration must be fixed.
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
