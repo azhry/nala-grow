@@ -4,9 +4,14 @@ interface DailySummaryProps {
   bottleTotalMl: number
   breastTotalMins: number
   barData: { label: string; heightPct: number; title: string }[]
+  range?: "today" | "yesterday"
+  onRangeChange?: (range: "today" | "yesterday") => void
 }
 
-function DailySummary({ bottleTotalMl, breastTotalMins }: DailySummaryProps) {
+function DailySummary({ bottleTotalMl, breastTotalMins, barData, range = "today", onRangeChange }: DailySummaryProps) {
+  const chartData = barData.length >= 6
+    ? barData
+    : [...barData, ...["12 PM", "3 PM", "6 PM", "9 PM", "12 AM", "3 AM"].slice(0, 6 - barData.length).map((label) => ({ label, heightPct: 10, title: `${label}: no feeds recorded` }))]
 
   return (
     <section className="lg:col-span-8 bg-white rounded-2xl p-stack-md soft-shadow relative overflow-hidden">
@@ -14,12 +19,11 @@ function DailySummary({ bottleTotalMl, breastTotalMins }: DailySummaryProps) {
         <div>
           <h3 className="font-headline-md text-headline-md text-primary">Daily Summary</h3>
           <p className="font-label-md text-label-md text-on-surface-variant">
-            Feeding Distribution (Last 24 Hours)
+            Feeding Distribution ({range === "today" ? "Today" : "Yesterday"})
           </p>
         </div>
-        <div className="flex gap-base">
-          <span className="px-4 py-1 bg-primary-container/10 text-primary rounded-full font-label-md">Today</span>
-          <span className="px-4 py-1 text-on-surface-variant font-label-md opacity-60">Yesterday</span>
+        <div className="flex gap-base" aria-label="Summary date range">
+          {(["today", "yesterday"] as const).map((option) => <button key={option} type="button" aria-pressed={range === option} onClick={() => onRangeChange?.(option)} className={["px-4 py-1 rounded-full font-label-md transition-colors", range === option ? "bg-primary-container/10 text-primary" : "text-on-surface-variant opacity-60 hover:bg-surface-container-low hover:opacity-100"].join(" ")}>{option === "today" ? "Today" : "Yesterday"}</button>)}
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-stack-md">
@@ -64,21 +68,13 @@ function DailySummary({ bottleTotalMl, breastTotalMins }: DailySummaryProps) {
           <div className="border-t border-primary w-full" />
           <div className="border-t border-primary w-full" />
         </div>
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[30%] transition-all hover:h-[40%] hover:bg-primary/40 cursor-help" title="12 AM" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[15%] transition-all hover:h-[25%] hover:bg-primary/40 cursor-help" title="3 AM" />
-        <div className="flex-1 bg-primary rounded-t-lg h-[65%] transition-all hover:scale-y-105 cursor-help" title="6 AM: 120ml" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[40%] transition-all hover:h-[50%] hover:bg-primary/40 cursor-help" title="8 AM" />
-        <div className="flex-1 bg-primary rounded-t-lg h-[85%] transition-all hover:scale-y-105 cursor-help" title="10 AM: 180ml" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[50%] transition-all hover:h-[60%] hover:bg-primary/40 cursor-help" title="12 PM" />
-        <div className="flex-1 bg-primary rounded-t-lg h-[75%] transition-all hover:scale-y-105 cursor-help" title="2 PM: 150ml" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[35%] transition-all hover:h-[45%] hover:bg-primary/40 cursor-help" title="4 PM" />
-        <div className="flex-1 bg-primary rounded-t-lg h-[95%] transition-all hover:scale-y-105 cursor-help" title="6 PM: 210ml" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[45%] transition-all hover:h-[55%] hover:bg-primary/40 cursor-help" title="8 PM" />
-        <div className="flex-1 bg-primary/20 rounded-t-lg h-[25%] transition-all hover:h-[35%] hover:bg-primary/40 cursor-help" title="10 PM" />
-        <div className="flex-1 bg-accent-coral/40 rounded-t-lg h-[10%] animate-pulse cursor-help" title="Active Feed" />
+        {chartData.flatMap((bar) => [
+          <div key={`${bar.label}-bottle`} className="flex-1 bg-primary rounded-t-lg transition-all hover:scale-y-105 cursor-help" style={{ height: `${bar.heightPct}%` }} title={bar.title} />,
+          <div key={`${bar.label}-breast`} className="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 cursor-help" style={{ height: `${Math.max(10, bar.heightPct * 0.6)}%` }} title={`${bar.label}: breastfeed`} />,
+        ])}
       </div>
       <div className="flex justify-between mt-2 px-1 text-[10px] text-on-surface-variant opacity-60">
-        <span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>12am</span>
+        {chartData.map((bar) => <span key={bar.label}>{bar.label}</span>)}
       </div>
     </section>
   )

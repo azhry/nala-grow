@@ -5,6 +5,7 @@ import type { FeedSession } from "@/lib/store"
 interface FeedingTimelineProps {
   sessions: FeedSession[]
   onViewHistory?: () => void
+  rangeLabel?: string
 }
 
 const feedTypeMeta: Record<string, { icon: string; dotClass: string; label: string }> = {
@@ -40,12 +41,12 @@ function formatTime(iso: string): string {
   }
 }
 
-function FeedingTimeline({ sessions, onViewHistory }: FeedingTimelineProps) {
+function FeedingTimeline({ sessions, onViewHistory, rangeLabel = "Last 24h" }: FeedingTimelineProps) {
   if (sessions.length === 0) {
     return (
       <section className="lg:col-span-12 min-h-[280px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
         <div className="flex justify-between items-center mb-stack-lg">
-          <h3 className="font-headline-md text-headline-md text-primary">Timeline (Last 24h)</h3>
+          <h3 className="font-headline-md text-headline-md text-primary">Timeline ({rangeLabel})</h3>
           <button type="button" onClick={onViewHistory} className="text-primary font-label-md flex items-center gap-1 hover:underline">
             View History
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -56,7 +57,7 @@ function FeedingTimeline({ sessions, onViewHistory }: FeedingTimelineProps) {
             restaurant
           </span>
           <p className="font-body-md text-body-md text-on-surface-variant">
-            No feeds recorded yet today.
+            No feeds recorded yet for {rangeLabel.toLowerCase()}.
           </p>
           <p className="font-label-md text-label-md text-on-surface-variant">
             Start by logging a feed above.
@@ -69,7 +70,7 @@ function FeedingTimeline({ sessions, onViewHistory }: FeedingTimelineProps) {
   return (
     <section className="lg:col-span-12 bg-white rounded-2xl p-stack-md soft-shadow">
       <div className="flex justify-between items-center mb-stack-lg">
-        <h3 className="font-headline-md text-headline-md text-primary">Timeline (Last 24h)</h3>
+        <h3 className="font-headline-md text-headline-md text-primary">Timeline ({rangeLabel})</h3>
         <button type="button" onClick={onViewHistory} className="text-primary font-label-md flex items-center gap-1 hover:underline">
           View History
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

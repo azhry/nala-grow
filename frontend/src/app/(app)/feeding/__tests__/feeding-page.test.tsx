@@ -115,6 +115,38 @@ describe("FeedingPage", () => {
     })
   })
 
+  describe("AZH-384 interactive controls", () => {
+    it("filters the detailed history by feeding type", () => {
+      const now = new Date().toISOString()
+      setStoreState({
+        feedSessions: [
+          { id: "breast-1", baby_id: "baby-1", feed_type: "breast", started_at: now, left_duration_sec: 300 },
+          { id: "bottle-1", baby_id: "baby-1", feed_type: "bottle", started_at: now, amount_ml: 180, milk_type: "breast_milk" },
+        ],
+      })
+      renderPage()
+
+      fireEvent.click(screen.getByRole("tab", { name: "records" }))
+      fireEvent.click(screen.getByRole("button", { name: /Filter/ }))
+      fireEvent.click(screen.getByRole("button", { name: "breast" }))
+
+      expect(screen.getByText("Breastfeed")).toBeInTheDocument()
+      expect(screen.queryByText("180ml Breastmilk")).not.toBeInTheDocument()
+    })
+
+    it("opens notification feedback and lets the feed panel close and reopen", () => {
+      renderPage()
+
+      fireEvent.click(screen.getByLabelText("Notifications"))
+      expect(screen.getByRole("status")).toHaveTextContent("all caught up")
+
+      fireEvent.click(screen.getByLabelText("Close feed entry"))
+      expect(screen.queryByRole("heading", { name: "Record Feed" })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole("button", { name: /Log a feed/ }))
+      expect(screen.getByRole("heading", { name: "Record Feed" })).toBeInTheDocument()
+    })
+  })
+
   describe("Save handler — breast with timer", () => {
     it("calls createFeedSession with left_duration_sec from timer", async () => {
       renderPage()
@@ -367,6 +399,30 @@ describe("FeedingPage", () => {
       expect(screen.getByText("120ml Breastmilk")).toBeInTheDocument()
       // Yesterday's should not be visible in timeline (outside 24h window)
       expect(screen.queryByText("200ml Breastmilk")).not.toBeInTheDocument()
+    })
+  })
+
+  describe("Daily range controls", () => {
+    it("switches totals and timeline records from today to yesterday", () => {
+      const now = new Date()
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      setStoreState({
+        feedSessions: [
+          { id: "today", baby_id: "baby-1", feed_type: "bottle", started_at: now.toISOString(), amount_ml: 120, milk_type: "breast_milk" },
+          { id: "yesterday", baby_id: "baby-1", feed_type: "bottle", started_at: yesterday.toISOString(), amount_ml: 240, milk_type: "formula" },
+        ],
+      })
+      renderPage()
+
+      expect(screen.getByText("120ml")).toBeInTheDocument()
+      expect(screen.getByText("120ml Breastmilk")).toBeInTheDocument()
+      fireEvent.click(screen.getByRole("button", { name: "Yesterday" }))
+
+      expect(screen.getByRole("button", { name: "Yesterday" })).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByText("240ml")).toBeInTheDocument()
+      expect(screen.getByText("240ml Formula")).toBeInTheDocument()
+      expect(screen.queryByText("120ml Breastmilk")).not.toBeInTheDocument()
     })
   })
 
