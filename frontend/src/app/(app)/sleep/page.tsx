@@ -97,7 +97,10 @@ export default function SleepPage() {
     () => sleepSessions.filter((session) => session.baby_id === babyId),
     [babyId, sleepSessions],
   )
-  const isShowingDemo = sessions.length === 0
+  // Newly created profiles can contain zero-length placeholder records. They do not
+  // provide a useful dashboard, so show the supplied design's representative data
+  // until at least one meaningful session has been logged.
+  const isShowingDemo = sessions.length === 0 || sessions.every((session) => sessionMinutes(session) < 1)
   const displaySessions = isShowingDemo ? demoSessions : sessions
 
   const todaySessions = useMemo(() => {
