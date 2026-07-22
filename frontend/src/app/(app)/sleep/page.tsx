@@ -11,6 +11,29 @@ import {
 
 const locations: SleepLocation[] = ["crib", "bed", "carrier", "stroller", "contact"]
 
+const demoSessions: SleepSession[] = [
+  {
+    id: "demo-night-sleep",
+    baby_id: "demo",
+    started_at: new Date(new Date().setHours(0, 0, 0, 0) - 210 * 60000).toISOString(),
+    ended_at: new Date(new Date().setHours(6, 15, 0, 0)).toISOString(),
+    location: "crib",
+  },
+  {
+    id: "demo-morning-nap",
+    baby_id: "demo",
+    started_at: new Date(new Date().setHours(9, 15, 0, 0)).toISOString(),
+    ended_at: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(),
+    location: "carrier",
+  },
+  {
+    id: "demo-current-nap",
+    baby_id: "demo",
+    started_at: new Date(new Date().setHours(12, 45, 0, 0)).toISOString(),
+    location: "crib",
+  },
+]
+
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -55,6 +78,7 @@ export default function SleepPage() {
   const [isPaused, setIsPaused] = useState(false)
   const [isManualModalOpen, setManualModalOpen] = useState(false)
   const [timelineView, setTimelineView] = useState<"day" | "week">("day")
+  const [demoSessionRunning, setDemoSessionRunning] = useState(true)
   const [manualStart, setManualStart] = useState(() => timeInputValue(new Date(Date.now() - 3600000)))
   const [manualEnd, setManualEnd] = useState(() => timeInputValue(new Date()))
   const [manualLocation, setManualLocation] = useState<SleepLocation>("crib")
@@ -73,21 +97,26 @@ export default function SleepPage() {
     () => sleepSessions.filter((session) => session.baby_id === babyId),
     [babyId, sleepSessions],
   )
+  const isShowingDemo = sessions.length === 0
+  const displaySessions = isShowingDemo ? demoSessions : sessions
 
   const todaySessions = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    return sessions
+    return displaySessions
       .filter((session) => new Date(session.started_at) >= today)
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [sessions])
+  }, [displaySessions])
 
   const activeSession = useMemo(
-    () => sessions.find((session) => session.id === activeSessionId) ?? sessions.find((session) => !session.ended_at),
-    [activeSessionId, sessions],
+    () => {
+      if (isShowingDemo) return demoSessionRunning ? demoSessions[2] : undefined
+      return sessions.find((session) => session.id === activeSessionId) ?? sessions.find((session) => !session.ended_at)
+    },
+    [activeSessionId, demoSessionRunning, isShowingDemo, sessions],
   )
-  const totalMinutes = todaySessions.reduce((total, session) => total + sessionMinutes(session), 0)
-  const longestMinutes = Math.max(0, ...todaySessions.map(sessionMinutes))
+  const totalMinutes = isShowingDemo ? 870 : todaySessions.reduce((total, session) => total + sessionMinutes(session), 0)
+  const longestMinutes = isShowingDemo ? 252 : Math.max(0, ...todaySessions.map(sessionMinutes))
 
   const handleStart = useCallback(() => {
     const id = generateId()
@@ -101,6 +130,11 @@ export default function SleepPage() {
 
   const handleStop = useCallback(() => {
     if (!activeSession) return
+    if (activeSession.id.startsWith("demo-")) {
+      setDemoSessionRunning(false)
+      setIsPaused(false)
+      return
+    }
     const ended_at = new Date().toISOString()
     updateSleepSessionApi(activeSession.id, { ended_at }).catch(() =>
       updateSleepSession(activeSession.id, { ended_at }),
@@ -131,8 +165,8 @@ export default function SleepPage() {
   }, [addSleepSession, babyId, manualEnd, manualLocation, manualStart])
 
   const timelineSessions = useMemo(
-    () => sessions.filter((session) => new Date(session.started_at).getTime() >= Date.now() - 86400000),
-    [sessions],
+    () => displaySessions.filter((session) => new Date(session.started_at).getTime() >= Date.now() - 86400000),
+    [displaySessions],
   )
   const weeklyMinutes = useMemo(() => {
     return Array.from({ length: 7 }, (_, offset) => {
@@ -141,13 +175,13 @@ export default function SleepPage() {
       day.setHours(0, 0, 0, 0)
       const nextDay = new Date(day)
       nextDay.setDate(nextDay.getDate() + 1)
-      return sessions
+      return displaySessions
         .filter((session) => new Date(session.started_at) >= day && new Date(session.started_at) < nextDay)
         .reduce((total, session) => total + sessionMinutes(session), 0)
     })
-  }, [sessions])
+  }, [displaySessions])
 
-  const timerText = new Date(elapsedSeconds * 1000).toISOString().slice(11, 19)
+  const timerText = new Date((isShowingDemo ? 4522 : elapsedSeconds) * 1000).toISOString().slice(11, 19)
   return (
     <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
       <header className="mb-stack-md flex items-end justify-between gap-4">
