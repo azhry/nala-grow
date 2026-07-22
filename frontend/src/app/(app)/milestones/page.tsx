@@ -24,6 +24,20 @@ const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "12-24": "12–24 Months",
 }
 
+const PLACEHOLDER_PHOTO = (seed: number) => {
+  const hue = (seed * 47 + 160) % 360
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
+    <rect fill='hsl(${hue},28%,92%)' width='200' height='200' rx='16'/>
+    <circle cx='100' cy='90' r='28' fill='hsl(${hue},20%,78%)'/>
+  </svg>`
+  return `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
+}
+
+const DEMO_NOTES: Record<string, string> = {
+  "m-3-6-1": '"Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!"',
+  "m-3-6-4": '"We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely."',
+}
+
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -58,6 +72,7 @@ export default function MilestonesPage() {
     const existing = new Map(babyMilestones.map((m) => [m.definition_id, m]))
     const result: Milestone[] = []
 
+    let defIndex = 0
     for (const def of MILESTONE_DEFINITIONS) {
       const existing_m = existing.get(def.id)
       if (existing_m) {
@@ -71,8 +86,12 @@ export default function MilestonesPage() {
           category: def.category,
           age_range: def.age_range,
           achieved: false,
+          achieved_date: undefined,
+          notes: DEMO_NOTES[def.id],
+          photo_url: PLACEHOLDER_PHOTO(defIndex),
           is_custom: false,
         })
+        defIndex += 1
       }
     }
 

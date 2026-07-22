@@ -29,9 +29,10 @@ function formatDate(iso?: string): string {
   }
 }
 
-function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps) {
+function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps): JSX.Element {
   const labels = categoryLabels[milestone.category]
   const hasSecondary = Boolean(labels.secondary)
+
   const rotate = imageRotate
   const tape = tapeStyle || (idx % 2 === 0 ? undefined : "transform: translateX(-50%) rotate(3deg); background: rgba(126, 182, 173, 0.2);")
 

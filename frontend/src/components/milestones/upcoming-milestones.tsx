@@ -1,18 +1,11 @@
 "use client"
 
-import type { Milestone, MilestoneAgeRange, MilestoneCategory } from "@/lib/store"
+import type { Milestone, MilestoneAgeRange } from "@/lib/store"
 import { MILESTONE_DEFINITIONS } from "@/lib/store"
 
 interface UpcomingMilestonesProps {
   milestones: Milestone[]
   babyDob?: string
-}
-
-const categoryIcons: Record<MilestoneCategory, string> = {
-  physical: "self_improvement",
-  cognitive: "psychology",
-  social: "diversity_3",
-  language: "record_voice_over",
 }
 
 const ageRangeLabels: Record<MilestoneAgeRange, string> = {
@@ -55,11 +48,15 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
   const currentRange = babyDob ? getCurrentAgeRange(babyDob) : null
   const currentLabel = currentRange ? ageRangeLabels[currentRange].replace(" Months", "m") : ""
 
-  const achievedList = milestones
+  const rangeMilestones = currentRange
+    ? milestones.filter((m) => m.age_range === currentRange)
+    : milestones
+
+  const achievedList = rangeMilestones
     .filter((m) => m.achieved)
     .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
 
-  const upcomingList = milestones
+  const upcomingList = rangeMilestones
     .filter((m) => !m.achieved)
     .sort((a, b) => a.title.localeCompare(b.title))
 
@@ -75,24 +72,15 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">trending_up</span>
-          <h3 className="font-headline-md text-headline-md text-primary">Current Goals</h3>
-        </div>
+        <h3 className="font-headline-sm text-headline-sm text-primary">Current Goals</h3>
         {currentRange && (
-          <span className="bg-white/50 px-3 py-1 rounded-full text-label-md font-bold">
-            {currentLabel}
-          </span>
+          <span className="bg-white/50 px-3 py-1 rounded-full text-label-md font-bold">{currentLabel}</span>
         )}
       </div>
 
       <div className="flex flex-col gap-3">
-        {achievedList.map((m, idx) => (
-          <div
-            key={m.id}
-            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm"
-            style={idx > 0 ? { opacity: 0.7 } : undefined}
-          >
+        {achievedList.map((m) => (
+          <div key={m.id} className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm opacity-70">
             <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
             </div>
@@ -105,25 +93,21 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
           </div>
         ))}
 
-        {upcomingList.map((m) => {
-          const def = MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id)
-
-          return (
-            <div
-              key={m.id}
-              className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
-            >
-              <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
-                <span className="material-symbols-outlined">add</span>
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-on-surface">{m.title}</p>
-                <p className="text-xs text-primary font-bold">Upcoming</p>
-              </div>
-              <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+        {upcomingList.map((m) => (
+          <div
+            key={m.id}
+            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
+              <span className="material-symbols-outlined">add</span>
             </div>
-          )
-        })}
+            <div className="flex-1">
+              <p className="font-bold text-on-surface">{m.title}</p>
+              <p className="text-xs text-primary font-bold">Upcoming</p>
+            </div>
+            <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+          </div>
+        ))}
       </div>
 
       <button
