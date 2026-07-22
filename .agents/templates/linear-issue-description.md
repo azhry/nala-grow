@@ -8,6 +8,10 @@ Use this template when creating a task or when an existing task is too incomplet
 
 ## Problem analysis
 
+### Reference material
+
+- Preserve any user-supplied HTML, mockups, screenshots, and example data below this section verbatim. Treat it as the visual/behavioral source of truth unless the issue explicitly says otherwise.
+
 ### Confirmed findings
 
 1. **[Symptom or missing behavior]** — [evidence, affected route/module, and user impact].
@@ -37,5 +41,6 @@ Use this template when creating a task or when an existing task is too incomplet
 
 - Automated: [exact test suite(s), expected assertions, and test seam].
 - Interactive: [desktop/mobile/browser flows, keyboard checks, or API scenarios].
+- Visual (when a design reference exists): [desktop and mobile comparison against the supplied reference; content/images/colors/typography/layout checklist].
 - Build/lint: [commands or CI checks].
-- Known limitations / pre-existing failures: [or "None known"].
+- Known limitations / pre-existing failures: [exact failing command, affected path, and why it is unrelated; or "None known"].
