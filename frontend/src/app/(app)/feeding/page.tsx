@@ -9,6 +9,7 @@ import type {
   FeedTemperature,
 } from "@/lib/store"
 import { createFeedSession, deleteFeedSession, fetchFeedSessions, updateFeedSession } from "@/lib/feeding-service"
+import { downloadCsv, generateCsv } from "@/lib/export-utils"
 import { DailySummary, FeedingRecords, FeedingTimeline } from "@/components/feeding"
 import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
@@ -47,6 +48,11 @@ export default function FeedingPage() {
   const [editingSession, setEditingSession] = useState<FeedSession | null>(null)
   const [deletingSession, setDeletingSession] = useState<FeedSession | null>(null)
   const [editNotes, setEditNotes] = useState("")
+  const [recordFilter, setRecordFilter] = useState<"all" | FeedType>("all")
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [feedPanelOpen, setFeedPanelOpen] = useState(true)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [statusMessage, setStatusMessage] = useState("")
 
   const [runningSide, setRunningSide] = useState<"left" | "right" | null>(null)
   const [leftSeconds, setLeftSeconds] = useState(0)
@@ -304,6 +310,22 @@ export default function FeedingPage() {
     setDeletingSession(null)
   }
 
+  const recordsForBaby = useMemo(() => feedSessions
+    .filter((session) => session.baby_id === babyId)
+    .filter((session) => recordFilter === "all" || session.feed_type === recordFilter)
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()), [babyId, feedSessions, recordFilter])
+
+  const handleFilterChange = (filter: "all" | FeedType) => {
+    setRecordFilter(filter)
+    setFilterOpen(false)
+  }
+
+  const handleExportRecords = () => {
+    const csv = generateCsv({ baby: activeBaby, feedSessions: recordsForBaby, sleepSessions: [], measurements: [], milestones: [], dateRange: { from: "", to: "" } })
+    downloadCsv(csv, `${babyName.toLowerCase().replace(/\s+/g, "-")}-feeding-records.csv`)
+    setStatusMessage("Feeding records exported")
+  }
+
   return (
     <div className="min-h-full bg-warm-cream pb-stack-lg">
       <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
@@ -317,6 +339,8 @@ export default function FeedingPage() {
           <div className="flex items-center gap-base">
             <button
               type="button"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              aria-expanded={notificationsOpen}
               className="p-3 bg-white rounded-full soft-shadow text-primary hover:bg-primary-container/10 transition-colors"
               aria-label="Notifications"
             >
@@ -326,6 +350,7 @@ export default function FeedingPage() {
               <span className="material-symbols-outlined text-primary">child_care</span>
             </div>
           </div>
+          {notificationsOpen && <div role="status" className="absolute right-container-margin top-24 z-20 max-w-xs rounded-xl bg-white p-4 soft-shadow text-body-sm text-on-surface">You&apos;re all caught up — no feeding reminders right now.</div>}
         </header>
 
         {hoursSinceLastFeed !== null && hoursSinceLastFeed > 4 && (
@@ -346,15 +371,16 @@ export default function FeedingPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
           <div className="lg:col-span-8 space-y-stack-md">
-            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} /><FeedingTimeline sessions={timelineSessions} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={feedSessions.filter((session) => session.baby_id === babyId).sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())} onEdit={openEdit} onDelete={setDeletingSession} />}
+            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} /><FeedingTimeline sessions={timelineSessions} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={recordsForBaby} onEdit={openEdit} onDelete={setDeletingSession} activeFilter={recordFilter} filterOpen={filterOpen} onToggleFilter={() => setFilterOpen((open) => !open)} onFilterChange={handleFilterChange} onExport={handleExportRecords} />}
           </div>
 
           <aside className="lg:col-span-4 lg:sticky lg:top-stack-lg h-fit">
-          <section className="min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
+          {feedPanelOpen ? <section className="min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
             <div className="flex justify-between items-center mb-stack-md">
               <h3 className="font-headline-md text-headline-md text-primary">Record Feed</h3>
               <button
                 type="button"
+                onClick={() => setFeedPanelOpen(false)}
                 aria-label="Close feed entry"
                 className="text-on-surface-variant opacity-60 transition-opacity hover:opacity-100"
               >
@@ -449,11 +475,13 @@ export default function FeedingPage() {
               Save Entry
             </button>
           </section>
+          : <button type="button" onClick={() => setFeedPanelOpen(true)} className="w-full rounded-2xl bg-primary py-4 text-on-primary font-headline-sm text-headline-sm shadow-md"><span className="material-symbols-outlined mr-2">add</span>Log a feed</button>}
           </aside>
         </div>
       </div>
       {editingSession && <div className="fixed inset-0 z-50 flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="edit-heading"><div className="w-full max-w-lg bg-white rounded-[24px] soft-shadow overflow-hidden"><div className="p-6 bg-surface-container-low flex items-center justify-between"><div><h2 id="edit-heading" className="font-headline-md text-headline-md">Edit Feed Entry</h2><p className="font-body-sm text-body-sm text-on-surface-variant">{new Date(editingSession.started_at).toLocaleString()}</p></div><button type="button" onClick={() => setEditingSession(null)} aria-label="Close edit dialog" className="p-2 rounded-full hover:bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><div className="p-6 space-y-4"><div className="rounded-xl bg-surface-container-low p-4"><p className="font-label-md text-label-md text-primary uppercase">{editingSession.feed_type} entry</p><p className="font-body-md text-body-md">Update your observation below.</p></div><label className="block font-label-md text-label-md text-primary uppercase">Notes<textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} className="mt-2 w-full h-24 p-gutter rounded-xl bg-surface-container-high border-none outline-none focus:ring-2 focus:ring-primary/20 font-body-md text-body-md resize-none" /></label><div className="flex gap-3 pt-2"><button type="button" onClick={() => setEditingSession(null)} className="flex-1 py-3 rounded-full border-2 border-primary-container text-primary font-headline-sm">Cancel</button><button type="button" onClick={saveEdit} className="flex-1 py-3 rounded-full bg-primary-container text-on-primary-container font-headline-sm">Save Changes</button></div></div></div></div>}
       {deletingSession && <div className="fixed inset-0 z-[60] flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-heading"><div className="w-full max-w-sm bg-white rounded-[24px] p-stack-md soft-shadow text-center"><div className="w-16 h-16 mx-auto mb-4 rounded-full bg-error-container/40 text-error flex items-center justify-center"><span className="material-symbols-outlined text-[32px]">delete_forever</span></div><h2 id="delete-heading" className="font-headline-sm text-headline-sm mb-2">Delete this record?</h2><p className="font-body-md text-body-md text-on-surface-variant mb-stack-md">This feeding record will be permanently removed.</p><button type="button" onClick={confirmDelete} className="w-full py-3 rounded-full bg-error text-white font-headline-sm mb-2">Delete</button><button type="button" onClick={() => setDeletingSession(null)} className="w-full py-3 rounded-full text-primary font-label-md text-label-md">Cancel</button></div></div>}
+      {statusMessage && <div role="status" className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-inverse-surface px-5 py-3 text-body-sm text-inverse-on-surface shadow-soft">{statusMessage}</div>}
     </div>
   )
 }

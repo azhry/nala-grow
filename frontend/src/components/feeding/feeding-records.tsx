@@ -6,6 +6,11 @@ interface FeedingRecordsProps {
   sessions: FeedSession[]
   onEdit: (session: FeedSession) => void
   onDelete: (session: FeedSession) => void
+  activeFilter: "all" | FeedSession["feed_type"]
+  filterOpen: boolean
+  onToggleFilter: () => void
+  onFilterChange: (filter: "all" | FeedSession["feed_type"]) => void
+  onExport: () => void
 }
 
 const typeMeta: Record<string, { icon: string; label: string; className: string }> = {
@@ -28,7 +33,16 @@ function details(session: FeedSession) {
   return [session.food_name ?? "Solids", session.quantity ? `${session.quantity}${session.quantity_unit ?? ""}` : ""].filter(Boolean).join(" · ")
 }
 
-function FeedingRecords({ sessions, onEdit, onDelete }: FeedingRecordsProps) {
+function FeedingRecords({
+  sessions,
+  onEdit,
+  onDelete,
+  activeFilter,
+  filterOpen,
+  onToggleFilter,
+  onFilterChange,
+  onExport,
+}: FeedingRecordsProps) {
   return (
     <section className="bg-white rounded-2xl p-stack-md soft-shadow overflow-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-stack-md">
@@ -36,9 +50,12 @@ function FeedingRecords({ sessions, onEdit, onDelete }: FeedingRecordsProps) {
           <h3 className="font-headline-md text-headline-md text-primary">Detailed History</h3>
           <p className="font-label-md text-label-md text-on-surface-variant">All feeding records for {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" })}</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="flex items-center gap-1 px-3 py-2 bg-surface-container-low rounded-lg font-label-md text-label-md text-on-surface-variant"><span className="material-symbols-outlined text-sm">filter_list</span>Filter</button>
-          <button type="button" className="flex items-center gap-1 px-3 py-2 bg-surface-container-low rounded-lg font-label-md text-label-md text-on-surface-variant"><span className="material-symbols-outlined text-sm">ios_share</span>Export</button>
+        <div className="flex gap-2 relative">
+          <button type="button" onClick={onToggleFilter} aria-expanded={filterOpen} aria-controls="feeding-record-filter" className="flex items-center gap-1 px-3 py-2 bg-surface-container-low rounded-lg font-label-md text-label-md text-on-surface-variant"><span className="material-symbols-outlined text-sm">filter_list</span>Filter</button>
+          <button type="button" onClick={onExport} className="flex items-center gap-1 px-3 py-2 bg-surface-container-low rounded-lg font-label-md text-label-md text-on-surface-variant"><span className="material-symbols-outlined text-sm">ios_share</span>Export</button>
+          {filterOpen && <div id="feeding-record-filter" className="absolute right-0 top-11 z-10 w-40 rounded-xl bg-white p-2 shadow-soft border border-outline-variant/30">
+            {(["all", "breast", "bottle", "solids"] as const).map((filter) => <button key={filter} type="button" onClick={() => onFilterChange(filter)} className={["w-full rounded-lg px-3 py-2 text-left font-label-md text-label-md capitalize", activeFilter === filter ? "bg-primary-container/20 text-primary" : "text-on-surface-variant hover:bg-surface-container-low"].join(" ")}>{filter === "all" ? "All records" : filter}</button>)}
+          </div>}
         </div>
       </div>
       {sessions.length === 0 ? (
