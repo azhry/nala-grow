@@ -402,6 +402,30 @@ describe("FeedingPage", () => {
     })
   })
 
+  describe("Daily range controls", () => {
+    it("switches totals and timeline records from today to yesterday", () => {
+      const now = new Date()
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      setStoreState({
+        feedSessions: [
+          { id: "today", baby_id: "baby-1", feed_type: "bottle", started_at: now.toISOString(), amount_ml: 120, milk_type: "breast_milk" },
+          { id: "yesterday", baby_id: "baby-1", feed_type: "bottle", started_at: yesterday.toISOString(), amount_ml: 240, milk_type: "formula" },
+        ],
+      })
+      renderPage()
+
+      expect(screen.getByText("120ml")).toBeInTheDocument()
+      expect(screen.getByText("120ml Breastmilk")).toBeInTheDocument()
+      fireEvent.click(screen.getByRole("button", { name: "Yesterday" }))
+
+      expect(screen.getByRole("button", { name: "Yesterday" })).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByText("240ml")).toBeInTheDocument()
+      expect(screen.getByText("240ml Formula")).toBeInTheDocument()
+      expect(screen.queryByText("120ml Breastmilk")).not.toBeInTheDocument()
+    })
+  })
+
   describe("Baby filtering", () => {
     it("shows only active baby's sessions", () => {
       const now = new Date()

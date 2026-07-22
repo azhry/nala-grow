@@ -19,9 +19,9 @@ function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function getTodayRange(): [Date, Date] {
+function getDateRange(daysAgo = 0): [Date, Date] {
   const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo)
   const end = new Date(start.getTime() + 86400000)
   return [start, end]
 }
@@ -44,6 +44,7 @@ export default function FeedingPage() {
   const babyName = activeBaby?.name ?? "Lily"
 
   const [activeTab, setActiveTab] = useState<FeedType>("breast")
+  const [summaryRange, setSummaryRange] = useState<"today" | "yesterday">("today")
   const [view, setView] = useState<"overview" | "records">("overview")
   const [editingSession, setEditingSession] = useState<FeedSession | null>(null)
   const [deletingSession, setDeletingSession] = useState<FeedSession | null>(null)
@@ -104,8 +105,8 @@ export default function FeedingPage() {
     [runningSide],
   )
 
-  const todaySessions = useMemo(() => {
-    const [start, end] = getTodayRange()
+  const rangeSessions = useMemo(() => {
+    const [start, end] = getDateRange(summaryRange === "yesterday" ? 1 : 0)
     return feedSessions
       .filter((s) => s.baby_id === babyId)
       .filter((s) => {
@@ -113,60 +114,60 @@ export default function FeedingPage() {
         return d >= start && d < end
       })
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [feedSessions, babyId])
+  }, [feedSessions, babyId, summaryRange])
 
   const bottleTotalMl = useMemo(
     () =>
-      todaySessions
+      rangeSessions
         .filter((s) => s.feed_type === "bottle")
         .reduce((acc, s) => acc + (s.amount_ml ?? 0), 0),
-    [todaySessions],
+    [rangeSessions],
   )
 
   const breastTotalMins = useMemo(
     () =>
-      todaySessions
+      rangeSessions
         .filter((s) => s.feed_type === "breast")
         .reduce(
           (acc, s) =>
             acc + Math.round(((s.left_duration_sec ?? 0) + (s.right_duration_sec ?? 0)) / 60),
           0,
         ),
-    [todaySessions],
+    [rangeSessions],
   )
 
   const barData = useMemo(() => {
     const slots = ["6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
     const emptyStateHeights = [40, 70, 55, 90, 60, 20]
     const maxMl = Math.max(
-      ...todaySessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
+      ...rangeSessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
       1,
     )
     return slots.map((label, i) => {
       const hour = (i * 3 + 6) % 24
-      const total = todaySessions
+      const total = rangeSessions
         .filter((s) => s.feed_type === "bottle")
         .filter((s) => {
           const h = new Date(s.started_at).getHours()
           return h >= hour && h < hour + 3
         })
         .reduce((acc, s) => acc + (s.amount_ml ?? 0), 0)
-      const isEmptyDay = todaySessions.length === 0
+      const isEmptyDay = rangeSessions.length === 0
       return {
         label,
         heightPct: isEmptyDay ? emptyStateHeights[i] : Math.max(5, (total / maxMl) * 100),
         title: isEmptyDay ? `${label}: no feeds recorded` : `${label}: ${total}ml`,
       }
     })
-  }, [todaySessions])
+  }, [rangeSessions])
 
   const lastFeedTime = useMemo(() => {
-    if (todaySessions.length === 0) return null
-    const sorted = [...todaySessions].sort(
+    if (rangeSessions.length === 0) return null
+    const sorted = [...rangeSessions].sort(
       (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
     )
     return new Date(sorted[0].started_at)
-  }, [todaySessions])
+  }, [rangeSessions])
 
   const hoursSinceLastFeed = useMemo(() => {
     if (!lastFeedTime) return null
@@ -277,13 +278,7 @@ export default function FeedingPage() {
     setSolidsNotes("")
   }
 
-  const timelineSessions = useMemo(() => {
-    const twentyFourHrsAgo = new Date(Date.now() - 86400000)
-    return feedSessions
-      .filter((s) => s.baby_id === babyId)
-      .filter((s) => new Date(s.started_at) >= twentyFourHrsAgo)
-      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [feedSessions, babyId])
+  const timelineSessions = rangeSessions
 
   const openEdit = (session: FeedSession) => {
     setEditingSession(session)
@@ -371,7 +366,7 @@ export default function FeedingPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
           <div className="lg:col-span-8 space-y-stack-md">
-            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} /><FeedingTimeline sessions={timelineSessions} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={recordsForBaby} onEdit={openEdit} onDelete={setDeletingSession} activeFilter={recordFilter} filterOpen={filterOpen} onToggleFilter={() => setFilterOpen((open) => !open)} onFilterChange={handleFilterChange} onExport={handleExportRecords} />}
+            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} range={summaryRange} onRangeChange={setSummaryRange} /><FeedingTimeline sessions={timelineSessions} rangeLabel={summaryRange === "today" ? "Today" : "Yesterday"} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={recordsForBaby} onEdit={openEdit} onDelete={setDeletingSession} activeFilter={recordFilter} filterOpen={filterOpen} onToggleFilter={() => setFilterOpen((open) => !open)} onFilterChange={handleFilterChange} onExport={handleExportRecords} />}
           </div>
 
           <aside className="lg:col-span-4 lg:sticky lg:top-stack-lg h-fit">
