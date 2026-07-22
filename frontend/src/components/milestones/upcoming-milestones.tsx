@@ -1,37 +1,19 @@
 "use client"
 
-import type { Milestone, MilestoneAgeRange } from "@/lib/store"
+import type { Milestone } from "@/lib/store"
 import { MILESTONE_DEFINITIONS } from "@/lib/store"
 
 interface UpcomingMilestonesProps {
   milestones: Milestone[]
   babyDob?: string
+  currentLabel?: string
 }
 
-const ageRangeLabels: Record<MilestoneAgeRange, string> = {
-  "0-3": "0–3 Months",
-  "3-6": "3–6 Months",
-  "6-12": "6–12 Months",
-  "12-24": "12–24 Months",
-}
-
-function getBabyAgeMonths(dob: string): number | null {
-  try {
-    const birth = new Date(dob)
-    const now = new Date()
-    return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
-  } catch {
-    return null
-  }
-}
-
-function getCurrentAgeRange(dob: string): MilestoneAgeRange | null {
-  const months = getBabyAgeMonths(dob)
-  if (months === null || months < 0) return null
-  if (months < 3) return "0-3"
-  if (months < 6) return "3-6"
-  if (months < 12) return "6-12"
-  return "12-24"
+const categoryIcons: Record<string, string> = {
+  physical: "self_improvement",
+  cognitive: "psychology",
+  social: "diversity_3",
+  language: "record_voice_over",
 }
 
 function formatShortDate(iso?: string): string {
@@ -44,19 +26,12 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
-  const currentRange = babyDob ? getCurrentAgeRange(babyDob) : null
-  const currentLabel = currentRange ? ageRangeLabels[currentRange].replace(" Months", "m") : ""
-
-  const rangeMilestones = currentRange
-    ? milestones.filter((m) => m.age_range === currentRange)
-    : milestones
-
-  const achievedList = rangeMilestones
+function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMilestonesProps) {
+  const achievedList = milestones
     .filter((m) => m.achieved)
     .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
 
-  const upcomingList = rangeMilestones
+  const upcomingList = milestones
     .filter((m) => !m.achieved)
     .sort((a, b) => a.title.localeCompare(b.title))
 
@@ -72,15 +47,18 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-headline-sm text-headline-sm text-primary">Current Goals</h3>
-        {currentRange && (
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">trending_up</span>
+          <h3 className="font-headline-md text-headline-md text-primary">Current Goals</h3>
+        </div>
+        {currentLabel && (
           <span className="bg-white/50 px-3 py-1 rounded-full text-label-md font-bold">{currentLabel}</span>
         )}
       </div>
 
       <div className="flex flex-col gap-3">
         {achievedList.map((m) => (
-          <div key={m.id} className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm opacity-70">
+          <div key={m.id} className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
             </div>

@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useAppStore } from "@/lib/store"
 import type { MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
-import { MILESTONE_DEFINITIONS } from "@/lib/store"
 import {
   createMilestone,
   updateMilestone as updateMilestoneApi,
@@ -33,10 +32,78 @@ const PLACEHOLDER_PHOTO = (seed: number) => {
   return `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
 }
 
-const DEMO_NOTES: Record<string, string> = {
-  "m-3-6-1": '"Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!"',
-  "m-3-6-4": '"We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely."',
-}
+const JOURNEY_CARDS: Milestone[] = [
+  {
+    id: "journey-1",
+    baby_id: "sample",
+    definition_id: "journey-1",
+    title: "The Very First Smile",
+    category: "social",
+    age_range: "0-3",
+    achieved: true,
+    achieved_date: "2023-10-12",
+    notes: "We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely.",
+    photo_url: PLACEHOLDER_PHOTO(0),
+    is_custom: false,
+  },
+  {
+    id: "journey-2",
+    baby_id: "sample",
+    definition_id: "journey-2",
+    title: "Rolling Like a Pro",
+    category: "physical",
+    age_range: "3-6",
+    achieved: true,
+    achieved_date: "2023-11-28",
+    notes: "Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!",
+    photo_url: PLACEHOLDER_PHOTO(1),
+    is_custom: false,
+  },
+]
+
+const CURRENT_GOALS: Milestone[] = [
+  {
+    id: "goal-achieved",
+    baby_id: "sample",
+    definition_id: "goal-achieved",
+    title: "First Smile",
+    category: "social",
+    age_range: "3-6",
+    achieved: true,
+    achieved_date: "2023-10-12",
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-1",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-1",
+    title: "Sitting Up (Supported)",
+    category: "physical",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-2",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-2",
+    title: "Grasping Objects",
+    category: "physical",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-3",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-3",
+    title: "Babbles Back",
+    category: "language",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+]
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -68,11 +135,27 @@ export default function MilestonesPage() {
     [milestones, babyId],
   )
 
+  const isDemo = babyMilestones.length === 0
+
+  const demoDob = isDemo ? "2026-03-01" : babyDob
+  const demoCurrentLabel = isDemo ? "4-6m" : undefined
+
+  const demoJourneyCards = useMemo(
+    () =>
+      ageFilter === "all"
+        ? JOURNEY_CARDS
+        : JOURNEY_CARDS.filter((m) => m.age_range === ageFilter),
+    [ageFilter],
+  )
+
+  const demoGoals = useMemo(() => CURRENT_GOALS, [])
+
   const seededMilestones = useMemo(() => {
+    if (isDemo) return JOURNEY_CARDS
+
     const existing = new Map(babyMilestones.map((m) => [m.definition_id, m]))
     const result: Milestone[] = []
 
-    let defIndex = 0
     for (const def of MILESTONE_DEFINITIONS) {
       const existing_m = existing.get(def.id)
       if (existing_m) {
@@ -86,12 +169,8 @@ export default function MilestonesPage() {
           category: def.category,
           age_range: def.age_range,
           achieved: false,
-          achieved_date: undefined,
-          notes: DEMO_NOTES[def.id],
-          photo_url: PLACEHOLDER_PHOTO(defIndex),
           is_custom: false,
         })
-        defIndex += 1
       }
     }
 
@@ -99,7 +178,7 @@ export default function MilestonesPage() {
     result.push(...customMilestones)
 
     return result
-  }, [babyMilestones, babyId])
+  }, [babyMilestones, babyId, isDemo])
 
   const filteredSeeded = useMemo(
     () =>
@@ -111,6 +190,7 @@ export default function MilestonesPage() {
 
   const handleAchieve = useCallback(
     (id: string) => {
+      if (isDemo) return
       const now = new Date().toISOString()
       const existing = babyMilestones.find(
         (m) => m.id === id || m.definition_id === id,
@@ -150,16 +230,17 @@ export default function MilestonesPage() {
         }
       }
     },
-    [babyMilestones, babyId, addMilestone, updateMilestone],
+    [babyMilestones, babyId, addMilestone, updateMilestoneApi, isDemo],
   )
 
   const handleDelete = useCallback(
     (id: string) => {
+      if (isDemo) return
       deleteMilestoneApi(id).catch(() => {
         deleteMilestone(id)
       })
     },
-    [deleteMilestone],
+    [deleteMilestone, isDemo],
   )
 
   const handleCustomSave = useCallback(
@@ -186,6 +267,9 @@ export default function MilestonesPage() {
     },
     [babyId, addMilestone],
   )
+
+  const timelineMilestones = isDemo ? demoJourneyCards : filteredSeeded
+  const upcomingMilestones = isDemo ? demoGoals : babyMilestones
 
   return (
     <div className="pb-stack-lg">
@@ -251,7 +335,7 @@ export default function MilestonesPage() {
             </div>
 
             <MilestoneTimeline
-              milestones={filteredSeeded}
+              milestones={timelineMilestones}
               onAchieve={handleAchieve}
               onDelete={handleDelete}
             />
@@ -274,8 +358,9 @@ export default function MilestonesPage() {
               ) : (
                 <div>
                   <UpcomingMilestones
-                    milestones={babyMilestones}
-                    babyDob={babyDob || undefined}
+                    milestones={upcomingMilestones}
+                    babyDob={demoDob}
+                    currentLabel={demoCurrentLabel}
                   />
                   <button
                     type="button"
