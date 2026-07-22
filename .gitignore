@@ -1,6 +1,8 @@
 .agents/*
 !.agents/skills/
 !.agents/skills/**
+!.agents/workflows/
+!.agents/workflows/**
 skills-lock.json
 notes.txt
 node_modules
