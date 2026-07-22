@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useQuickLog } from "@/components/providers/quick-log-provider"
 
 interface NavItem {
   href: string
@@ -31,6 +32,7 @@ interface DesktopSidebarProps {
 
 function DesktopSidebar({ babyName = "Lily", babyAge = "4 months", babyAvatar }: DesktopSidebarProps) {
   const pathname = usePathname()
+  const { openLog } = useQuickLog()
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface-container-low md:flex">
@@ -49,7 +51,7 @@ function DesktopSidebar({ babyName = "Lily", babyAge = "4 months", babyAvatar }:
       </nav>
 
       <div className="border-t border-outline-variant/30 p-3">
-        <Link href="/feeding" className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-label-md text-label-md text-on-primary shadow-soft transition-transform active:scale-[0.98]"><span className="material-symbols-outlined text-[20px]">add</span>Quick Log</Link>
+        <button onClick={openLog} className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-label-md text-label-md text-on-primary shadow-soft transition-transform active:scale-[0.98]"><span className="material-symbols-outlined text-[20px]">add</span>Quick Log</button>
         {secondaryNav.map((item) => <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-full px-4 py-2.5 font-label-md text-label-md text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high hover:text-on-surface"><span className="material-symbols-outlined text-[20px]">{item.icon}</span>{item.label}</Link>)}
       </div>
     </aside>
