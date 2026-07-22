@@ -19,7 +19,6 @@ const ageRangeLabels: Record<MilestoneAgeRange, string> = {
 const ageRangeIcons: Record<MilestoneAgeRange, string> = {
   "0-3": "newborn",
   "3-6": "child_care",
-  "6-12": "baby_changing_station",
   "12-24": "toddler",
 }
 
@@ -47,41 +46,21 @@ function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelin
   }
 
   return (
-    <div className="relative pl-10 space-y-8">
-      <div className="absolute left-[11px] top-2 bottom-2 w-[2px] timeline-line opacity-30" />
+    <div className="flex flex-col gap-8 relative pl-8">
+      <div className="absolute left-3 top-0 bottom-0 w-0.5 timeline-line opacity-30" />
 
-      {ranges.map((range, rangeIdx) => {
-        const items = grouped[range]
-        if (items.length === 0) return null
+      {milestones.map((milestone, idx) => (
+        <div key={milestone.id} className="relative group">
+          <div className="absolute -left-11 top-6 w-6 h-6 rounded-full bg-primary border-4 border-surface shadow-sm z-10" />
 
-        return (
-          <div key={range} className="relative group">
-            <div className="absolute -left-[40px] top-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-white z-10">
-              <span className="material-symbols-outlined text-white text-xs fill-1">
-                {ageRangeIcons[range]}
-              </span>
-            </div>
-
-            <div className="bg-surface-container-low rounded-2xl p-gutter">
-              <h3 className="font-headline-md text-headline-md text-primary mb-4">
-                {ageRangeLabels[range]}
-              </h3>
-              <div className="space-y-3">
-                {items.map((milestone, idx) => (
-                  <MilestoneCard
-                    key={milestone.id}
-                    milestone={milestone}
-                    onAchieve={onAchieve}
-                    onDelete={onDelete}
-                    imageRotate={idx % 2 === 0 ? "-rotate-1" : "rotate-2"}
-                    tapeStyle={idx % 2 === 0 ? undefined : "transform: translateX(-50%) rotate(3deg); background: rgba(126, 182, 173, 0.2);"}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      })}
+          <MilestoneCard
+            milestone={milestone}
+            onAchieve={onAchieve}
+            onDelete={onDelete}
+            idx={idx}
+          />
+        </div>
+      ))}
     </div>
   )
 }

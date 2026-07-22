@@ -9,6 +9,7 @@ interface MilestoneCardProps {
   showActions?: boolean
   imageRotate?: string
   tapeStyle?: string
+  idx?: number
 }
 
 const categoryLabels: Record<MilestoneCategory, { primary: string; secondary?: string }> = {
@@ -28,15 +29,17 @@ function formatDate(iso?: string): string {
   }
 }
 
-function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle }: MilestoneCardProps): JSX.Element {
+function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps) {
   const labels = categoryLabels[milestone.category]
   const hasSecondary = Boolean(labels.secondary)
+  const rotate = imageRotate
+  const tape = tapeStyle || (idx % 2 === 0 ? undefined : "transform: translateX(-50%) rotate(3deg); background: rgba(126, 182, 173, 0.2);")
 
   return (
     <div className="relative scrapbook-card bg-surface-container-lowest p-gutter rounded-2xl shadow-[0_8px_20px_rgba(126,182,173,0.15)] flex flex-col md:flex-row gap-gutter transition-all hover:translate-y-[-4px]">
-      <div className={["tape-effect", tapeStyle].filter(Boolean).join(" ") || undefined} />
+      <div className={["tape-effect", tape].filter(Boolean).join(" ")} />
 
-      <div className={["w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white transform", imageRotate].join(" ")}>
+      <div className={["w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white transform", rotate].join(" ")}>
         {milestone.photo_url ? (
           <img
             alt={milestone.title}
