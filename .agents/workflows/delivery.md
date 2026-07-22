@@ -4,7 +4,10 @@ Apply this workflow to Linear, GitHub, issue, pull-request, and release work.
 
 ## Linear
 
+- Treat an issue identifier (for example, `AZH-385`) as a Linear task. Use the connected Linear app to read it; if the tool is not immediately visible, discover available tools before selecting any fallback.
+- Do not use direct HTTP, `curl`, guessed GraphQL queries, or credentials from project configuration for Linear while the connected app is available. A direct API fallback requires that the connector is genuinely unavailable and that the user explicitly approves it.
 - Read the named issue before changing it; verify its team, project, state, relations, and constraints.
+- Read its comments and the team's valid statuses before mutation. Read related issues and project context when they affect scope or sequencing.
 - Before implementation, assess whether the description is sufficient for an independent agent to execute. When it is empty, ambiguous, or missing acceptance criteria, inspect the relevant code, tests, and related work first, then update the Linear description using the [issue-description template](../templates/linear-issue-description.md).
 - The description must identify the task category, confirmed problem analysis and scope boundaries, an implementation plan, Definition of Done, and correctness checks. Clearly label hypotheses and open questions; do not present them as confirmed defects.
 - Treat the updated Linear description as the implementation contract. Do not begin implementation until it gives a future agent enough information to understand the intended behavior, out-of-scope work, and how success will be verified.
