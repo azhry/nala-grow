@@ -4,6 +4,7 @@ import type { FeedSession } from "@/lib/store"
 
 interface FeedingTimelineProps {
   sessions: FeedSession[]
+  onViewHistory?: () => void
 }
 
 const feedTypeMeta: Record<string, { icon: string; dotClass: string; label: string }> = {
@@ -39,13 +40,13 @@ function formatTime(iso: string): string {
   }
 }
 
-function FeedingTimeline({ sessions }: FeedingTimelineProps) {
+function FeedingTimeline({ sessions, onViewHistory }: FeedingTimelineProps) {
   if (sessions.length === 0) {
     return (
       <section className="lg:col-span-12 min-h-[280px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
         <div className="flex justify-between items-center mb-stack-lg">
           <h3 className="font-headline-md text-headline-md text-primary">Timeline (Last 24h)</h3>
-          <button className="text-primary font-label-md flex items-center gap-1 hover:underline">
+          <button type="button" onClick={onViewHistory} className="text-primary font-label-md flex items-center gap-1 hover:underline">
             View History
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
@@ -69,7 +70,7 @@ function FeedingTimeline({ sessions }: FeedingTimelineProps) {
     <section className="lg:col-span-12 bg-white rounded-2xl p-stack-md soft-shadow">
       <div className="flex justify-between items-center mb-stack-lg">
         <h3 className="font-headline-md text-headline-md text-primary">Timeline (Last 24h)</h3>
-        <button className="text-primary font-label-md flex items-center gap-1 hover:underline">
+        <button type="button" onClick={onViewHistory} className="text-primary font-label-md flex items-center gap-1 hover:underline">
           View History
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>

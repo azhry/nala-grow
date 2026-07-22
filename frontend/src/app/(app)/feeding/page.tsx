@@ -8,8 +8,8 @@ import type {
   MilkType,
   FeedTemperature,
 } from "@/lib/store"
-import { createFeedSession, fetchFeedSessions } from "@/lib/feeding-service"
-import { DailySummary, FeedingTimeline } from "@/components/feeding"
+import { createFeedSession, deleteFeedSession, fetchFeedSessions, updateFeedSession } from "@/lib/feeding-service"
+import { DailySummary, FeedingRecords, FeedingTimeline } from "@/components/feeding"
 import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
 import { SolidsForm } from "@/components/feeding"
@@ -30,6 +30,8 @@ export default function FeedingPage() {
   const feedSessions = useAppStore((s) => s.feedSessions)
   const addFeedSession = useAppStore((s) => s.addFeedSession)
   const setFeedSessions = useAppStore((s) => s.setFeedSessions)
+  const updateStoredFeedSession = useAppStore((s) => s.updateFeedSession)
+  const deleteStoredFeedSession = useAppStore((s) => s.deleteFeedSession)
 
   useEffect(() => {
     if (activeBaby?.id) {
@@ -41,6 +43,10 @@ export default function FeedingPage() {
   const babyName = activeBaby?.name ?? "Lily"
 
   const [activeTab, setActiveTab] = useState<FeedType>("breast")
+  const [view, setView] = useState<"overview" | "records">("overview")
+  const [editingSession, setEditingSession] = useState<FeedSession | null>(null)
+  const [deletingSession, setDeletingSession] = useState<FeedSession | null>(null)
+  const [editNotes, setEditNotes] = useState("")
 
   const [runningSide, setRunningSide] = useState<"left" | "right" | null>(null)
   const [leftSeconds, setLeftSeconds] = useState(0)
@@ -273,6 +279,31 @@ export default function FeedingPage() {
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
   }, [feedSessions, babyId])
 
+  const openEdit = (session: FeedSession) => {
+    setEditingSession(session)
+    setEditNotes(session.notes ?? "")
+  }
+
+  const saveEdit = async () => {
+    if (!editingSession) return
+    try {
+      await updateFeedSession(editingSession.id, { notes: editNotes })
+    } catch {
+      updateStoredFeedSession(editingSession.id, { notes: editNotes })
+    }
+    setEditingSession(null)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingSession) return
+    try {
+      await deleteFeedSession(deletingSession.id)
+    } catch {
+      deleteStoredFeedSession(deletingSession.id)
+    }
+    setDeletingSession(null)
+  }
+
   return (
     <div className="min-h-full bg-warm-cream pb-stack-lg">
       <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
@@ -307,14 +338,19 @@ export default function FeedingPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-          <DailySummary
-            bottleTotalMl={bottleTotalMl}
-            breastTotalMins={breastTotalMins}
-            barData={barData}
-          />
+        <div className="mb-stack-md flex gap-4 border-b border-outline-variant" role="tablist" aria-label="Feeding views">
+          {(["overview", "records"] as const).map((tab) => (
+            <button key={tab} type="button" role="tab" aria-selected={view === tab} onClick={() => setView(tab)} className={["px-5 py-3 font-headline-sm text-headline-sm border-b-4 capitalize transition-all", view === tab ? "text-primary border-primary" : "border-transparent text-on-surface-variant opacity-60 hover:opacity-100"].join(" ")}>{tab}</button>
+          ))}
+        </div>
 
-          <section className="lg:col-span-4 min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
+          <div className="lg:col-span-8 space-y-stack-md">
+            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} /><FeedingTimeline sessions={timelineSessions} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={feedSessions.filter((session) => session.baby_id === babyId).sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())} onEdit={openEdit} onDelete={setDeletingSession} />}
+          </div>
+
+          <aside className="lg:col-span-4 lg:sticky lg:top-stack-lg h-fit">
+          <section className="min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
             <div className="flex justify-between items-center mb-stack-md">
               <h3 className="font-headline-md text-headline-md text-primary">Record Feed</h3>
               <button
@@ -413,10 +449,11 @@ export default function FeedingPage() {
               Save Entry
             </button>
           </section>
-
-          <FeedingTimeline sessions={timelineSessions} />
+          </aside>
         </div>
       </div>
+      {editingSession && <div className="fixed inset-0 z-50 flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="edit-heading"><div className="w-full max-w-lg bg-white rounded-[24px] soft-shadow overflow-hidden"><div className="p-6 bg-surface-container-low flex items-center justify-between"><div><h2 id="edit-heading" className="font-headline-md text-headline-md">Edit Feed Entry</h2><p className="font-body-sm text-body-sm text-on-surface-variant">{new Date(editingSession.started_at).toLocaleString()}</p></div><button type="button" onClick={() => setEditingSession(null)} aria-label="Close edit dialog" className="p-2 rounded-full hover:bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><div className="p-6 space-y-4"><div className="rounded-xl bg-surface-container-low p-4"><p className="font-label-md text-label-md text-primary uppercase">{editingSession.feed_type} entry</p><p className="font-body-md text-body-md">Update your observation below.</p></div><label className="block font-label-md text-label-md text-primary uppercase">Notes<textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} className="mt-2 w-full h-24 p-gutter rounded-xl bg-surface-container-high border-none outline-none focus:ring-2 focus:ring-primary/20 font-body-md text-body-md resize-none" /></label><div className="flex gap-3 pt-2"><button type="button" onClick={() => setEditingSession(null)} className="flex-1 py-3 rounded-full border-2 border-primary-container text-primary font-headline-sm">Cancel</button><button type="button" onClick={saveEdit} className="flex-1 py-3 rounded-full bg-primary-container text-on-primary-container font-headline-sm">Save Changes</button></div></div></div></div>}
+      {deletingSession && <div className="fixed inset-0 z-[60] flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-heading"><div className="w-full max-w-sm bg-white rounded-[24px] p-stack-md soft-shadow text-center"><div className="w-16 h-16 mx-auto mb-4 rounded-full bg-error-container/40 text-error flex items-center justify-center"><span className="material-symbols-outlined text-[32px]">delete_forever</span></div><h2 id="delete-heading" className="font-headline-sm text-headline-sm mb-2">Delete this record?</h2><p className="font-body-md text-body-md text-on-surface-variant mb-stack-md">This feeding record will be permanently removed.</p><button type="button" onClick={confirmDelete} className="w-full py-3 rounded-full bg-error text-white font-headline-sm mb-2">Delete</button><button type="button" onClick={() => setDeletingSession(null)} className="w-full py-3 rounded-full text-primary font-label-md text-label-md">Cancel</button></div></div>}
     </div>
   )
 }
