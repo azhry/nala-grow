@@ -30,12 +30,45 @@ Discover the exact callable names from the active tool list; Codex commonly expo
 
 ## GitHub CLI fallback
 
-```sh
-gh pr create --base main --head <topic-branch> --title "..." --body "..." --draft
-gh pr view <number> --json url,state,reviewDecision,statusCheckRollup
-gh pr checks <number>
-gh issue view <number>
+### Resolve and preflight the official CLI
+
+Do this before any source edit, branch creation, commit, push, or PR command. Do not assume that `gh` on PATH is the GitHub CLI: Node/npm packages can shadow it and may prompt for an interactive login.
+
+On PowerShell, prefer a real `gh.exe` outside Node/npm paths, then retain its full path for every subsequent call:
+
+```powershell
+$gh = Get-Command gh.exe -All |
+  Where-Object { $_.Source -notmatch '(?i)node_modules|\\nodejs\\gh(?:\.cmd|\.ps1)?$' } |
+  Select-Object -First 1 -ExpandProperty Source
+if (-not $gh) { throw 'Official GitHub CLI executable not found' }
+& $gh --version
+& $gh auth status
+& $gh repo view OWNER/REPO --json nameWithOwner,viewerPermission
 ```
+
+On POSIX shells, inspect all candidates and use the verified executable path:
+
+```sh
+type -a gh
+gh_bin="$(command -v gh)"
+"$gh_bin" --version
+"$gh_bin" auth status
+"$gh_bin" repo view OWNER/REPO --json nameWithOwner,viewerPermission
+```
+
+The preflight passes only when all three commands succeed and the repository result identifies the intended repository. Do not continue with a different `gh`, an interactive `gh auth login`, `GH_TOKEN` populated from a project config file, or a direct HTTP request containing a project token. Use a connected GitHub app if available; otherwise record the blocker and stop.
+
+### Deterministic PR handoff
+
+Always pass the repository, base, and head explicitly. Check for an existing PR before creating one so a retry updates the same PR instead of creating a duplicate:
+
+```sh
+gh pr list --repo OWNER/REPO --head <branch> --json number,url,state,title,headRefName,baseRefName
+gh pr create --repo OWNER/REPO --base main --head <branch> --title "<title>" --body "<body>" --draft
+gh pr view <number> --repo OWNER/REPO --json url,state,isDraft,mergeable,statusCheckRollup
+```
+
+Use the resolved full executable path in place of `gh` in those commands. Merge only when the user explicitly asks, after confirming the PR is mergeable and reporting its check state.
 
 If `gh` is not authenticated, report that blocker instead of starting an interactive login in an unattended workflow.
 
