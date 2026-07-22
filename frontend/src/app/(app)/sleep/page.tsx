@@ -1,284 +1,241 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAppStore } from "@/lib/store"
-import type { SleepLocation } from "@/lib/store"
+import type { SleepLocation, SleepSession } from "@/lib/store"
 import {
   createSleepSession,
-  updateSleepSession as updateSleepSessionApi,
   fetchSleepSessions,
+  updateSleepSession as updateSleepSessionApi,
 } from "@/lib/sleep-service"
-import {
-  DailySleepSummary,
-  SleepTimeline,
-  SleepTimer,
-  SleepForm,
-} from "@/components/sleep"
+
+const locations: SleepLocation[] = ["crib", "bed", "carrier", "stroller", "contact"]
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function getTodayRange(): [Date, Date] {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const end = new Date(start.getTime() + 86400000)
-  return [start, end]
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${Math.max(0, Math.round(minutes))}m`
+  return `${Math.floor(minutes / 60)}h ${Math.round(minutes % 60)}m`
+}
+
+function formatHours(minutes: number): string {
+  return (minutes / 60).toFixed(1)
+}
+
+function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+}
+
+function sessionMinutes(session: SleepSession): number {
+  const end = session.ended_at ? new Date(session.ended_at).getTime() : Date.now()
+  return Math.max(0, Math.round((end - new Date(session.started_at).getTime()) / 60000))
+}
+
+function timeInputValue(date: Date): string {
+  return date.toTimeString().slice(0, 5)
+}
+
+function locationLabel(location?: SleepLocation): string {
+  return location ?? "crib"
 }
 
 export default function SleepPage() {
-  const activeBaby = useAppStore((s) => s.activeBaby)
-  const sleepSessions = useAppStore((s) => s.sleepSessions)
-  const addSleepSession = useAppStore((s) => s.addSleepSession)
-  const updateSleepSession = useAppStore((s) => s.updateSleepSession)
-  const setSleepSessions = useAppStore((s) => s.setSleepSessions)
+  const activeBaby = useAppStore((state) => state.activeBaby)
+  const sleepSessions = useAppStore((state) => state.sleepSessions)
+  const addSleepSession = useAppStore((state) => state.addSleepSession)
+  const updateSleepSession = useAppStore((state) => state.updateSleepSession)
+  const setSleepSessions = useAppStore((state) => state.setSleepSessions)
+  const babyId = activeBaby?.id ?? "sample"
+  const babyName = activeBaby?.name ?? "Nala"
+
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const [isManualModalOpen, setManualModalOpen] = useState(false)
+  const [timelineView, setTimelineView] = useState<"day" | "week">("day")
+  const [manualStart, setManualStart] = useState(() => timeInputValue(new Date(Date.now() - 3600000)))
+  const [manualEnd, setManualEnd] = useState(() => timeInputValue(new Date()))
+  const [manualLocation, setManualLocation] = useState<SleepLocation>("crib")
 
   useEffect(() => {
-    if (activeBaby?.id) {
-      fetchSleepSessions(activeBaby.id).catch(() => {})
-    }
+    if (activeBaby?.id) fetchSleepSessions(activeBaby.id).catch(() => {})
   }, [activeBaby?.id, setSleepSessions])
 
-  const babyId = activeBaby?.id ?? "sample"
-  const babyName = activeBaby?.name ?? "Lily"
-
-  const [activeTab, setActiveTab] = useState<"timer" | "manual">("timer")
-  const [timerRunning, setTimerRunning] = useState(false)
-  const [timerElapsed, setTimerElapsed] = useState(0)
-  const [timerLocation, setTimerLocation] = useState<SleepLocation | undefined>()
-  const [timerNotes, setTimerNotes] = useState("")
-  const [activeTimerSessionId, setActiveTimerSessionId] = useState<string | null>(null)
-
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
   useEffect(() => {
-    if (timerRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimerElapsed((s) => s + 1)
-      }, 1000)
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [timerRunning])
+    if (!activeSessionId || isPaused) return
+    const interval = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000)
+    return () => window.clearInterval(interval)
+  }, [activeSessionId, isPaused])
 
-  const handleStartTimer = useCallback(() => {
-    const now = new Date().toISOString()
-    const id = generateId()
-    setTimerElapsed(0)
-    setTimerRunning(true)
-    setActiveTimerSessionId(id)
-
-    createSleepSession({
-      id,
-      baby_id: babyId,
-      started_at: now,
-      location: timerLocation,
-      notes: timerNotes.trim() || undefined,
-    }).catch(() => {
-      addSleepSession({
-        id,
-        baby_id: babyId,
-        started_at: now,
-        location: timerLocation,
-        notes: timerNotes.trim() || undefined,
-      })
-    })
-  }, [babyId, timerLocation, timerNotes, addSleepSession])
-
-  const handleStopTimer = useCallback(() => {
-    if (!activeTimerSessionId) return
-    const now = new Date().toISOString()
-
-    updateSleepSessionApi(activeTimerSessionId, { started_at: undefined, ended_at: now }).catch(
-      () => {
-        updateSleepSession(activeTimerSessionId, { ended_at: now })
-      },
-    )
-
-    setTimerRunning(false)
-    setTimerElapsed(0)
-    setActiveTimerSessionId(null)
-    setTimerLocation(undefined)
-    setTimerNotes("")
-  }, [activeTimerSessionId, updateSleepSession])
-
-  const handleManualSave = useCallback(
-    (data: { started_at: string; ended_at: string; location?: SleepLocation; notes?: string }) => {
-      createSleepSession({
-        baby_id: babyId,
-        started_at: data.started_at,
-        ended_at: data.ended_at,
-        location: data.location,
-        notes: data.notes,
-      }).catch(() => {
-        addSleepSession({
-          id: generateId(),
-          baby_id: babyId,
-          started_at: data.started_at,
-          ended_at: data.ended_at,
-          location: data.location,
-          notes: data.notes,
-        })
-      })
-    },
-    [babyId, addSleepSession],
+  const sessions = useMemo(
+    () => sleepSessions.filter((session) => session.baby_id === babyId),
+    [babyId, sleepSessions],
   )
 
   const todaySessions = useMemo(() => {
-    const [start, end] = getTodayRange()
-    return sleepSessions
-      .filter((s) => s.baby_id === babyId)
-      .filter((s) => {
-        const d = new Date(s.started_at)
-        return d >= start && d < end
-      })
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return sessions
+      .filter((session) => new Date(session.started_at) >= today)
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [sleepSessions, babyId])
+  }, [sessions])
 
-  const totalMinutes = useMemo(
-    () =>
-      todaySessions.reduce((acc, s) => {
-        if (!s.ended_at) return acc
-        return acc + (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000
-      }, 0),
-    [todaySessions],
+  const activeSession = useMemo(
+    () => sessions.find((session) => session.id === activeSessionId) ?? sessions.find((session) => !session.ended_at),
+    [activeSessionId, sessions],
   )
+  const totalMinutes = todaySessions.reduce((total, session) => total + sessionMinutes(session), 0)
+  const longestMinutes = Math.max(0, ...todaySessions.map(sessionMinutes))
 
-  const longestStretch = useMemo(() => {
-    let max = 0
-    for (const s of todaySessions) {
-      if (!s.ended_at) continue
-      const dur = (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000
-      if (dur > max) max = dur
+  const handleStart = useCallback(() => {
+    const id = generateId()
+    const now = new Date().toISOString()
+    const session = { id, baby_id: babyId, started_at: now, location: "crib" as SleepLocation }
+    setActiveSessionId(id)
+    setElapsedSeconds(0)
+    setIsPaused(false)
+    createSleepSession(session).catch(() => addSleepSession(session))
+  }, [addSleepSession, babyId])
+
+  const handleStop = useCallback(() => {
+    if (!activeSession) return
+    const ended_at = new Date().toISOString()
+    updateSleepSessionApi(activeSession.id, { ended_at }).catch(() =>
+      updateSleepSession(activeSession.id, { ended_at }),
+    )
+    setActiveSessionId(null)
+    setElapsedSeconds(0)
+    setIsPaused(false)
+  }, [activeSession, updateSleepSession])
+
+  const handleManualSave = useCallback(() => {
+    const now = new Date()
+    const [startHour, startMinute] = manualStart.split(":").map(Number)
+    const [endHour, endMinute] = manualEnd.split(":").map(Number)
+    const started = new Date(now)
+    const ended = new Date(now)
+    started.setHours(startHour, startMinute, 0, 0)
+    ended.setHours(endHour, endMinute, 0, 0)
+    if (ended <= started) ended.setDate(ended.getDate() + 1)
+    const session = {
+      id: generateId(),
+      baby_id: babyId,
+      started_at: started.toISOString(),
+      ended_at: ended.toISOString(),
+      location: manualLocation,
     }
-    return Math.round(max)
-  }, [todaySessions])
+    createSleepSession(session).catch(() => addSleepSession(session))
+    setManualModalOpen(false)
+  }, [addSleepSession, babyId, manualEnd, manualLocation, manualStart])
 
-  const timelineSessions = useMemo(() => {
-    const twentyFourHrsAgo = new Date(Date.now() - 86400000)
-    return sleepSessions
-      .filter((s) => s.baby_id === babyId)
-      .filter((s) => new Date(s.started_at) >= twentyFourHrsAgo)
-      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [sleepSessions, babyId])
+  const timelineSessions = useMemo(
+    () => sessions.filter((session) => new Date(session.started_at).getTime() >= Date.now() - 86400000),
+    [sessions],
+  )
+  const weeklyMinutes = useMemo(() => {
+    return Array.from({ length: 7 }, (_, offset) => {
+      const day = new Date()
+      day.setDate(day.getDate() - (6 - offset))
+      day.setHours(0, 0, 0, 0)
+      const nextDay = new Date(day)
+      nextDay.setDate(nextDay.getDate() + 1)
+      return sessions
+        .filter((session) => new Date(session.started_at) >= day && new Date(session.started_at) < nextDay)
+        .reduce((total, session) => total + sessionMinutes(session), 0)
+    })
+  }, [sessions])
 
+  const timerText = new Date(elapsedSeconds * 1000).toISOString().slice(11, 19)
   return (
-    <div className="pb-stack-lg">
-      <div className="px-container-margin md:px-stack-lg py-stack-md max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-stack-lg">
-          <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Sleep Tracking</h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Monitor {babyName}&apos;s sleep patterns and duration.
-            </p>
-          </div>
-          <div className="flex items-center gap-base">
-            <button
-              type="button"
-              className="p-3 bg-white rounded-full soft-shadow text-primary hover:bg-primary-container/10 transition-colors"
-              aria-label="Notifications"
-            >
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <div className="w-10 h-10 rounded-full border-2 border-primary-container overflow-hidden soft-shadow bg-primary-container/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">child_care</span>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-          <div className="lg:col-span-8">
-            <DailySleepSummary
-              totalMinutes={Math.round(totalMinutes)}
-              longestStretchMinutes={longestStretch}
-              sessionCount={todaySessions.length}
-            />
-          </div>
-
-          <section className="lg:col-span-4 bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
-            <div className="flex justify-between items-center mb-stack-md">
-              <h3 className="font-headline-md text-headline-md text-primary">Record Sleep</h3>
-            </div>
-
-            <div className="flex bg-surface-container-low rounded-xl p-1 mb-stack-md">
-              {(["timer", "manual"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={[
-                    "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all",
-                    activeTab === tab
-                      ? "bg-white text-primary font-bold shadow-sm"
-                      : "text-on-surface-variant hover:bg-white/50",
-                  ].join(" ")}
-                >
-                  {tab === "timer" ? "Timer" : "Manual"}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex-1">
-              {activeTab === "timer" ? (
-                <div className="space-y-4">
-                  <SleepTimer
-                    running={timerRunning}
-                    elapsedSeconds={timerElapsed}
-                    onStart={handleStartTimer}
-                    onStop={handleStopTimer}
-                    onElapsedChange={setTimerElapsed}
-                  />
-                  <div className="space-y-2">
-                    <label className="font-label-md text-label-md text-on-surface-variant">
-                      Location
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["crib", "bed", "carrier", "stroller", "contact"] as const).map(
-                        (loc) => (
-                          <button
-                            key={loc}
-                            type="button"
-                            onClick={() => setTimerLocation(loc)}
-                            className={[
-                              "py-2 rounded-xl font-label-md text-label-md transition-all active:scale-95 border-2",
-                              timerLocation === loc
-                                ? "border-primary bg-primary-container/20 text-primary"
-                                : "border-transparent bg-surface-container text-on-surface-variant",
-                            ].join(" ")}
-                          >
-                            {loc}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="font-label-md text-label-md text-on-surface-variant">
-                      Notes
-                    </label>
-                    <textarea
-                      value={timerNotes}
-                      onChange={(e) => setTimerNotes(e.target.value)}
-                      placeholder="Observations..."
-                      className="w-full h-20 p-gutter bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 font-body-md text-body-md resize-none outline-none"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <SleepForm onSave={handleManualSave} />
-              )}
-            </div>
-          </section>
-
-          <SleepTimeline sessions={timelineSessions} />
+    <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
+      <header className="mb-stack-md flex items-end justify-between gap-4">
+        <div>
+          <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-background md:font-headline-lg md:text-headline-lg">Sleep Dashboard</h1>
+          <p className="font-body-md text-on-surface-variant">Monitoring {babyName}&apos;s rest and cycles.</p>
         </div>
+        <button type="button" className="hidden rounded-full border border-primary-container bg-surface-container-high px-6 py-2 font-label-md text-primary transition-colors hover:bg-primary-container md:block">View Trends</button>
+      </header>
+
+      <section className="mb-stack-lg grid grid-cols-1 gap-gutter md:grid-cols-3">
+        <MetricCard icon="schedule" label="Total sleep today" value={formatHours(totalMinutes)} suffix="h" />
+        <MetricCard icon="show_chart" label="Longest stretch" value={formatHours(longestMinutes)} suffix="h" accent />
+        <div className="relative overflow-hidden rounded-xl bg-primary p-6 text-on-primary soft-shadow">
+          <div className="relative z-10 flex h-full flex-col">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full bg-primary-fixed ${activeSession ? "animate-pulse" : "opacity-60"}`} />
+              <p className="font-label-md uppercase tracking-wider text-primary-fixed">{activeSession ? isPaused ? "Session paused" : "Currently sleeping" : "Awake"}</p>
+            </div>
+            <h2 className="font-headline-md text-headline-md">{activeSession ? `${babyName} is resting...` : `${babyName} is awake`}</h2>
+            <p className="mt-auto font-body-sm opacity-90">{activeSession ? `Session started at ${formatClock(activeSession.started_at)}` : "Start a timer to track the next nap."}</p>
+          </div>
+          <span className="material-symbols-outlined fill-1 absolute -bottom-4 -right-4 text-9xl opacity-10">bedtime</span>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-stack-lg lg:grid-cols-12">
+        <section className="space-y-stack-md lg:col-span-5">
+          <div className="rounded-xl bg-surface-container-lowest p-stack-md soft-shadow">
+            <h2 className="mb-6 font-headline-sm text-headline-sm text-on-surface">Quick Log</h2>
+            {activeSession ? (
+              <div className="rounded-xl bg-gradient-to-br from-primary to-primary-container p-8 text-center text-on-primary">
+                <p className="mb-2 font-label-md uppercase tracking-widest text-primary-fixed">Active sleep session</p>
+                <p className="mb-6 font-display-timer text-display-timer tabular-nums">{timerText}</p>
+                <div className="flex gap-4">
+                  <button type="button" onClick={() => setIsPaused((paused) => !paused)} className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-white/20 p-4 font-label-md transition-colors hover:bg-white/30">
+                    <span className="material-symbols-outlined">{isPaused ? "play_arrow" : "pause"}</span>{isPaused ? "Resume" : "Pause"}
+                  </button>
+                  <button type="button" onClick={handleStop} className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-white p-4 font-label-md text-primary transition-colors hover:bg-secondary-container">
+                    <span className="material-symbols-outlined fill-1">stop_circle</span>Wake Up
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={handleStart} className="flex w-full flex-col items-center rounded-xl border-2 border-dashed border-primary-container bg-surface-container-low p-10 text-primary transition-colors hover:bg-primary-container/20">
+                <span className="material-symbols-outlined mb-2 text-4xl">bedtime</span><span className="font-headline-sm">Start Sleep Timer</span><span className="mt-1 font-body-sm text-on-surface-variant">Track a nap as it happens</span>
+              </button>
+            )}
+            <button type="button" onClick={() => setManualModalOpen(true)} className="mt-stack-sm flex w-full items-center justify-center gap-2 rounded-xl bg-surface-container-high py-4 font-label-md text-primary transition-colors hover:bg-primary-container/30">
+              <span className="material-symbols-outlined">edit_note</span>Manual Entry
+            </button>
+          </div>
+          <LastSession session={todaySessions.find((session) => session.ended_at)} />
+        </section>
+
+        <section className="rounded-xl bg-surface-container-lowest p-stack-md soft-shadow lg:col-span-7">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h2 className="font-headline-sm text-headline-sm text-on-surface">Sleep Timeline <span className="font-normal text-on-surface-variant">({timelineView === "day" ? "Last 24h" : "Weekly"})</span></h2>
+            <div className="flex rounded-full bg-surface-container-low p-1">
+              {(["day", "week"] as const).map((view) => <button key={view} type="button" onClick={() => setTimelineView(view)} className={`rounded-full px-4 py-1.5 text-xs font-bold capitalize transition-colors ${timelineView === view ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-highest"}`}>{view}</button>)}
+            </div>
+          </div>
+          {timelineView === "day" ? <DayTimeline sessions={timelineSessions} /> : <WeekTimeline values={weeklyMinutes} />}
+          <div className="mt-6 space-y-3">
+            {todaySessions.length ? todaySessions.slice(0, 4).map((session) => <SessionRow key={session.id} session={session} />) : <p className="rounded-xl bg-surface-container-low p-6 text-center font-body-md text-on-surface-variant">No sleep logged today. Start a timer or add an entry.</p>}
+          </div>
+        </section>
       </div>
+
+      {isManualModalOpen && <ManualEntryModal start={manualStart} end={manualEnd} location={manualLocation} onStartChange={setManualStart} onEndChange={setManualEnd} onLocationChange={setManualLocation} onCancel={() => setManualModalOpen(false)} onSave={handleManualSave} />}
     </div>
   )
 }
+
+function MetricCard({ icon, label, value, suffix, accent = false }: { icon: string; label: string; value: string; suffix: string; accent?: boolean }) {
+  return <div className="flex flex-col items-center justify-center rounded-xl border border-primary-container/10 bg-surface-container-lowest p-6 text-center soft-shadow"><span className={`material-symbols-outlined mb-2 text-4xl ${accent ? "text-tertiary-container" : "text-primary-container"}`}>{icon}</span><p className="font-label-md uppercase tracking-wider text-on-surface-variant">{label}</p><p className={`mt-1 font-headline-lg text-headline-lg ${accent ? "text-tertiary" : "text-primary"}`}>{value}<span className="ml-1 font-headline-sm text-headline-sm font-normal">{suffix}</span></p></div>
+}
+
+function LastSession({ session }: { session?: SleepSession }) {
+  return <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6"><p className="mb-4 font-label-md uppercase text-on-surface-variant">Last sleep session</p>{session ? <div className="flex items-start gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-primary-container shadow-sm"><span className="material-symbols-outlined">wb_twilight</span></div><div><p className="font-headline-sm text-on-surface">Sleep session</p><p className="font-body-sm text-on-surface-variant">{formatClock(session.started_at)} – {session.ended_at ? formatClock(session.ended_at) : "In progress"} ({formatDuration(sessionMinutes(session))})</p><span className="mt-2 inline-block rounded bg-primary-container/20 px-2 py-0.5 text-[10px] font-bold uppercase text-on-primary-container">{locationLabel(session.location)}</span></div></div> : <p className="font-body-sm text-on-surface-variant">Your latest completed session will appear here.</p>}</div>
+}
+
+function DayTimeline({ sessions }: { sessions: SleepSession[] }) {
+  return <><div className="flex justify-between px-1 text-[10px] font-bold uppercase text-on-surface-variant/60"><span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>12am</span></div><div className="relative mt-2 h-24 overflow-hidden rounded-xl bg-surface-container-low">{sessions.map((session) => { const start = new Date(session.started_at); const end = session.ended_at ? new Date(session.ended_at) : new Date(); const startMinutes = start.getHours() * 60 + start.getMinutes(); const duration = Math.max(20, Math.min(1440 - startMinutes, (end.getTime() - start.getTime()) / 60000)); return <div key={session.id} title={`${formatClock(session.started_at)} • ${formatDuration(sessionMinutes(session))}`} className={`absolute top-0 flex h-full items-center justify-center border-x border-primary-container ${session.ended_at ? "bg-primary-container/40" : "bg-tertiary-container/70"}`} style={{ left: `${(startMinutes / 1440) * 100}%`, width: `${(duration / 1440) * 100}%` }}><span className="material-symbols-outlined text-xs text-on-primary-container">bedtime</span></div> })}</div></>
+}
+
+function WeekTimeline({ values }: { values: number[] }) { const max = Math.max(60, ...values); const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; return <div className="flex h-28 items-end gap-2 rounded-xl bg-surface-container-low p-3">{values.map((value, index) => <div key={days[index]} className="flex h-full flex-1 flex-col justify-end gap-1 text-center"><div title={`${formatDuration(value)} sleep`} className="rounded-t-lg bg-primary/50 transition-all hover:bg-primary" style={{ height: `${Math.max(5, (value / max) * 100)}%` }} /><span className="text-[10px] font-bold text-on-surface-variant">{days[index]}</span></div>)}</div> }
+
+function SessionRow({ session }: { session: SleepSession }) { const ongoing = !session.ended_at; return <div className={`flex items-center gap-4 rounded-xl border p-4 ${ongoing ? "border-primary-container/20 bg-primary-container/5" : "border-transparent hover:bg-surface-container-low"}`}><div className={`h-10 w-2 rounded-full ${ongoing ? "bg-tertiary-container" : "bg-primary"}`} /><div className="min-w-0 flex-1"><div className="flex justify-between gap-4"><p className="font-label-md text-on-surface">{ongoing ? "Current sleep" : "Sleep session"}</p><p className="font-label-md text-primary">{ongoing ? "IN PROGRESS" : formatDuration(sessionMinutes(session))}</p></div><p className="text-xs text-on-surface-variant">{formatClock(session.started_at)}{session.ended_at ? ` – ${formatClock(session.ended_at)}` : " • Started"} • {locationLabel(session.location)}</p></div><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div> }
+
+function ManualEntryModal({ start, end, location, onStartChange, onEndChange, onLocationChange, onCancel, onSave }: { start: string; end: string; location: SleepLocation; onStartChange: (value: string) => void; onEndChange: (value: string) => void; onLocationChange: (value: SleepLocation) => void; onCancel: () => void; onSave: () => void }) { return <div role="dialog" aria-modal="true" aria-label="Add sleep log" className="fixed inset-0 z-50 flex items-center justify-center bg-on-background/40 p-4 backdrop-blur-sm"><div className="w-full max-w-md overflow-hidden rounded-xl bg-surface-container-lowest soft-shadow"><div className="flex items-center justify-between border-b border-outline-variant/30 p-6"><h2 className="font-headline-sm text-on-surface">Add Sleep Log</h2><button type="button" aria-label="Close" onClick={onCancel} className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><div className="space-y-4 p-6"><label className="block font-label-md text-on-surface-variant">Start Time<input value={start} onChange={(event) => onStartChange(event.target.value)} type="time" className="mt-1 block w-full rounded-xl border-outline-variant/50 bg-white p-3 font-body-md text-on-surface focus:border-primary focus:ring-primary" /></label><label className="block font-label-md text-on-surface-variant">End Time<input value={end} onChange={(event) => onEndChange(event.target.value)} type="time" className="mt-1 block w-full rounded-xl border-outline-variant/50 bg-white p-3 font-body-md text-on-surface focus:border-primary focus:ring-primary" /></label><label className="block font-label-md text-on-surface-variant">Location<select value={location} onChange={(event) => onLocationChange(event.target.value as SleepLocation)} className="mt-1 block w-full rounded-xl border-outline-variant/50 bg-white p-3 font-body-md text-on-surface focus:border-primary focus:ring-primary">{locations.map((item) => <option key={item} value={item}>{item}</option>)}</select></label></div><div className="flex gap-3 bg-surface-container-low p-6"><button type="button" onClick={onCancel} className="flex-1 rounded-xl bg-surface-container-high py-3 font-label-md text-on-surface-variant">Cancel</button><button type="button" onClick={onSave} className="flex-1 rounded-xl bg-primary py-3 font-label-md text-on-primary">Save Log</button></div></div></div> }
