@@ -11,13 +11,19 @@ import {
   fetchMilestones,
 } from "@/lib/milestone-service"
 import {
-  MilestoneCategoryChips,
   MilestoneTimeline,
   MilestoneProgress,
   UpcomingMilestones,
   MilestoneForm,
 } from "@/components/milestones"
 import { FAB } from "@/components/ui"
+
+const ageRangeLabels: Record<MilestoneAgeRange, string> = {
+  "0-3": "0–3 Months",
+  "3-6": "3–6 Months",
+  "6-12": "6–12 Months",
+  "12-24": "12–24 Months",
+}
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -41,7 +47,7 @@ export default function MilestonesPage() {
   const babyName = activeBaby?.name ?? "Lily"
   const babyDob = activeBaby?.dob ?? ""
 
-  const [categoryFilter, setCategoryFilter] = useState<MilestoneCategory | "all">("all")
+  const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
 
   const babyMilestones = useMemo(
@@ -79,10 +85,10 @@ export default function MilestonesPage() {
 
   const filteredSeeded = useMemo(
     () =>
-      categoryFilter === "all"
+      ageFilter === "all"
         ? seededMilestones
-        : seededMilestones.filter((m) => m.category === categoryFilter),
-    [seededMilestones, categoryFilter],
+        : seededMilestones.filter((m) => m.age_range === ageFilter),
+    [seededMilestones, ageFilter],
   )
 
   const achievedCount = useMemo(
@@ -173,21 +179,25 @@ export default function MilestonesPage() {
       <div className="px-container-margin md:px-stack-lg py-stack-md max-w-7xl mx-auto">
         <header className="flex justify-between items-center mb-stack-lg">
           <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Milestones</h1>
+            <h1 className="font-headline-lg text-headline-lg text-primary font-bold">
+              Milestones &amp; Development
+            </h1>
             <p className="font-body-md text-body-md text-on-surface-variant">
               Track {babyName}&apos;s developmental milestones.
             </p>
           </div>
-          <div className="flex items-center gap-base">
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              className="p-3 bg-white rounded-full soft-shadow text-primary hover:bg-primary-container/10 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors"
               aria-label="Notifications"
             >
-              <span className="material-symbols-outlined">notifications</span>
+              <span className="material-symbols-outlined text-primary">notifications</span>
             </button>
-            <div className="w-10 h-10 rounded-full border-2 border-primary-container overflow-hidden soft-shadow bg-primary-container/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">child_care</span>
+            <div className="w-8 h-8 rounded-full overflow-hidden md:hidden">
+              <div className="w-full h-full bg-primary-container/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary">child_care</span>
+              </div>
             </div>
           </div>
         </header>
@@ -196,15 +206,39 @@ export default function MilestonesPage() {
           <div className="lg:col-span-8 space-y-stack-md">
             <MilestoneProgress achieved={achievedCount} total={MILESTONE_DEFINITIONS.length} />
 
+            <section className="flex flex-col gap-stack-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
+                  Choose Age Range
+                </h3>
+                <button className="text-primary font-label-md text-label-md underline">
+                  View Developmental Guidelines
+                </button>
+              </div>
+              <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-2 px-2">
+                {(["all", "0-3", "3-6", "6-12", "12-24"] as const).map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    onClick={() => setAgeFilter(range)}
+                    className={[
+                      "flex-shrink-0 px-6 py-3 rounded-full font-label-md text-label-md transition-colors",
+                      ageFilter === range
+                        ? "bg-primary text-on-primary font-bold shadow-md scale-105"
+                        : "bg-surface-container-highest text-on-surface-variant hover:bg-primary-container/20",
+                    ].join(" ")}
+                  >
+                    {range === "all" ? "All" : ageRangeLabels[range]}
+                  </button>
+                ))}
+              </div>
+            </section>
+
             <section className="bg-white rounded-2xl p-stack-md soft-shadow">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-stack-md">
                 <h3 className="font-headline-md text-headline-md text-primary">
                   Milestone Timeline
                 </h3>
-                <MilestoneCategoryChips
-                  selected={categoryFilter}
-                  onChange={setCategoryFilter}
-                />
               </div>
 
               <MilestoneTimeline
@@ -216,7 +250,7 @@ export default function MilestonesPage() {
           </div>
 
           <div className="lg:col-span-4 space-y-stack-md">
-            <section className="bg-white rounded-2xl p-stack-md soft-shadow">
+            <section className="bg-surface-container-high rounded-3xl p-stack-md flex flex-col gap-stack-md sticky top-24">
               {showForm ? (
                 <div>
                   <div className="flex items-center justify-between mb-stack-md">

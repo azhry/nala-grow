@@ -47,8 +47,9 @@ function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelin
   }
 
   return (
-    <div className="relative pl-10 space-y-8">
-      <div className="absolute left-[11px] top-2 bottom-2 w-[2px] bg-primary-container/30" />
+    <div className="relative pl-10 space-y-10">
+      <div className="absolute left-[11px] top-2 bottom-2 w-[2px] timeline-line opacity-30" />
+
       {ranges.map((range) => {
         const items = grouped[range]
         if (items.length === 0) return null

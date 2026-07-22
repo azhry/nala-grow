@@ -39,25 +39,41 @@ function getBabyAgeRange(dob: string): MilestoneAgeRange | null {
 }
 
 function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
-  const achievedIds = new Set(
-    milestones.filter((m) => m.achieved).map((m) => m.definition_id).filter(Boolean),
-  )
+  const achieved = milestones.filter((m) => m.achieved)
+  const upcoming = milestones.filter((m) => !m.achieved)
 
   const babyRange = babyDob ? getBabyAgeRange(babyDob) : null
 
-  const upcoming = MILESTONE_DEFINITIONS.filter((def) => !achievedIds.has(def.id))
+  const achievedDefs = achieved
+    .map((m) => MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id))
+    .filter(Boolean)
+
+  const upcomingDefs = upcoming
+    .map((m) => {
+      if (m.is_custom) return { id: m.id, title: m.title, category: m.category, age_range: m.age_range }
+      return MILESTONE_DEFINITIONS.find((d) => d.id === m.definition_id)
+    })
+    .filter(Boolean)
 
   const ranges: MilestoneAgeRange[] = ["0-3", "3-6", "6-12", "12-24"]
 
-  const grouped = ranges.reduce(
+  const achievedGrouped = ranges.reduce(
     (acc, range) => {
-      acc[range] = upcoming.filter((d) => d.age_range === range)
+      acc[range] = achievedDefs.filter((d) => d && d.age_range === range) as typeof achievedDefs
       return acc
     },
-    {} as Record<MilestoneAgeRange, typeof MILESTONE_DEFINITIONS>,
+    {} as Record<MilestoneAgeRange, typeof achievedDefs>,
   )
 
-  const hasAny = ranges.some((r) => grouped[r].length > 0)
+  const upcomingGrouped = ranges.reduce(
+    (acc, range) => {
+      acc[range] = upcomingDefs.filter((d) => d && d.age_range === range) as typeof upcomingDefs
+      return acc
+    },
+    {} as Record<MilestoneAgeRange, typeof upcomingDefs>,
+  )
+
+  const hasAny = ranges.some((r) => achievedGrouped[r].length > 0 || upcomingGrouped[r].length > 0)
 
   if (!hasAny) {
     return (
@@ -72,58 +88,91 @@ function UpcomingMilestones({ milestones, babyDob }: UpcomingMilestonesProps) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-primary">trending_up</span>
-        <h3 className="font-headline-md text-headline-md text-primary">Upcoming Milestones</h3>
+        <h3 className="font-headline-md text-headline-md text-primary">Current Goals</h3>
       </div>
 
-      {ranges.map((range) => {
-        const items = grouped[range]
-        if (items.length === 0) return null
+      <div className="flex flex-col gap-3">
+        {ranges.map((range) => {
+          const achievedItems = achievedGrouped[range]
+          const upcomingItems = upcomingGrouped[range]
+          if (achievedItems.length === 0 && upcomingItems.length === 0) return null
 
-        const isCurrentRange = babyRange === range
-        const isPastRange = babyRange && ranges.indexOf(range) < ranges.indexOf(babyRange)
-        const isFutureRange = babyRange && ranges.indexOf(range) > ranges.indexOf(babyRange)
+          const isCurrentRange = babyRange === range
+          const isPastRange = babyRange && ranges.indexOf(range) < ranges.indexOf(babyRange)
+          const isFutureRange = babyRange && ranges.indexOf(range) > ranges.indexOf(babyRange)
 
-        return (
-          <div
-            key={range}
-            className={[
-              "rounded-xl p-gutter",
-              isCurrentRange ? "bg-primary-container/10 border border-primary/20" : "bg-surface-container-low",
-            ].join(" ")}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              {isPastRange && <span className="material-symbols-outlined text-on-surface-variant text-sm">check_circle</span>}
-              {isCurrentRange && <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />}
-              <h4 className={[
-                "font-label-md text-label-md",
-                isPastRange ? "text-on-surface-variant" : "text-primary",
-              ].join(" ")}>
-                {ageRangeLabels[range]}
-              </h4>
+          return (
+            <div
+              key={range}
+              className={[
+                "rounded-xl p-gutter",
+                isCurrentRange ? "bg-primary-container/10 border border-primary/20" : "bg-surface-container-low",
+              ].join(" ")}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {isPastRange && <span className="material-symbols-outlined text-on-surface-variant text-sm">check_circle</span>}
+                {isCurrentRange && <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />}
+                <h4 className={[
+                  "font-label-md text-label-md",
+                  isPastRange ? "text-on-surface-variant" : "text-primary",
+                ].join(" ")}>
+                  {ageRangeLabels[range]}
+                </h4>
+              </div>
+
+              <div className="space-y-1.5">
+                {achievedItems.map((def) => (
+                  <div
+                    key={def.id}
+                    className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm opacity-70"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined fill-1">check</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-on-surface">{def.title}</p>
+                      <p className="text-xs text-on-surface-variant">Achieved</p>
+                    </div>
+                  </div>
+                ))}
+
+                {upcomingItems.map((def) => (
+                  <div
+                    key={def.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/50 hover:border-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                      {categoryIcons[def.category]}
+                    </span>
+                    <span className="font-body-sm text-body-sm text-on-surface flex-1">
+                      {def.title}
+                    </span>
+                    <span className="material-symbols-outlined text-outline-variant text-[16px]">
+                      chevron_right
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {isFutureRange && (
+                <p className="font-label-md text-label-md text-on-surface-variant mt-2">
+                  Coming up next
+                </p>
+              )}
             </div>
-            <div className="space-y-1.5">
-              {items.map((def) => (
-                <div
-                  key={def.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/50"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                    {categoryIcons[def.category]}
-                  </span>
-                  <span className="font-body-sm text-body-sm text-on-surface">
-                    {def.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {isFutureRange && (
-              <p className="font-label-md text-label-md text-on-surface-variant mt-2">
-                Coming up next
-              </p>
-            )}
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+
+      <button
+        type="button"
+        className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-bold hover:bg-white/50 transition-all active:scale-[0.98]"
+      >
+        <span className="material-symbols-outlined align-middle mr-2" data-icon="add_circle">
+          add_circle
+        </span>
+        Add Custom Milestone
+      </button>
     </div>
   )
 }

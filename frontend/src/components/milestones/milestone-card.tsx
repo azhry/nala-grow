@@ -9,11 +9,11 @@ interface MilestoneCardProps {
   showActions?: boolean
 }
 
-const categoryColors: Record<MilestoneCategory, { dot: string; bg: string; icon: string }> = {
-  physical: { dot: "bg-accent-coral", bg: "bg-accent-coral/10", icon: "self_improvement" },
-  cognitive: { dot: "bg-tertiary", bg: "bg-tertiary/10", icon: "psychology" },
-  social: { dot: "bg-secondary", bg: "bg-secondary/10", icon: "diversity_3" },
-  language: { dot: "bg-primary", bg: "bg-primary/10", icon: "record_voice_over" },
+const categoryColors: Record<MilestoneCategory, { bg: string; text: string; label: string }> = {
+  physical: { bg: "bg-accent-coral/20", text: "text-accent-coral", label: "Physical" },
+  cognitive: { bg: "bg-tertiary/20", text: "text-tertiary", label: "Cognitive" },
+  social: { bg: "bg-secondary/20", text: "text-secondary", label: "Social" },
+  language: { bg: "bg-primary-container/30", text: "text-on-primary-container", label: "Language" },
 }
 
 function formatDate(iso?: string): string {
@@ -30,74 +30,75 @@ function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: M
   const colors = categoryColors[milestone.category]
 
   return (
-    <div className={[
-      "relative flex items-start gap-4 p-gutter rounded-xl transition-all",
-      milestone.achieved ? "bg-primary-container/10" : "bg-surface-container-low",
-    ].join(" ")}>
-      <div className={[
-        "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-        milestone.achieved ? colors.bg : "bg-surface-container-high",
-      ].join(" ")}>
-        {milestone.achieved ? (
-          <span className="material-symbols-outlined text-primary fill-1">check_circle</span>
+    <div className="relative scrapbook-card bg-surface-container-lowest p-gutter rounded-2xl shadow-[0_8px_20px_rgba(126,182,173,0.15)] flex flex-col md:flex-row gap-gutter transition-all hover:translate-y-[-4px]">
+      <div className="tape-effect" />
+
+      <div className="w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white bg-surface-container-high flex items-center justify-center shrink-0">
+        {milestone.photo_url ? (
+          <img
+            alt={milestone.title}
+            className="w-full h-full object-cover"
+            src={milestone.photo_url}
+          />
         ) : (
-          <span className={["material-symbols-outlined", colors.dot.replace("bg-", "text-")].join(" ")}>
-            {colors.icon}
+          <span className="material-symbols-outlined text-5xl text-outline-variant">
+            child_care
           </span>
         )}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h4 className={[
-            "font-headline-sm text-headline-sm",
-            milestone.achieved ? "text-on-surface line-through decoration-primary/50" : "text-primary",
-          ].join(" ")}>
-            {milestone.title}
-          </h4>
-          <span className={[
-            "w-2 h-2 rounded-full",
-            milestone.achieved ? "bg-primary" : colors.dot,
-          ].join(" ")} />
-        </div>
+      <div className="flex-1 flex flex-col justify-center gap-base">
+        <span className="inline-flex items-center gap-1 text-primary font-label-md text-label-md">
+          <span className="material-symbols-outlined text-sm" data-icon="event" style={{ fontSize: 16 }}>
+            event
+          </span>
+          {milestone.achieved && milestone.achieved_date
+            ? formatDate(milestone.achieved_date)
+            : "Upcoming"}
+        </span>
 
-        {milestone.achieved && milestone.achieved_date && (
-          <p className="font-label-md text-label-md text-primary mt-1">
-            Achieved {formatDate(milestone.achieved_date)}
-          </p>
-        )}
+        <h3 className="font-headline-sm text-headline-sm text-primary">
+          {milestone.title}
+        </h3>
 
         {milestone.notes && (
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 italic">
-            {milestone.notes}
+          <p className="text-on-surface-variant italic text-body-sm">
+            &ldquo;{milestone.notes}&rdquo;
           </p>
         )}
 
-        {!milestone.achieved && showActions && (
-          <div className="flex gap-2 mt-3">
-            {onAchieve && (
-              <button
-                type="button"
-                onClick={() => onAchieve(milestone.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
-              >
-                <span className="material-symbols-outlined text-[16px]">check</span>
-                Achieve
-              </button>
-            )}
-            {milestone.is_custom && onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(milestone.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-error-container text-error rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
-              >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-                Delete
-              </button>
-            )}
-          </div>
-        )}
+        <div className="mt-2 flex gap-2 flex-wrap">
+          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors.bg} ${colors.text}`}>
+            {colors.label}
+          </span>
+          {!milestone.achieved && showActions && (
+            <>
+              {onAchieve && (
+                <button
+                  type="button"
+                  onClick={() => onAchieve(milestone.id)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">check</span>
+                  Achieve
+                </button>
+              )}
+              {milestone.is_custom && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(milestone.id)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-error-container text-error rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  Delete
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      <div className="absolute -left-11 top-6 w-6 h-6 rounded-full bg-primary border-4 border-surface shadow-sm z-10" />
     </div>
   )
 }
