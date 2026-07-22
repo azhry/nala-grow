@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import type { ButtonHTMLAttributes } from "react"
 import DashboardPage from "../dashboard/page"
 
 jest.mock("next/navigation", () => ({
@@ -9,11 +11,12 @@ jest.mock("@/components/ui", () => ({
   FAB: ({
     icon,
     onClick,
+    ...props
   }: {
     icon: string
     onClick?: () => void
-  }) => (
-    <button data-testid="fab" onClick={onClick}>
+  } & ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button data-testid="fab" onClick={onClick} {...props}>
       <span>{icon}</span>
     </button>
   ),
@@ -38,11 +41,11 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText(/Maya/i).length).toBeGreaterThanOrEqual(1)
   })
 
-  it("renders quick action links", () => {
+  it("links every quick action to an implemented feature route", () => {
     render(<DashboardPage />)
-    expect(screen.getByText("Log Feed")).toBeInTheDocument()
-    expect(screen.getByText("Log Sleep")).toBeInTheDocument()
-    expect(screen.getByText("Log Growth")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Log Feed" })).toHaveAttribute("href", "/feeding")
+    expect(screen.getByRole("link", { name: "Log Sleep" })).toHaveAttribute("href", "/sleep")
+    expect(screen.getByRole("link", { name: "Log Growth" })).toHaveAttribute("href", "/growth")
   })
 
   it("renders bento summary cards", () => {
@@ -59,15 +62,49 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Diaper Change")).toBeInTheDocument()
   })
 
+  it("expands and collapses the full activity list", async () => {
+    const user = userEvent.setup()
+    render(<DashboardPage />)
+
+    expect(screen.queryByText("6:30 AM")).not.toBeInTheDocument()
+    const toggle = screen.getByRole("button", { name: "View All" })
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+    await user.click(toggle)
+
+    expect(screen.getByText("6:30 AM")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Show Less" })).toHaveAttribute("aria-expanded", "true")
+
+    await user.click(screen.getByRole("button", { name: "Show Less" }))
+
+    expect(screen.queryByText("6:30 AM")).not.toBeInTheDocument()
+  })
+
   it("renders daily insight card", () => {
     render(<DashboardPage />)
     expect(screen.getByText("Daily Insight")).toBeInTheDocument()
     expect(screen.getByText(/Consistency is key for nap transitions/i)).toBeInTheDocument()
   })
 
-  it("renders FAB", () => {
+  it("opens and closes mobile quick logging actions with valid destinations", async () => {
+    const user = userEvent.setup()
     render(<DashboardPage />)
-    expect(screen.getByTestId("fab")).toBeInTheDocument()
+    const fab = screen.getByRole("button", { name: "Open quick logging actions" })
+    expect(fab).toHaveAttribute("aria-expanded", "false")
+    expect(screen.queryByRole("navigation", { name: "Quick logging actions" })).not.toBeInTheDocument()
+
+    await user.click(fab)
+
+    const menu = screen.getByRole("navigation", { name: "Quick logging actions" })
+    expect(menu).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Close quick logging actions" })).toHaveAttribute("aria-expanded", "true")
+    expect(within(menu).getByRole("link", { name: "Log Feed" })).toHaveAttribute("href", "/feeding")
+    expect(within(menu).getByRole("link", { name: "Log Sleep" })).toHaveAttribute("href", "/sleep")
+    expect(within(menu).getByRole("link", { name: "Log Growth" })).toHaveAttribute("href", "/growth")
+
+    await user.click(screen.getByRole("button", { name: "Close quick logging actions" }))
+
+    expect(screen.queryByRole("navigation", { name: "Quick logging actions" })).not.toBeInTheDocument()
   })
 
   it("renders greeting with default name when no active baby", () => {
