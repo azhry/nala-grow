@@ -1,5 +1,8 @@
 ## General
-Look at the configurations in ./.agents/config.md first before doing anything else
+- Look at the configurations in ./.agents/config.md first before doing anything else
+- Do one task at a time, don't switch context until you're done
+- For every task, you must branch out from main
+- Don't ask permission to commit, push, or open PRs. You are allowed to do that by default.
 
 ## Frontend implementation delegation
 
