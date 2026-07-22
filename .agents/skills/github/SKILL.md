@@ -1,28 +1,30 @@
 ---
-name: nala-grow-github
-description: Publishes Nala Grow changes through a safe branch, commit, push, and draft-PR workflow. Use when implementing an AZH task, preparing a pull request, or handling GitHub review handoff.
+name: github-delivery
+description: Operates GitHub and local Git for repository delivery: branches, commits, pushes, pull requests, issues, reviews, and checks. Use when a user asks to implement and publish code, create or review a PR, inspect GitHub issues or checks, or manage repository history.
 ---
 
-# Nala Grow GitHub
+# GitHub delivery
 
-## Before editing
+Git is the local version-control system for branches and commits. GitHub hosts Git repositories and adds pull requests, issues, reviews, Actions checks, releases, and collaboration controls.
 
-1. Run `git status --short --branch` and preserve unrelated changes.
-2. Start every task from updated `main` on `codex/<ticket>-<short-slug>` unless the user supplies a branch name.
-3. Do not stage unrelated files, generated artifacts, secrets, or another person's work.
+## Capabilities
 
-## Implementation handoff
+- Inspect repository state, branches, history, remotes, diffs, and changed files.
+- Create focused branches and commits; preserve unrelated work in a dirty checkout.
+- Push branches and create/update/inspect/comment on/review pull requests.
+- Read and manage GitHub issues, labels, assignees, review threads, and CI checks.
+- Compare commits and link PRs to external work trackers.
 
-1. Run the smallest relevant tests and record their result. Clearly identify pre-existing failures rather than presenting them as regressions.
-2. Review the diff, stage only intended files, and commit with a conventional message such as `feat(feeding): revamp feeding page`.
-3. Push only with the user's authorization for external publication. Never print access tokens or place them in commands, commits, or PR text.
-4. Open a **draft** PR against `main` unless the user asks for a ready-for-review PR. Include a summary, verification, known limitations, and `Closes AZH-<n>`.
-5. Return the PR URL and update the linked Linear issue to `In Review`.
+## Workflow
 
-## GitHub access
+1. Inspect status, current branch, remote, and repository instructions before editing or staging.
+2. Derive conventions from the current project; if absent, use a concise topic branch from `main` and a focused conventional commit.
+3. Stage only intended files. Run proportional verification and separate pre-existing failures from regressions.
+4. Push/create a PR only with explicit user authorization for external publication. Never expose credentials or bypass authorization failure.
+5. Report the commit, tests, PR URL, and unresolved risks.
 
-Prefer the connected GitHub integration. If it lacks repository access, use an already-authenticated `gh` CLI; otherwise report the authentication blocker. Do not attempt to bypass permission failures or expose credentials.
+Read [TOOLING.md](TOOLING.md) before operating on GitHub; it maps Git, `gh`, connector calls, and REST endpoints.
 
-## Example
+## Pull requests
 
-For AZH-123, create `codex/azh-123-short-title`, commit only its files, run focused tests, push, and create a draft PR targeting `main`.
+Default to a draft PR unless the user asks for ready review. Include a concise summary, verification performed, known limitations, and an issue reference when one exists.
