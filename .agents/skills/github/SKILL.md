@@ -18,12 +18,13 @@ Git is the local version-control system for branches and commits. GitHub hosts G
 ## Workflow
 
 1. Inspect status, current branch, remote, and repository instructions before editing or staging.
-2. Derive conventions from the current project; if absent, use a concise topic branch from `main` and a focused conventional commit.
-3. Stage only intended files. Run proportional verification and separate pre-existing failures from regressions.
-4. Push/create a PR only with explicit user authorization for external publication. Never expose credentials or bypass authorization failure.
-5. Report the commit, tests, PR URL, and unresolved risks.
+2. Read [TOOLING.md](TOOLING.md), resolve the official GitHub CLI, and run its non-interactive authentication and repository-access checks before source edits. Do not invoke the `gh` name from PATH until this check rules out npm shims, aliases, and wrappers.
+3. Derive conventions from the current project; if absent, use a concise topic branch from `main` and a focused conventional commit.
+4. Stage only intended files. Run proportional verification and separate pre-existing failures from regressions.
+5. Push/create a PR only with explicit user authorization for external publication. Never expose credentials or bypass authorization failure.
+6. Report the commit, tests, PR URL, and unresolved risks.
 
-Read [TOOLING.md](TOOLING.md) before operating on GitHub; it maps Git, `gh`, connector calls, and REST endpoints.
+If the official CLI cannot authenticate or access the repository, use a connected GitHub app when it is available. Otherwise stop, record the blocker in the task tracker, and ask for the integration to be fixed. Do not invoke interactive login, set `GH_TOKEN` from a project file, or use a project token with `curl`.
 
 ## Pull requests
 
