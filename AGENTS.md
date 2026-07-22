@@ -26,7 +26,7 @@ For a request containing a Linear issue ID such as `AZH-385`:
 1. Read `./.agents/config.md` without printing it.
 2. Read [the delivery workflow](.agents/workflows/delivery.md) in full before any task-specific repository search, shell command, or implementation.
 3. Use the connected Linear tool. If it is not immediately visible, discover the available tools first.
-4. Do not call Linear directly with `curl`, GraphQL, REST, or credentials from `config.md` unless the connected Linear tool is genuinely unavailable and the user explicitly approves that fallback.
+4. If the connected Linear tool is genuinely unavailable after discovery, immediately use the documented Linear API fallback. Use the official schema or documentation, load only the required credential without output, and never guess requests or bypass an authorization failure.
 5. Read the issue, relations, comments, project, and valid team statuses.
 6. If the description is incomplete, analyze it first and update it with the [Linear issue-description template](.agents/templates/linear-issue-description.md).
 7. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
