@@ -7,13 +7,16 @@ interface MilestoneCardProps {
   onAchieve?: (id: string) => void
   onDelete?: (id: string) => void
   showActions?: boolean
+  imageRotate?: string
+  tapeStyle?: string
+  idx?: number
 }
 
-const categoryColors: Record<MilestoneCategory, { dot: string; bg: string; icon: string }> = {
-  physical: { dot: "bg-accent-coral", bg: "bg-accent-coral/10", icon: "self_improvement" },
-  cognitive: { dot: "bg-tertiary", bg: "bg-tertiary/10", icon: "psychology" },
-  social: { dot: "bg-secondary", bg: "bg-secondary/10", icon: "diversity_3" },
-  language: { dot: "bg-primary", bg: "bg-primary/10", icon: "record_voice_over" },
+const categoryLabels: Record<MilestoneCategory, { primary: string; secondary?: string }> = {
+  physical: { primary: "Physical", secondary: "Motor Skills" },
+  cognitive: { primary: "Cognitive" },
+  social: { primary: "Social", secondary: "Emotional" },
+  language: { primary: "Language" },
 }
 
 function formatDate(iso?: string): string {
@@ -26,78 +29,88 @@ function formatDate(iso?: string): string {
   }
 }
 
-function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true }: MilestoneCardProps) {
-  const colors = categoryColors[milestone.category]
+function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps): JSX.Element {
+  const labels = categoryLabels[milestone.category]
+  const hasSecondary = Boolean(labels.secondary)
+
+  const rotate = imageRotate
+  const tape = tapeStyle || (idx % 2 === 0 ? undefined : "transform: translateX(-50%) rotate(3deg); background: rgba(126, 182, 173, 0.2);")
 
   return (
-    <div className={[
-      "relative flex items-start gap-4 p-gutter rounded-xl transition-all",
-      milestone.achieved ? "bg-primary-container/10" : "bg-surface-container-low",
-    ].join(" ")}>
-      <div className={[
-        "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-        milestone.achieved ? colors.bg : "bg-surface-container-high",
-      ].join(" ")}>
-        {milestone.achieved ? (
-          <span className="material-symbols-outlined text-primary fill-1">check_circle</span>
+    <div className="relative scrapbook-card bg-surface-container-lowest p-gutter rounded-2xl shadow-[0_8px_20px_rgba(126,182,173,0.15)] flex flex-col md:flex-row gap-gutter transition-all hover:translate-y-[-4px]">
+      <div className={["tape-effect", tape].filter(Boolean).join(" ")} />
+
+      <div className={["w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white transform", rotate].join(" ")}>
+        {milestone.photo_url ? (
+          <img
+            alt={milestone.title}
+            className="w-full h-full object-cover"
+            src={milestone.photo_url}
+          />
         ) : (
-          <span className={["material-symbols-outlined", colors.dot.replace("bg-", "text-")].join(" ")}>
-            {colors.icon}
-          </span>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h4 className={[
-            "font-headline-sm text-headline-sm",
-            milestone.achieved ? "text-on-surface line-through decoration-primary/50" : "text-primary",
-          ].join(" ")}>
-            {milestone.title}
-          </h4>
-          <span className={[
-            "w-2 h-2 rounded-full",
-            milestone.achieved ? "bg-primary" : colors.dot,
-          ].join(" ")} />
-        </div>
-
-        {milestone.achieved && milestone.achieved_date && (
-          <p className="font-label-md text-label-md text-primary mt-1">
-            Achieved {formatDate(milestone.achieved_date)}
-          </p>
-        )}
-
-        {milestone.notes && (
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 italic">
-            {milestone.notes}
-          </p>
-        )}
-
-        {!milestone.achieved && showActions && (
-          <div className="flex gap-2 mt-3">
-            {onAchieve && (
-              <button
-                type="button"
-                onClick={() => onAchieve(milestone.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
-              >
-                <span className="material-symbols-outlined text-[16px]">check</span>
-                Achieve
-              </button>
-            )}
-            {milestone.is_custom && onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(milestone.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-error-container text-error rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
-              >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-                Delete
-              </button>
-            )}
+          <div className="w-full h-full bg-surface-container-high flex items-center justify-center">
+            <span className="material-symbols-outlined text-5xl text-outline-variant">child_care</span>
           </div>
         )}
       </div>
+
+      <div className="flex-1 flex flex-col justify-center gap-base">
+        <span className="inline-flex items-center gap-1 text-primary font-label-md text-label-md">
+          <span className="material-symbols-outlined text-sm" data-icon="event" style={{ fontSize: 16 }}>
+            event
+          </span>
+          {milestone.achieved && milestone.achieved_date
+            ? formatDate(milestone.achieved_date)
+            : "Upcoming"}
+        </span>
+
+        <h3 className="font-headline-sm text-headline-sm text-primary">
+          {milestone.title}
+        </h3>
+
+        {milestone.notes && (
+          <p className="text-on-surface-variant italic text-body-sm">
+            &ldquo;{milestone.notes}&rdquo;
+          </p>
+        )}
+
+        <div className="mt-2 flex gap-2 flex-wrap items-center">
+          <span className="px-3 py-1 bg-primary-container/20 text-on-primary-container rounded-full text-[10px] font-bold uppercase tracking-wider">
+            {labels.primary}
+          </span>
+          {hasSecondary && (
+            <span className="px-3 py-1 bg-tertiary-container/20 text-on-tertiary-container rounded-full text-[10px] font-bold uppercase tracking-wider">
+              {labels.secondary}
+            </span>
+          )}
+          {!milestone.achieved && showActions && (
+            <div className="flex gap-2 ml-auto">
+              {onAchieve && (
+                <button
+                  type="button"
+                  onClick={() => onAchieve(milestone.id)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">check</span>
+                  Achieve
+                </button>
+              )}
+              {milestone.is_custom && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(milestone.id)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-error-container text-error rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="absolute -left-11 top-6 w-6 h-6 rounded-full bg-primary border-4 border-surface shadow-sm z-10" />
     </div>
   )
 }

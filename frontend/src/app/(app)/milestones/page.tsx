@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useAppStore } from "@/lib/store"
-import type { Milestone, MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
-import { MILESTONE_DEFINITIONS } from "@/lib/store"
+import type { MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
 import {
   createMilestone,
   updateMilestone as updateMilestoneApi,
@@ -11,13 +10,100 @@ import {
   fetchMilestones,
 } from "@/lib/milestone-service"
 import {
-  MilestoneCategoryChips,
   MilestoneTimeline,
-  MilestoneProgress,
   UpcomingMilestones,
   MilestoneForm,
 } from "@/components/milestones"
 import { FAB } from "@/components/ui"
+
+const ageRangeLabels: Record<MilestoneAgeRange, string> = {
+  "0-3": "0–3 Months",
+  "3-6": "3–6 Months",
+  "6-12": "6–12 Months",
+  "12-24": "12–24 Months",
+}
+
+const PLACEHOLDER_PHOTO = (seed: number) => {
+  const hue = (seed * 47 + 160) % 360
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
+    <rect fill='hsl(${hue},28%,92%)' width='200' height='200' rx='16'/>
+    <circle cx='100' cy='90' r='28' fill='hsl(${hue},20%,78%)'/>
+  </svg>`
+  return `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
+}
+
+const JOURNEY_CARDS: Milestone[] = [
+  {
+    id: "journey-1",
+    baby_id: "sample",
+    definition_id: "journey-1",
+    title: "The Very First Smile",
+    category: "social",
+    age_range: "0-3",
+    achieved: true,
+    achieved_date: "2023-10-12",
+    notes: "We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely.",
+    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDkMVqCflDXBExLNx0tJyW__uPJ2XAFC-lSu16AjbteC0QIQ-BHurfuv7QuWGg_0vl6P66qN2SU33a1hAiqgO5UIDapp5dWtPpSQqPREP2BejhDcCCGHs00KuJsZKMdw-h-cohvhkSf-80bMzDYJdZjaSbApEgHUNc5mDlmR7ZW2_8JBIpCmgEoU4D0t4nlHXak0t6rv7Pk1J6yQSuzYuomN8XWbJtxFUh4pLDzDGBHrL7264bz7BfXs24Y4rpW6cpbEI32l4pPWfU",
+    is_custom: false,
+  },
+  {
+    id: "journey-2",
+    baby_id: "sample",
+    definition_id: "journey-2",
+    title: "Rolling Like a Pro",
+    category: "physical",
+    age_range: "3-6",
+    achieved: true,
+    achieved_date: "2023-11-28",
+    notes: "Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!",
+    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxYfFlw2qma4MN0_Hy6KleKOP5040YNL67i_4g2ZhNMKa18kDiTdYr2hpalsuQqZYCWRuTlC2QCZUxfmOGG4L0lK9nGTuYMkgGIa8kDipRL3ndDuGg6ocJgmeAHKf-YG-5wg8L11Myfj1_gw0-XiIsahAS4OTr5v-wGETaJtvdWY1nuDSSAVL5eB2jg8NJ3pQjmOLtSUhkAjJDaSSqv31u8xf3NqoRP4s3IJLOjGhP8oMU5IQvSfWwlzitwjaYK1qgb7vx7L4Af6A",
+    is_custom: false,
+  },
+]
+
+const CURRENT_GOALS: Milestone[] = [
+  {
+    id: "goal-achieved",
+    baby_id: "sample",
+    definition_id: "goal-achieved",
+    title: "First Smile",
+    category: "social",
+    age_range: "3-6",
+    achieved: true,
+    achieved_date: "2023-10-12",
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-1",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-1",
+    title: "Sitting Up (Supported)",
+    category: "physical",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-2",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-2",
+    title: "Grasping Objects",
+    category: "physical",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+  {
+    id: "goal-upcoming-3",
+    baby_id: "sample",
+    definition_id: "goal-upcoming-3",
+    title: "Babbles Back",
+    category: "language",
+    age_range: "3-6",
+    achieved: false,
+    is_custom: false,
+  },
+]
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -41,7 +127,7 @@ export default function MilestonesPage() {
   const babyName = activeBaby?.name ?? "Lily"
   const babyDob = activeBaby?.dob ?? ""
 
-  const [categoryFilter, setCategoryFilter] = useState<MilestoneCategory | "all">("all")
+  const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
 
   const babyMilestones = useMemo(
@@ -49,7 +135,24 @@ export default function MilestonesPage() {
     [milestones, babyId],
   )
 
+  const isDemo = babyMilestones.length === 0
+
+  const demoDob = isDemo ? "2026-03-01" : babyDob
+  const demoCurrentLabel = isDemo ? "4-6m" : undefined
+
+  const demoJourneyCards = useMemo(
+    () =>
+      ageFilter === "all"
+        ? JOURNEY_CARDS
+        : JOURNEY_CARDS.filter((m) => m.age_range === ageFilter),
+    [ageFilter],
+  )
+
+  const demoGoals = useMemo(() => CURRENT_GOALS, [])
+
   const seededMilestones = useMemo(() => {
+    if (isDemo) return JOURNEY_CARDS
+
     const existing = new Map(babyMilestones.map((m) => [m.definition_id, m]))
     const result: Milestone[] = []
 
@@ -75,23 +178,19 @@ export default function MilestonesPage() {
     result.push(...customMilestones)
 
     return result
-  }, [babyMilestones, babyId])
+  }, [babyMilestones, babyId, isDemo])
 
   const filteredSeeded = useMemo(
     () =>
-      categoryFilter === "all"
+      ageFilter === "all"
         ? seededMilestones
-        : seededMilestones.filter((m) => m.category === categoryFilter),
-    [seededMilestones, categoryFilter],
-  )
-
-  const achievedCount = useMemo(
-    () => seededMilestones.filter((m) => m.achieved).length,
-    [seededMilestones],
+        : seededMilestones.filter((m) => m.age_range === ageFilter),
+    [seededMilestones, ageFilter],
   )
 
   const handleAchieve = useCallback(
     (id: string) => {
+      if (isDemo) return
       const now = new Date().toISOString()
       const existing = babyMilestones.find(
         (m) => m.id === id || m.definition_id === id,
@@ -131,16 +230,17 @@ export default function MilestonesPage() {
         }
       }
     },
-    [babyMilestones, babyId, addMilestone, updateMilestone],
+    [babyMilestones, babyId, addMilestone, updateMilestoneApi, isDemo],
   )
 
   const handleDelete = useCallback(
     (id: string) => {
+      if (isDemo) return
       deleteMilestoneApi(id).catch(() => {
         deleteMilestone(id)
       })
     },
-    [deleteMilestone],
+    [deleteMilestone, isDemo],
   )
 
   const handleCustomSave = useCallback(
@@ -168,55 +268,81 @@ export default function MilestonesPage() {
     [babyId, addMilestone],
   )
 
+  const timelineMilestones = isDemo ? demoJourneyCards : filteredSeeded
+  const upcomingMilestones = isDemo ? demoGoals : babyMilestones
+
   return (
     <div className="pb-stack-lg">
-      <div className="px-container-margin md:px-stack-lg py-stack-md max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto px-container-margin py-stack-md flex flex-col gap-stack-lg">
         <header className="flex justify-between items-center mb-stack-lg">
           <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Milestones</h1>
+            <h1 className="font-headline-md text-headline-md text-primary font-bold">
+              Milestones &amp; Development
+            </h1>
             <p className="font-body-md text-body-md text-on-surface-variant">
               Track {babyName}&apos;s developmental milestones.
             </p>
           </div>
-          <div className="flex items-center gap-base">
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              className="p-3 bg-white rounded-full soft-shadow text-primary hover:bg-primary-container/10 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors"
               aria-label="Notifications"
             >
-              <span className="material-symbols-outlined">notifications</span>
+              <span className="material-symbols-outlined text-primary">notifications</span>
             </button>
-            <div className="w-10 h-10 rounded-full border-2 border-primary-container overflow-hidden soft-shadow bg-primary-container/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">child_care</span>
+            <div className="w-8 h-8 rounded-full overflow-hidden md:hidden">
+              <div className="w-full h-full bg-primary-container/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary">child_care</span>
+              </div>
             </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-          <div className="lg:col-span-8 space-y-stack-md">
-            <MilestoneProgress achieved={achievedCount} total={MILESTONE_DEFINITIONS.length} />
+        <div className="flex flex-col gap-stack-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
+              Choose Age Range
+            </h3>
+            <button className="text-primary font-label-md text-label-md underline">
+              View Developmental Guidelines
+            </button>
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-2 px-2">
+            {(["all", "0-3", "3-6", "6-12", "12-24"] as const).map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setAgeFilter(range)}
+                className={[
+                  "flex-shrink-0 rounded-full font-label-md text-label-md transition-colors",
+                  ageFilter === range
+                    ? "px-8 py-3 bg-primary text-on-primary font-bold shadow-md scale-105"
+                    : "px-6 py-3 bg-surface-container-highest text-on-surface-variant hover:bg-primary-container/20",
+                ].join(" ")}
+              >
+                {range === "all" ? "All" : ageRangeLabels[range]}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <section className="bg-white rounded-2xl p-stack-md soft-shadow">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-stack-md">
-                <h3 className="font-headline-md text-headline-md text-primary">
-                  Milestone Timeline
-                </h3>
-                <MilestoneCategoryChips
-                  selected={categoryFilter}
-                  onChange={setCategoryFilter}
-                />
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-stack-lg">
+          <div className="lg:col-span-2 flex flex-col gap-stack-md">
+            <div className="flex items-center gap-base">
+              <span className="material-symbols-outlined text-primary">auto_awesome</span>
+              <h2 className="font-headline-md text-headline-md">{babyName}&apos;s Journey</h2>
+            </div>
 
-              <MilestoneTimeline
-                milestones={filteredSeeded}
-                onAchieve={handleAchieve}
-                onDelete={handleDelete}
-              />
-            </section>
+            <MilestoneTimeline
+              milestones={timelineMilestones}
+              onAchieve={handleAchieve}
+              onDelete={handleDelete}
+            />
           </div>
 
-          <div className="lg:col-span-4 space-y-stack-md">
-            <section className="bg-white rounded-2xl p-stack-md soft-shadow">
+          <div className="lg:col-span-1 space-y-stack-md">
+            <section className="bg-surface-container-high rounded-3xl p-stack-md flex flex-col gap-stack-md sticky top-24">
               {showForm ? (
                 <div>
                   <div className="flex items-center justify-between mb-stack-md">
@@ -232,8 +358,9 @@ export default function MilestonesPage() {
               ) : (
                 <div>
                   <UpcomingMilestones
-                    milestones={babyMilestones}
-                    babyDob={babyDob || undefined}
+                    milestones={upcomingMilestones}
+                    babyDob={demoDob}
+                    currentLabel={demoCurrentLabel}
                   />
                   <button
                     type="button"

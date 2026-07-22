@@ -97,6 +97,45 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrapbook-card {
+    position: relative;
+    background-image: radial-gradient(#7eb6ad11 1.5px, transparent 1.5px);
+    background-size: 15px 15px;
+  }
+
+  .tape-effect {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 60px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+  }
+
+  .timeline-line {
+    background: repeating-linear-gradient(
+      to bottom,
+      #2f6760,
+      #2f6760 10px,
+      transparent 10px,
+      transparent 20px
+    );
+  }
 }
 
 @layer utilities {
