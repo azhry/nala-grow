@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useAppStore } from "@/lib/store"
-import type { MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
+import type { Milestone, MilestoneCategory, MilestoneAgeRange } from "@/lib/store"
+import { MILESTONE_DEFINITIONS } from "@/lib/store"
 import {
   createMilestone,
   updateMilestone as updateMilestoneApi,
@@ -133,6 +134,8 @@ export default function MilestonesPage() {
   const demoDob = isDemo ? "2026-03-01" : babyDob
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
+  const [demoGoals, setDemoGoals] = useState<Milestone[]>(CURRENT_GOALS)
+
   const demoJourneyCards = useMemo(
     () =>
       ageFilter === "all"
@@ -140,8 +143,6 @@ export default function MilestonesPage() {
         : JOURNEY_CARDS.filter((m) => m.age_range === ageFilter),
     [ageFilter],
   )
-
-  const demoGoals = useMemo(() => CURRENT_GOALS, [])
 
   const seededMilestones = useMemo(() => {
     if (isDemo) return JOURNEY_CARDS
@@ -183,8 +184,17 @@ export default function MilestonesPage() {
 
   const handleAchieve = useCallback(
     (id: string) => {
-      if (isDemo) return
       const now = new Date().toISOString()
+      if (isDemo) {
+        setDemoGoals((prev) =>
+          prev.map((m) =>
+            m.id === id || m.definition_id === id
+              ? { ...m, achieved: true, achieved_date: now }
+              : m,
+          ),
+        )
+        return
+      }
       const existing = babyMilestones.find(
         (m) => m.id === id || m.definition_id === id,
       )
@@ -228,7 +238,10 @@ export default function MilestonesPage() {
 
   const handleDelete = useCallback(
     (id: string) => {
-      if (isDemo) return
+      if (isDemo) {
+        setDemoGoals((prev) => prev.filter((m) => m.id !== id))
+        return
+      }
       deleteMilestoneApi(id).catch(() => {
         deleteMilestone(id)
       })
