@@ -23,15 +23,6 @@ const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "12-24": "12–24 Months",
 }
 
-const PLACEHOLDER_PHOTO = (seed: number) => {
-  const hue = (seed * 47 + 160) % 360
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
-    <rect fill='hsl(${hue},28%,92%)' width='200' height='200' rx='16'/>
-    <circle cx='100' cy='90' r='28' fill='hsl(${hue},20%,78%)'/>
-  </svg>`
-  return `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
-}
-
 const JOURNEY_CARDS: Milestone[] = [
   {
     id: "journey-1",
@@ -129,6 +120,8 @@ export default function MilestonesPage() {
 
   const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [guidelinesOpen, setGuidelinesOpen] = useState(false)
 
   const babyMilestones = useMemo(
     () => milestones.filter((m) => m.baby_id === babyId),
@@ -230,7 +223,7 @@ export default function MilestonesPage() {
         }
       }
     },
-    [babyMilestones, babyId, addMilestone, updateMilestoneApi, isDemo],
+    [babyMilestones, babyId, addMilestone, updateMilestoneApi, updateMilestone, isDemo],
   )
 
   const handleDelete = useCallback(
@@ -274,7 +267,7 @@ export default function MilestonesPage() {
   return (
     <div className="pb-stack-lg">
       <div className="max-w-6xl mx-auto px-container-margin py-stack-md flex flex-col gap-stack-lg">
-        <header className="flex justify-between items-center mb-stack-lg">
+<header className="flex justify-between items-center mb-stack-lg relative">
           <div>
             <h1 className="font-headline-md text-headline-md text-primary font-bold">
               Milestones &amp; Development
@@ -286,11 +279,22 @@ export default function MilestonesPage() {
           <div className="flex items-center gap-4">
             <button
               type="button"
+              onClick={() => setNotificationsOpen((open) => !open)}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors"
               aria-label="Notifications"
             >
               <span className="material-symbols-outlined text-primary">notifications</span>
             </button>
+            {notificationsOpen && (
+              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-lg border border-outline-variant/20 p-4 z-20">
+                <p className="font-headline-sm text-headline-sm text-on-surface">
+                  Notifications
+                </p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-2">
+                  No new notifications.
+                </p>
+              </div>
+            )}
             <div className="w-8 h-8 rounded-full overflow-hidden md:hidden">
               <div className="w-full h-full bg-primary-container/20 flex items-center justify-center">
                 <span className="material-symbols-outlined text-primary">child_care</span>
@@ -299,15 +303,49 @@ export default function MilestonesPage() {
           </div>
         </header>
 
-        <div className="flex flex-col gap-stack-sm">
+<div className="flex flex-col gap-stack-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
               Choose Age Range
             </h3>
-            <button className="text-primary font-label-md text-label-md underline">
+            <button
+              type="button"
+              onClick={() => setGuidelinesOpen((open) => !open)}
+              className="text-primary font-label-md text-label-md underline"
+            >
               View Developmental Guidelines
             </button>
           </div>
+          {guidelinesOpen && (
+            <div className="bg-surface-container-low rounded-2xl p-4 space-y-3">
+              <h4 className="font-headline-sm text-headline-sm text-primary">
+                Developmental Guidelines
+              </h4>
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Milestones are based on CDC developmental guidelines. Every baby
+                develops at their own pace — use these ranges as a general
+                reference.
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-label-md">
+                <div className="flex items-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-primary text-[18px]">self_improvement</span>
+                  <span>Physical: 0–24 months</span>
+                </div>
+                <div className="flex items-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-primary text-[18px]">psychology</span>
+                  <span>Cognitive: 0–24 months</span>
+                </div>
+                <div className="flex items-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-primary text-[18px]">diversity_3</span>
+                  <span>Social: 0–24 months</span>
+                </div>
+                <div className="flex items-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-primary text-[18px]">record_voice_over</span>
+                  <span>Language: 0–24 months</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-2 px-2">
             {(["all", "0-3", "3-6", "6-12", "12-24"] as const).map((range) => (
               <button

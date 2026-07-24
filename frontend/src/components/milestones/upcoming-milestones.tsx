@@ -7,6 +7,7 @@ interface UpcomingMilestonesProps {
   babyDob?: string
   currentLabel?: string
   onAchieve?: (id: string) => void
+  onDelete?: (id: string) => void
   onAddCustom?: () => void
 }
 
@@ -27,7 +28,7 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onAddCustom }: UpcomingMilestonesProps) {
+function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
   const achievedList = milestones
     .filter((m) => m.achieved)
     .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
@@ -59,7 +60,29 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onAd
 
       <div className="flex flex-col gap-3">
         {achievedList.map((m) => (
-          <div key={m.id} className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm">
+          <div
+            key={m.id}
+            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm cursor-pointer hover:border-primary transition-colors group"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              if (m.is_custom && onDelete) {
+                onDelete(m.id)
+              } else {
+                onAchieve?.(m.id)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                if (m.is_custom && onDelete) {
+                  onDelete(m.id)
+                } else {
+                  onAchieve?.(m.id)
+                }
+              }
+            }}
+          >
             <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
             </div>
@@ -69,6 +92,19 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onAd
                 {m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved"}
               </p>
             </div>
+            {m.is_custom && onDelete && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(m.id)
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-error hover:bg-error-container/20 transition-colors shrink-0"
+                aria-label={`Delete ${m.title}`}
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+              </button>
+            )}
           </div>
         ))}
 
