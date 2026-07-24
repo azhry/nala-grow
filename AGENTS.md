@@ -25,7 +25,7 @@ For a request containing a Linear issue ID such as `AZH-385`:
 
 1. Read `./.agents/config.md` without printing it.
 2. Read [the delivery workflow](.agents/workflows/delivery.md) in full before any task-specific repository search, shell command, or implementation.
-3. Use the connected Linear tool. If it is not immediately visible, discover the available tools first.
+3. Use the connected Linear tool such as Linear MCP. If it is not immediately visible, discover the available tools first.
 4. If the connected Linear tool is genuinely unavailable after discovery, immediately use the documented Linear API fallback. Use the official schema or documentation, load only the required credential without output, and never guess requests or bypass an authorization failure.
 5. Read the issue, relations, comments, project, and valid team statuses.
 6. If the description is incomplete, analyze it first and update it with the [Linear issue-description template](.agents/templates/linear-issue-description.md).
@@ -42,9 +42,9 @@ For a request containing a Linear issue ID such as `AZH-385`:
 - Reading config does not export values into the current shell environment. Never assume a credential environment variable is available.
 - Prefer authenticated connectors for Linear and GitHub. Do not manually inject project secrets into `curl` or other direct HTTP commands.
 - Before changing code for a task that requires GitHub delivery:
-  1. Resolve the intended GitHub CLI executable with a platform-appropriate path-inspection command. Verify that it is the official GitHub CLI, not an npm package, shell alias, or wrapper.
-  2. Run a non-interactive authentication and repository-access check with that resolved executable, without overriding a working stored credential.
-  3. Verify the GitHub connector can access the repository if it will be used.
+   1. Resolve the intended GitHub CLI executable with a platform-appropriate path-inspection command. Verify that it is the official GitHub CLI, not an npm package, shell alias, or wrapper.
+   2. Run a non-interactive authentication and repository-access check with that resolved executable, without overriding a working stored credential.
+   3. Verify the GitHub connector can access the repository if it will be used.
 - If authentication or repository access fails, stop before implementation, record the blocker in Linear, and tell the user exactly which credential/integration must be fixed.
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
 - Do not write, edit, generate, or stage implementation files until the GitHub delivery preflight succeeds and a `task/<topic>` branch has been created from `main`. If unrelated work makes that unsafe, use an isolated worktree or stop and report the blocker.

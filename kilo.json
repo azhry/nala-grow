@@ -1,0 +1,7 @@
+{
+  "instructions": [
+    ".kilo/rules/shell-and-graphql.md",
+    ".kilo/rules/github-cli.md",
+    ".kilo/rules/linear-issue-preservation.md"
+  ]
+}
