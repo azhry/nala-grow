@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ButtonHTMLAttributes } from "react"
+import type { ButtonHTMLAttributes, ReactNode } from "react"
 import DashboardPage from "../dashboard/page"
 
 jest.mock("next/navigation", () => ({
@@ -21,6 +21,14 @@ jest.mock("@/components/ui", () => ({
     </button>
   ),
 }))
+
+jest.mock("@/components/providers/quick-log-provider", () => {
+  const openLog = jest.fn()
+  return {
+    useQuickLog: () => ({ open: false, openLog, closeLog: jest.fn() }),
+    QuickLogProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  }
+})
 
 let storeState: Record<string, unknown>
 
@@ -86,25 +94,9 @@ describe("DashboardPage", () => {
     expect(screen.getByText(/Consistency is key for nap transitions/i)).toBeInTheDocument()
   })
 
-  it("opens and closes mobile quick logging actions with valid destinations", async () => {
-    const user = userEvent.setup()
+  it("renders the mobile FAB for quick logging", () => {
     render(<DashboardPage />)
-    const fab = screen.getByRole("button", { name: "Open quick logging actions" })
-    expect(fab).toHaveAttribute("aria-expanded", "false")
-    expect(screen.queryByRole("navigation", { name: "Quick logging actions" })).not.toBeInTheDocument()
-
-    await user.click(fab)
-
-    const menu = screen.getByRole("navigation", { name: "Quick logging actions" })
-    expect(menu).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Close quick logging actions" })).toHaveAttribute("aria-expanded", "true")
-    expect(within(menu).getByRole("link", { name: "Log Feed" })).toHaveAttribute("href", "/feeding")
-    expect(within(menu).getByRole("link", { name: "Log Sleep" })).toHaveAttribute("href", "/sleep")
-    expect(within(menu).getByRole("link", { name: "Log Growth" })).toHaveAttribute("href", "/growth")
-
-    await user.click(screen.getByRole("button", { name: "Close quick logging actions" }))
-
-    expect(screen.queryByRole("navigation", { name: "Quick logging actions" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Open quick logging actions" })).toBeInTheDocument()
   })
 
   it("renders greeting with default name when no active baby", () => {

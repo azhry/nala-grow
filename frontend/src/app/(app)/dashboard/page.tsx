@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
+import { useQuickLog } from "@/components/providers/quick-log-provider"
 
 const quickActions = [
   { label: "Log Feed", icon: "restaurant", href: "/feeding", color: "primary" },
@@ -26,8 +27,8 @@ const colorMap: Record<string, string> = {
 
 export default function DashboardPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
-  const [fabOpen, setFabOpen] = useState(false)
   const [showAllActivities, setShowAllActivities] = useState(false)
+  const { openLog } = useQuickLog()
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -183,30 +184,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="md:hidden">
-        {fabOpen && (
-          <nav
-            id="mobile-quick-actions"
-            aria-label="Quick logging actions"
-            className="fixed bottom-40 right-6 z-40 flex flex-col gap-2 rounded-2xl border border-primary/10 bg-surface-container-lowest p-2 shadow-lg"
-          >
-            {quickActions.map((action) => (
-              <Link
-                key={action.label}
-                href={action.href}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-body-sm font-bold text-primary hover:bg-primary-container/10"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{action.icon}</span>
-                {action.label}
-              </Link>
-            ))}
-          </nav>
-        )}
         <FAB
-          icon={fabOpen ? "close" : "add"}
-          aria-label={fabOpen ? "Close quick logging actions" : "Open quick logging actions"}
-          aria-expanded={fabOpen}
-          aria-controls="mobile-quick-actions"
-          onClick={() => setFabOpen((isOpen) => !isOpen)}
+          icon="add"
+          aria-label="Open quick logging actions"
+          onClick={openLog}
         />
       </div>
     </div>
