@@ -223,7 +223,7 @@ export default function MilestonesPage() {
         }
       }
     },
-    [babyMilestones, babyId, addMilestone, updateMilestoneApi, updateMilestone, isDemo],
+    [babyMilestones, babyId, addMilestone, updateMilestoneApi, isDemo],
   )
 
   const handleDelete = useCallback(
