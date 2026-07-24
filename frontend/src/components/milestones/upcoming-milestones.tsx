@@ -1,12 +1,13 @@
 "use client"
 
 import type { Milestone } from "@/lib/store"
-import { MILESTONE_DEFINITIONS } from "@/lib/store"
 
 interface UpcomingMilestonesProps {
   milestones: Milestone[]
   babyDob?: string
   currentLabel?: string
+  onAchieve?: (id: string) => void
+  onAddCustom?: () => void
 }
 
 const categoryIcons: Record<string, string> = {
@@ -26,7 +27,7 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMilestonesProps) {
+function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onAddCustom }: UpcomingMilestonesProps) {
   const achievedList = milestones
     .filter((m) => m.achieved)
     .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
@@ -75,6 +76,15 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMiles
           <div
             key={m.id}
             className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
+            role="button"
+            tabIndex={0}
+            onClick={() => onAchieve?.(m.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onAchieve?.(m.id)
+              }
+            }}
           >
             <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
               <span className="material-symbols-outlined">add</span>
@@ -90,6 +100,7 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMiles
 
       <button
         type="button"
+        onClick={onAddCustom}
         className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-bold hover:bg-white/50 transition-all active:scale-[0.98]"
       >
         <span className="material-symbols-outlined align-middle mr-2" data-icon="add_circle">

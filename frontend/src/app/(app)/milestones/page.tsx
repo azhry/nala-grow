@@ -361,15 +361,10 @@ export default function MilestonesPage() {
                     milestones={upcomingMilestones}
                     babyDob={demoDob}
                     currentLabel={demoCurrentLabel}
+                    onAchieve={handleAchieve}
+                    onDelete={handleDelete}
+                    onAddCustom={() => setShowForm(true)}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="w-full mt-4 py-4 bg-surface-container-high text-primary rounded-2xl font-headline-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">add_circle</span>
-                    Add Custom Milestone
-                  </button>
                 </div>
               )}
             </section>
