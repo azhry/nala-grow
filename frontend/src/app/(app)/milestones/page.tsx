@@ -135,13 +135,14 @@ export default function MilestonesPage() {
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
   const [demoGoals, setDemoGoals] = useState<Milestone[]>(CURRENT_GOALS)
+  const [demoJourneyCards, setDemoJourneyCards] = useState<Milestone[]>(JOURNEY_CARDS)
 
-  const demoJourneyCards = useMemo(
+  const filteredDemoJourneyCards = useMemo(
     () =>
       ageFilter === "all"
-        ? JOURNEY_CARDS
-        : JOURNEY_CARDS.filter((m) => m.age_range === ageFilter),
-    [ageFilter],
+        ? demoJourneyCards
+        : demoJourneyCards.filter((m) => m.age_range === ageFilter),
+    [demoJourneyCards, ageFilter],
   )
 
   const seededMilestones = useMemo(() => {
@@ -182,32 +183,51 @@ export default function MilestonesPage() {
     [seededMilestones, ageFilter],
   )
 
-  const handleAchieve = useCallback(
-    (id: string) => {
+  const handleToggleAchieve = useCallback(
+    (id: string, achieved: boolean) => {
       const now = new Date().toISOString()
       if (isDemo) {
         setDemoGoals((prev) =>
           prev.map((m) =>
             m.id === id || m.definition_id === id
-              ? { ...m, achieved: true, achieved_date: now }
+              ? {
+                  ...m,
+                  achieved,
+                  achieved_date: achieved ? now : undefined,
+                }
+              : m,
+          ),
+        )
+        setDemoJourneyCards((prev) =>
+          prev.map((m) =>
+            m.id === id || m.definition_id === id
+              ? {
+                  ...m,
+                  achieved,
+                  achieved_date: achieved ? now : undefined,
+                }
               : m,
           ),
         )
         return
       }
+
       const existing = babyMilestones.find(
         (m) => m.id === id || m.definition_id === id,
       )
 
+      const payload = achieved
+        ? { achieved: true, achieved_date: now }
+        : { achieved: false, achieved_date: undefined }
+
       if (existing) {
         updateMilestoneApi(existing.id, {
-          achieved: true,
-          achieved_date: now,
+          ...payload,
           title: existing.title,
         }).catch(() => {
-          updateMilestone(existing.id, { achieved: true, achieved_date: now })
+          updateMilestone(existing.id, payload)
         })
-      } else {
+      } else if (achieved) {
         const def = MILESTONE_DEFINITIONS.find((d) => d.id === id)
         if (def) {
           createMilestone({
@@ -274,7 +294,7 @@ export default function MilestonesPage() {
     [babyId, addMilestone],
   )
 
-  const timelineMilestones = isDemo ? demoJourneyCards : filteredSeeded
+  const timelineMilestones = isDemo ? filteredDemoJourneyCards : filteredSeeded
   const upcomingMilestones = isDemo ? demoGoals : babyMilestones
 
   return (
@@ -387,7 +407,7 @@ export default function MilestonesPage() {
 
             <MilestoneTimeline
               milestones={timelineMilestones}
-              onAchieve={handleAchieve}
+              onToggleAchieve={handleToggleAchieve}
               onDelete={handleDelete}
             />
           </div>
@@ -412,7 +432,7 @@ export default function MilestonesPage() {
                     milestones={upcomingMilestones}
                     babyDob={demoDob}
                     currentLabel={demoCurrentLabel}
-                    onAchieve={handleAchieve}
+                    onToggleAchieve={handleToggleAchieve}
                     onDelete={handleDelete}
                     onAddCustom={() => setShowForm(true)}
                   />

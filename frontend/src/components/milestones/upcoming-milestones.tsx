@@ -6,7 +6,7 @@ interface UpcomingMilestonesProps {
   milestones: Milestone[]
   babyDob?: string
   currentLabel?: string
-  onAchieve?: (id: string) => void
+  onToggleAchieve?: (id: string, achieved: boolean) => void
   onDelete?: (id: string) => void
   onAddCustom?: () => void
 }
@@ -28,7 +28,7 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
+function UpcomingMilestones({ milestones, babyDob, currentLabel, onToggleAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
   const achievedList = milestones
     .filter((m) => m.achieved)
     .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
@@ -69,7 +69,7 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onDe
               if (m.is_custom && onDelete) {
                 onDelete(m.id)
               } else {
-                onAchieve?.(m.id)
+                onToggleAchieve?.(m.id, false)
               }
             }}
             onKeyDown={(e) => {
@@ -78,7 +78,7 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onDe
                 if (m.is_custom && onDelete) {
                   onDelete(m.id)
                 } else {
-                  onAchieve?.(m.id)
+                  onToggleAchieve?.(m.id, false)
                 }
               }
             }}
@@ -114,11 +114,11 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel, onAchieve, onDe
             className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
             role="button"
             tabIndex={0}
-            onClick={() => onAchieve?.(m.id)}
+            onClick={() => onToggleAchieve?.(m.id, true)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault()
-                onAchieve?.(m.id)
+                onToggleAchieve?.(m.id, true)
               }
             }}
           >

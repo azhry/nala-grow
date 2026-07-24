@@ -4,7 +4,7 @@ import type { Milestone, MilestoneCategory } from "@/lib/store"
 
 interface MilestoneCardProps {
   milestone: Milestone
-  onAchieve?: (id: string) => void
+  onToggleAchieve?: (id: string, achieved: boolean) => void
   onDelete?: (id: string) => void
   showActions?: boolean
   imageRotate?: string
@@ -29,7 +29,7 @@ function formatDate(iso?: string): string {
   }
 }
 
-function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps): JSX.Element {
+function MilestoneCard({ milestone, onToggleAchieve, onDelete, showActions = true, imageRotate = "-rotate-1", tapeStyle, idx = 0 }: MilestoneCardProps): JSX.Element {
   const labels = categoryLabels[milestone.category]
   const hasSecondary = Boolean(labels.secondary)
 
@@ -83,12 +83,22 @@ function MilestoneCard({ milestone, onAchieve, onDelete, showActions = true, ima
               {labels.secondary}
             </span>
           )}
-          {!milestone.achieved && showActions && (
+          {showActions && (
             <div className="flex gap-2 ml-auto">
-              {onAchieve && (
+              {milestone.achieved && onToggleAchieve && (
                 <button
                   type="button"
-                  onClick={() => onAchieve(milestone.id)}
+                  onClick={() => onToggleAchieve(milestone.id, false)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-surface-container-high text-on-surface rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">undo</span>
+                  Unachieve
+                </button>
+              )}
+              {!milestone.achieved && onToggleAchieve && (
+                <button
+                  type="button"
+                  onClick={() => onToggleAchieve(milestone.id, true)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full font-label-md text-label-md active:scale-[0.98] transition-all"
                 >
                   <span className="material-symbols-outlined text-[16px]">check</span>

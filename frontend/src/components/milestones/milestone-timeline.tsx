@@ -5,11 +5,11 @@ import { MilestoneCard } from "./milestone-card"
 
 interface MilestoneTimelineProps {
   milestones: Milestone[]
-  onAchieve?: (id: string) => void
+  onToggleAchieve?: (id: string, achieved: boolean) => void
   onDelete?: (id: string) => void
 }
 
-function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelineProps) {
+function MilestoneTimeline({ milestones, onToggleAchieve, onDelete }: MilestoneTimelineProps) {
   if (milestones.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
@@ -30,7 +30,7 @@ function MilestoneTimeline({ milestones, onAchieve, onDelete }: MilestoneTimelin
 
           <MilestoneCard
             milestone={milestone}
-            onAchieve={onAchieve}
+            onToggleAchieve={onToggleAchieve}
             onDelete={onDelete}
             idx={idx}
           />
