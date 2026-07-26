@@ -22,11 +22,7 @@ function formatShortDate(iso?: string): string {
 }
 
 function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
-  const achievedList = milestones.filter((m) => m.achieved)
-
-  const upcomingList = milestones.filter((m) => !m.achieved)
-
-  if (achievedList.length === 0 && upcomingList.length === 0) {
+  if (milestones.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-on-surface-variant">
         <span className="material-symbols-outlined text-4xl mb-3">celebration</span>
@@ -48,17 +44,21 @@ function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelet
       </div>
 
       <div className="flex flex-col gap-3">
-        {achievedList.map((m) => (
+        {milestones.map((m) => (
           <div
             key={m.id}
-            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm cursor-pointer hover:border-primary transition-colors group"
+            className={
+              m.achieved
+                ? "bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm cursor-pointer hover:border-primary transition-colors group"
+                : "bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
+            }
             role="button"
             tabIndex={0}
             onClick={() => {
               if (m.is_custom && onDelete) {
                 onDelete(m.id)
               } else {
-                onToggleAchieve?.(m.id, false)
+                onToggleAchieve?.(m.id, !m.achieved)
               }
             }}
             onKeyDown={(e) => {
@@ -67,20 +67,29 @@ function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelet
                 if (m.is_custom && onDelete) {
                   onDelete(m.id)
                 } else {
-                  onToggleAchieve?.(m.id, false)
+                  onToggleAchieve?.(m.id, !m.achieved)
                 }
               }
             }}
           >
-            <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
-            </div>
+            {m.achieved ? (
+              <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
+                <span className="material-symbols-outlined">add</span>
+              </div>
+            )}
             <div className="flex-1">
               <p className="font-bold text-on-surface">{m.title}</p>
-              <p className="text-xs text-on-surface-variant">
-                {m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved"}
+              <p className={"text-xs font-bold " + (m.achieved ? "text-on-surface-variant" : "text-primary")}>
+                {m.achieved ? (m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved") : "Upcoming"}
               </p>
             </div>
+            {!m.achieved && (
+              <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+            )}
             {m.is_custom && onDelete && (
               <button
                 type="button"
@@ -94,31 +103,6 @@ function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelet
                 <span className="material-symbols-outlined text-[18px]">delete</span>
               </button>
             )}
-          </div>
-        ))}
-
-        {upcomingList.map((m) => (
-          <div
-            key={m.id}
-            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
-            role="button"
-            tabIndex={0}
-            onClick={() => onToggleAchieve?.(m.id, true)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                onToggleAchieve?.(m.id, true)
-              }
-            }}
-          >
-            <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
-              <span className="material-symbols-outlined">add</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-on-surface">{m.title}</p>
-              <p className="text-xs text-primary font-bold">Upcoming</p>
-            </div>
-            <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
           </div>
         ))}
       </div>
