@@ -4,19 +4,12 @@ import type { Milestone } from "@/lib/store"
 
 interface UpcomingMilestonesProps {
   milestones: Milestone[]
-  babyDob?: string
   currentLabel?: string
   onToggleAchieve?: (id: string, achieved: boolean) => void
   onDelete?: (id: string) => void
   onAddCustom?: () => void
 }
 
-const categoryIcons: Record<string, string> = {
-  physical: "self_improvement",
-  cognitive: "psychology",
-  social: "diversity_3",
-  language: "record_voice_over",
-}
 
 function formatShortDate(iso?: string): string {
   if (!iso) return ""
@@ -28,14 +21,10 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob, currentLabel, onToggleAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
-  const achievedList = milestones
-    .filter((m) => m.achieved)
-    .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
+function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
+  const achievedList = milestones.filter((m) => m.achieved)
 
-  const upcomingList = milestones
-    .filter((m) => !m.achieved)
-    .sort((a, b) => a.title.localeCompare(b.title))
+  const upcomingList = milestones.filter((m) => !m.achieved)
 
   if (achievedList.length === 0 && upcomingList.length === 0) {
     return (

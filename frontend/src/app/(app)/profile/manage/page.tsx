@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Spinner } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
@@ -110,10 +111,11 @@ export default function ManageProfilesPage() {
                 <div className="flex gap-4">
                   <div className="h-24 w-24 overflow-hidden rounded-[20px] bg-surface-container-high md:h-28 md:w-28">
                     {baby.photo_url ? (
-                      <img
+                      <Image
                         src={baby.photo_url}
                         alt={baby.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">

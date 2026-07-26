@@ -117,7 +117,6 @@ export default function MilestonesPage() {
 
   const babyId = activeBaby?.id ?? "sample"
   const babyName = activeBaby?.name ?? "Lily"
-  const babyDob = activeBaby?.dob ?? ""
 
   const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
@@ -131,7 +130,6 @@ export default function MilestonesPage() {
 
   const isDemo = babyMilestones.length === 0
 
-  const demoDob = isDemo ? "2026-03-01" : babyDob
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
   const [demoGoals, setDemoGoals] = useState<Milestone[]>(CURRENT_GOALS)
@@ -253,7 +251,7 @@ export default function MilestonesPage() {
         }
       }
     },
-    [babyMilestones, babyId, addMilestone, updateMilestoneApi, isDemo],
+    [babyMilestones, babyId, addMilestone, updateMilestone, isDemo],
   )
 
   const handleDelete = useCallback(
@@ -430,7 +428,6 @@ export default function MilestonesPage() {
                 <div>
                   <UpcomingMilestones
                     milestones={upcomingMilestones}
-                    babyDob={demoDob}
                     currentLabel={demoCurrentLabel}
                     onToggleAchieve={handleToggleAchieve}
                     onDelete={handleDelete}

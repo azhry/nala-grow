@@ -1,6 +1,7 @@
 "use client"
 
 import type { Milestone, MilestoneCategory } from "@/lib/store"
+import Image from "next/image"
 
 interface MilestoneCardProps {
   milestone: Milestone
@@ -42,9 +43,10 @@ function MilestoneCard({ milestone, onToggleAchieve, onDelete, showActions = tru
 
       <div className={["w-full md:w-48 h-48 rounded-xl overflow-hidden shadow-inner border-4 border-white transform", rotate].join(" ")}>
         {milestone.photo_url ? (
-          <img
+          <Image
             alt={milestone.title}
-            className="w-full h-full object-cover"
+            className="object-cover"
+            fill
             src={milestone.photo_url}
           />
         ) : (

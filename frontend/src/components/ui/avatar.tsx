@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { type ImgHTMLAttributes, forwardRef } from "react"
 
 type AvatarSize = "sm" | "md" | "lg" | "xl" | "xxl"

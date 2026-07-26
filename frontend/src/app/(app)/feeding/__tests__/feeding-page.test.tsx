@@ -15,17 +15,16 @@ jest.mock("@/lib/store", () => {
   const actual = jest.requireActual("@/lib/store")
   return {
     ...actual,
-    useAppStore: Object.assign(
-      jest.fn((selector: any) => {
-        const state = useAppStore.__getState()
-        return typeof selector === "function" ? selector(state) : state
-      }),
-      {
-        getState: jest.fn(),
-        __getState: jest.fn(),
-        setState: jest.fn(),
-      },
-    ),
+  useAppStore: Object.assign(
+    jest.fn((selector: unknown) => {
+      const state = useAppStore.getState()
+      return typeof selector === "function" ? selector(state) : state
+    }),
+    {
+      getState: jest.fn(),
+      setState: jest.fn(),
+    },
+  ),
   }
 })
 
@@ -33,7 +32,7 @@ const mockCreateFeedSession = createFeedSession as jest.MockedFunction<typeof cr
 const mockFetchFeedSessions = fetchFeedSessions as jest.MockedFunction<typeof fetchFeedSessions>
 
 // We need to set up a mock store state that useAppStore can read from
-let storeState: Record<string, any> = {}
+let storeState: Record<string, unknown> = {}
 
 function setStoreState(state: Partial<typeof storeState>) {
   storeState = {
@@ -43,9 +42,8 @@ function setStoreState(state: Partial<typeof storeState>) {
     setFeedSessions: jest.fn(),
     ...state,
   }
-  ;(useAppStore as any).getState.mockReturnValue(storeState)
-  ;(useAppStore as any).__getState.mockReturnValue(storeState)
-  ;(useAppStore as any).mockImplementation((selector: any) => {
+  ;(useAppStore as unknown as jest.Mock).getState.mockReturnValue(storeState)
+  ;(useAppStore as unknown as jest.Mock).mockImplementation((selector: unknown) => {
     return typeof selector === "function" ? selector(storeState) : storeState
   })
 }
@@ -151,7 +149,8 @@ describe("FeedingPage", () => {
     it("calls createFeedSession with left_duration_sec from timer", async () => {
       renderPage()
       // Start left timer
-      const leftButton = screen.getByText("Left Side").closest("div")?.querySelector("button")!
+      const leftButton = screen.getByText("Left Side").closest("div")?.querySelector("button")
+      if (!leftButton) throw new Error("Left button not found")
       fireEvent.click(leftButton)
       // Advance timer by 30 seconds
       act(() => {
@@ -299,7 +298,8 @@ describe("FeedingPage", () => {
     it("resets timer and manual duration after successful breast save", async () => {
       renderPage()
       // Start left timer
-      const leftButton = screen.getByText("Left Side").closest("div")?.querySelector("button")!
+      const leftButton = screen.getByText("Left Side").closest("div")?.querySelector("button")
+      if (!leftButton) throw new Error("Left button not found")
       fireEvent.click(leftButton)
       act(() => {
         jest.advanceTimersByTime(10000)
