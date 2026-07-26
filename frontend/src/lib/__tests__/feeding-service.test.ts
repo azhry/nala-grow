@@ -1,5 +1,4 @@
 import type { FeedingSession } from "@/lib/graphql-types"
-import type { FeedSession } from "@/lib/store"
 
 // Mock graphql-client
 jest.mock("@/lib/graphql-client", () => ({
@@ -46,7 +45,7 @@ const mockStore = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockGetState.mockReturnValue(mockStore as any)
+  mockGetState.mockReturnValue(mockStore as unknown as ReturnType<typeof useAppStore.getState>)
 })
 
 function makeGqlSession(overrides: Partial<FeedingSession> = {}): FeedingSession {
@@ -64,19 +63,6 @@ function makeGqlSession(overrides: Partial<FeedingSession> = {}): FeedingSession
     reaction: "",
     notes: "",
     createdAt: "2026-07-20T10:00:00Z",
-    ...overrides,
-  }
-}
-
-function makeStoreSession(overrides: Partial<FeedSession> = {}): FeedSession {
-  return {
-    id: "gql-1",
-    baby_id: "baby-1",
-    feed_type: "breast",
-    started_at: "2026-07-20T10:00:00Z",
-    ended_at: "2026-07-20T10:15:00Z",
-    left_duration_sec: 300,
-    right_duration_sec: 180,
     ...overrides,
   }
 }
@@ -212,7 +198,7 @@ describe("feeding-service", () => {
 
   describe("deleteFeedSession", () => {
     it("calls gqlDeleteFeedingSession and removes from store", async () => {
-      mockDeleteFeedingSession.mockResolvedValue({} as any)
+      mockDeleteFeedingSession.mockResolvedValue({} as unknown as Parameters<typeof deleteFeedSession>[0])
 
       await deleteFeedSession("session-to-delete")
 

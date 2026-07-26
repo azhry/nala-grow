@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 import { BottomSheet } from "@/components/ui"
 
@@ -31,7 +30,6 @@ const quickLogActions: readonly QuickLogAction[] = [
 
 function QuickLogOverlay() {
   const { open, closeLog } = useQuickLog()
-  const router = useRouter()
 
   return (
     <BottomSheet open={open} onClose={closeLog}>

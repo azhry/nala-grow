@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef } from "react"
+import Image from "next/image"
 
 interface PhotoUploadProps {
   value?: string
@@ -53,7 +54,7 @@ function PhotoUpload({
       ].join(" ")}
     >
       {value ? (
-        <img src={value} alt="Profile" className="w-full h-full object-cover" />
+        <Image alt="Profile" className="object-cover" fill src={value} />
       ) : (
         <span className="flex flex-col items-center gap-1 text-on-surface-variant">
           <span className="material-symbols-outlined text-[40px]">add_a_photo</span>

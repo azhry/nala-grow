@@ -50,4 +50,12 @@ For a request containing a Linear issue ID such as `AZH-385`:
 - Do not write, edit, generate, or stage implementation files until the GitHub delivery preflight succeeds and a `task/<topic>` branch has been created from `main`. If unrelated work makes that unsafe, use an isolated worktree or stop and report the blocker.
 - Never report a check as passed, a build as successful, or a task as complete unless the recorded command exited successfully. State pre-existing failures separately with the exact command and affected path; do not describe a partial compile or filtered output as a successful build.
 - Do not use a pipeline, filter, `findstr`, `Select-String`, or a later command's exit code to claim that a build, typecheck, lint, or test passed. Run the exact verification command unfiltered first and record its exit status; filters are diagnostic-only.
+- **PowerShell compatibility:** This repo's shell is PowerShell (`pwsh.exe`). PowerShell does not support Unix pipe utilities (`head`, `tail`, `grep`, `which`, `sed`, `awk`). Use PowerShell native equivalents:
+  - `head -N` → `Select-Object -First N`
+  - `tail -N` → `Select-Object -Last N`
+  - `grep pattern file` → `Select-String -Path file -Pattern pattern`
+  - `which cmd` → `Get-Command cmd -ErrorAction SilentlyContinue`
+  - For paths with spaces, use the call-operator `& "path with spaces\command.exe" arg1 arg2` or wrap in `& "path"`.
+  - Avoid `2>&1 | head` patterns — use try/catch or `$ErrorActionPreference = 'Stop'` instead.
+  - Prefer writing a `.py` or `.ps1` script file for complex operations rather than inline commands with shell-sensitive characters.
 - Before staging and again before handoff, inspect `git status --short` and preserve unrelated files. Put generated screenshots, browser traces, lint captures, and other diagnostics outside the repository or in an ignored temporary directory; remove only artifacts created by the current task.

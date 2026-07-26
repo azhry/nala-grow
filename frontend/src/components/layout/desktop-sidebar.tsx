@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 
@@ -38,7 +39,15 @@ function DesktopSidebar({ babyName = "Lily", babyAge = "4 months", babyAvatar }:
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface-container-low md:flex">
       <div className="border-b border-outline-variant/30 px-gutter py-stack-md">
         <div className="flex items-center gap-3">
-          {babyAvatar ? <img alt={`${babyName}'s profile`} className="h-12 w-12 rounded-full object-cover" src={babyAvatar} /> : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-container font-headline-sm text-headline-sm text-primary">{babyName.slice(0, 1)}</div>}
+          {babyAvatar ? (
+            <div className="h-12 w-12 rounded-full overflow-hidden">
+              <Image alt={`${babyName}'s profile`} className="object-cover" fill src={babyAvatar} />
+            </div>
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-container font-headline-sm text-headline-sm text-primary">
+              {babyName.slice(0, 1)}
+            </div>
+          )}
           <div><h3 className="font-headline-sm text-headline-sm text-on-surface">{babyName}</h3><p className="font-body-sm text-body-sm text-on-surface-variant">{babyAge} old</p></div>
         </div>
       </div>

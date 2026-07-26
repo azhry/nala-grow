@@ -1,20 +1,15 @@
 "use client"
 
 import type { Milestone } from "@/lib/store"
-import { MILESTONE_DEFINITIONS } from "@/lib/store"
 
 interface UpcomingMilestonesProps {
   milestones: Milestone[]
-  babyDob?: string
   currentLabel?: string
+  onToggleAchieve?: (id: string, achieved: boolean) => void
+  onDelete?: (id: string) => void
+  onAddCustom?: () => void
 }
 
-const categoryIcons: Record<string, string> = {
-  physical: "self_improvement",
-  cognitive: "psychology",
-  social: "diversity_3",
-  language: "record_voice_over",
-}
 
 function formatShortDate(iso?: string): string {
   if (!iso) return ""
@@ -26,16 +21,8 @@ function formatShortDate(iso?: string): string {
   }
 }
 
-function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMilestonesProps) {
-  const achievedList = milestones
-    .filter((m) => m.achieved)
-    .sort((a, b) => (b.achieved_date || "").localeCompare(a.achieved_date || ""))
-
-  const upcomingList = milestones
-    .filter((m) => !m.achieved)
-    .sort((a, b) => a.title.localeCompare(b.title))
-
-  if (achievedList.length === 0 && upcomingList.length === 0) {
+function UpcomingMilestones({ milestones, currentLabel, onToggleAchieve, onDelete, onAddCustom }: UpcomingMilestonesProps) {
+  if (milestones.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-on-surface-variant">
         <span className="material-symbols-outlined text-4xl mb-3">celebration</span>
@@ -57,39 +44,72 @@ function UpcomingMilestones({ milestones, babyDob, currentLabel }: UpcomingMiles
       </div>
 
       <div className="flex flex-col gap-3">
-        {achievedList.map((m) => (
-          <div key={m.id} className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-on-surface">{m.title}</p>
-              <p className="text-xs text-on-surface-variant">
-                {m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved"}
-              </p>
-            </div>
-          </div>
-        ))}
-
-        {upcomingList.map((m) => (
+        {milestones.map((m) => (
           <div
             key={m.id}
-            className="bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
+            className={
+              m.achieved
+                ? "bg-white p-4 rounded-2xl flex items-center gap-4 border border-primary/10 shadow-sm cursor-pointer hover:border-primary transition-colors group"
+                : "bg-white p-4 rounded-2xl flex items-center gap-4 border border-outline-variant/30 shadow-sm hover:border-primary transition-colors cursor-pointer group"
+            }
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              if (m.is_custom && onDelete) {
+                onDelete(m.id)
+              } else {
+                onToggleAchieve?.(m.id, !m.achieved)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                if (m.is_custom && onDelete) {
+                  onDelete(m.id)
+                } else {
+                  onToggleAchieve?.(m.id, !m.achieved)
+                }
+              }
+            }}
           >
-            <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
-              <span className="material-symbols-outlined">add</span>
-            </div>
+            {m.achieved ? (
+              <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full border-2 border-outline-variant text-outline-variant flex items-center justify-center group-hover:border-primary group-hover:text-primary transition-colors shrink-0">
+                <span className="material-symbols-outlined">add</span>
+              </div>
+            )}
             <div className="flex-1">
               <p className="font-bold text-on-surface">{m.title}</p>
-              <p className="text-xs text-primary font-bold">Upcoming</p>
+              <p className={"text-xs font-bold " + (m.achieved ? "text-on-surface-variant" : "text-primary")}>
+                {m.achieved ? (m.achieved_date ? `Achieved ${formatShortDate(m.achieved_date)}` : "Achieved") : "Upcoming"}
+              </p>
             </div>
-            <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+            {!m.achieved && (
+              <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+            )}
+            {m.is_custom && onDelete && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(m.id)
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-error hover:bg-error-container/20 transition-colors shrink-0"
+                aria-label={`Delete ${m.title}`}
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+              </button>
+            )}
           </div>
         ))}
       </div>
 
       <button
         type="button"
+        onClick={onAddCustom}
         className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-bold hover:bg-white/50 transition-all active:scale-[0.98]"
       >
         <span className="material-symbols-outlined align-middle mr-2" data-icon="add_circle">
