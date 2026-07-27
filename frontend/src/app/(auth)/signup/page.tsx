@@ -164,14 +164,14 @@ export default function SignupPage() {
               >
                 I agree to the{" "}
                 <Link
-                  href="#"
+                  href="/terms"
                   className="font-medium text-primary underline underline-offset-2"
                 >
                   Terms of Service
                 </Link>{" "}
                 and{" "}
                 <Link
-                  href="#"
+                  href="/privacy"
                   className="font-medium text-primary underline underline-offset-2"
                 >
                   Privacy Policy
@@ -213,11 +213,11 @@ export default function SignupPage() {
         <div className="flex w-full flex-row items-center justify-center gap-gutter px-container-margin py-stack-sm font-body-sm text-body-sm text-on-surface-variant md:justify-end">
           <span>© 2024 NalaGrow</span>
           <div className="flex gap-base">
-            <Link href="#" className="transition-colors hover:text-primary">
+            <Link href="/help" className="transition-colors hover:text-primary">
               Help
             </Link>
             <span className="text-outline-variant">•</span>
-            <Link href="#" className="transition-colors hover:text-primary">
+            <Link href="/privacy" className="transition-colors hover:text-primary">
               Privacy
             </Link>
           </div>

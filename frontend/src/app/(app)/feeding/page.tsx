@@ -14,6 +14,7 @@ import { DailySummary, FeedingRecords, FeedingTimeline } from "@/components/feed
 import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
 import { SolidsForm } from "@/components/feeding"
+import { AppHeader } from "@/components/layout/app-header"
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -52,7 +53,6 @@ export default function FeedingPage() {
   const [recordFilter, setRecordFilter] = useState<"all" | FeedType>("all")
   const [filterOpen, setFilterOpen] = useState(false)
   const [feedPanelOpen, setFeedPanelOpen] = useState(true)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState("")
 
   const [runningSide, setRunningSide] = useState<"left" | "right" | null>(null)
@@ -322,31 +322,15 @@ export default function FeedingPage() {
   }
 
   return (
-    <div className="min-h-full bg-warm-cream pb-stack-lg">
+    <div className="min-h-full bg-surface pb-stack-lg">
+      <AppHeader />
       <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
-        <header className="flex justify-between items-center mb-stack-lg">
-          <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Feeding Log</h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Track {babyName}&apos;s nourishment and growth journey.
-            </p>
-          </div>
-          <div className="flex items-center gap-base">
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen((open) => !open)}
-              aria-expanded={notificationsOpen}
-              className="p-3 bg-white rounded-full soft-shadow text-primary hover:bg-primary-container/10 transition-colors"
-              aria-label="Notifications"
-            >
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <div className="w-10 h-10 rounded-full border-2 border-primary-container overflow-hidden soft-shadow bg-primary-container/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">child_care</span>
-            </div>
-          </div>
-          {notificationsOpen && <div role="status" className="absolute right-container-margin top-24 z-20 max-w-xs rounded-xl bg-white p-4 soft-shadow text-body-sm text-on-surface">You&apos;re all caught up — no feeding reminders right now.</div>}
-        </header>
+        <div className="mb-stack-md">
+          <h1 className="font-headline-lg text-headline-lg text-primary">Feeding Log</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            Track {babyName}&apos;s nourishment and growth journey.
+          </p>
+        </div>
 
         {hoursSinceLastFeed !== null && hoursSinceLastFeed > 4 && (
           <div className="mb-stack-md p-gutter bg-error-container/20 border border-error-container/30 rounded-2xl flex items-center gap-3">

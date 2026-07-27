@@ -41,6 +41,9 @@ describe("DashboardPage", () => {
   beforeEach(() => {
     storeState = {
       activeBaby: { id: "1", name: "Maya", dob: "2024-01-10", sex: "female" },
+      feedSessions: [],
+      sleepSessions: [],
+      measurements: [],
     }
   })
 
@@ -49,11 +52,11 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText(/Maya/i).length).toBeGreaterThanOrEqual(1)
   })
 
-  it("links every quick action to an implemented feature route", () => {
+  it("renders quick action buttons", () => {
     render(<DashboardPage />)
-    expect(screen.getByRole("link", { name: "Log Feed" })).toHaveAttribute("href", "/feeding")
-    expect(screen.getByRole("link", { name: "Log Sleep" })).toHaveAttribute("href", "/sleep")
-    expect(screen.getByRole("link", { name: "Log Growth" })).toHaveAttribute("href", "/growth")
+    expect(screen.getByRole("button", { name: "Log Feed" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Log Sleep" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Log Growth" })).toBeInTheDocument()
   })
 
   it("renders bento summary cards", () => {

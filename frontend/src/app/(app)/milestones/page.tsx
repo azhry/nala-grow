@@ -16,6 +16,7 @@ import {
   MilestoneForm,
 } from "@/components/milestones"
 import { FAB } from "@/components/ui"
+import { AppHeader } from "@/components/layout/app-header"
 
 const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "0-3": "0–3 Months",
@@ -120,7 +121,6 @@ export default function MilestonesPage() {
 
   const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [guidelinesOpen, setGuidelinesOpen] = useState(false)
 
   const babyMilestones = useMemo(
@@ -297,44 +297,10 @@ export default function MilestonesPage() {
 
   return (
     <div className="pb-stack-lg">
+      <AppHeader />
       <div className="max-w-6xl mx-auto px-container-margin py-stack-md flex flex-col gap-stack-lg">
-<header className="flex justify-between items-center mb-stack-lg relative">
-          <div>
-            <h1 className="font-headline-md text-headline-md text-primary font-bold">
-              Milestones &amp; Development
-            </h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Track {babyName}&apos;s developmental milestones.
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen((open) => !open)}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors"
-              aria-label="Notifications"
-            >
-              <span className="material-symbols-outlined text-primary">notifications</span>
-            </button>
-            {notificationsOpen && (
-              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-lg border border-outline-variant/20 p-4 z-20">
-                <p className="font-headline-sm text-headline-sm text-on-surface">
-                  Notifications
-                </p>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-2">
-                  No new notifications.
-                </p>
-              </div>
-            )}
-            <div className="w-8 h-8 rounded-full overflow-hidden md:hidden">
-              <div className="w-full h-full bg-primary-container/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary">child_care</span>
-              </div>
-            </div>
-          </div>
-        </header>
 
-<div className="flex flex-col gap-stack-sm">
+        <div className="flex flex-col gap-stack-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-headline-sm text-headline-sm text-on-surface-variant">
               Choose Age Range
