@@ -9,9 +9,9 @@ import { AppHeader } from "@/components/layout/app-header"
 type DashboardSection = "feed" | "sleep" | "growth" | null
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", section: "feed" as DashboardSection, color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", section: "sleep" as DashboardSection, color: "surface" },
-  { label: "Log Growth", icon: "monitoring", section: "growth" as DashboardSection, color: "surface" },
+  { label: "Log Feed", icon: "restaurant", section: "feed" as DashboardSection },
+  { label: "Log Sleep", icon: "bedtime", section: "sleep" as DashboardSection },
+  { label: "Log Growth", icon: "monitoring", section: "growth" as DashboardSection },
 ] as const
 
 const activities = [
@@ -104,6 +104,32 @@ export default function DashboardPage() {
 
   const renderExpandedContent = () => {
     if (!activeSection) return null
+    if (activeSection === "feed") {
+      return (
+        <div className="rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
+          <div className="mb-stack-md flex items-center justify-between">
+            <h3 className="font-headline-sm text-headline-sm text-on-surface">Feed Summary</h3>
+            <button type="button" onClick={() => setActiveSection(null)} className="text-body-sm font-bold text-primary hover:underline">Close</button>
+          </div>
+          <div className="grid grid-cols-1 gap-stack-md md:grid-cols-3">
+            <div className="rounded-xl bg-surface-container-low p-stack-md text-center">
+              <p className="font-label-md uppercase tracking-wider text-on-surface-variant">Last feed</p>
+              <p className="font-headline-lg text-headline-lg text-primary">{feedSummary.lastFeedLabel}</p>
+            </div>
+            <div className="rounded-xl bg-surface-container-low p-stack-md text-center">
+              <p className="font-label-md uppercase tracking-wider text-on-surface-variant">Total today</p>
+              <p className="font-headline-lg text-headline-lg text-on-surface">{feedSummary.total} feeds</p>
+            </div>
+            <div className="rounded-xl bg-surface-container-low p-stack-md text-center">
+              <p className="font-label-md uppercase tracking-wider text-on-surface-variant">Status</p>
+              <p className="font-headline-lg text-headline-lg text-on-surface">
+                {feedSummary.lastFeedHours !== null && feedSummary.lastFeedHours > 4 ? "Due for feed" : "On track"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
     if (activeSection === "sleep") {
       return (
         <div className="rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
@@ -233,9 +259,7 @@ export default function DashboardPage() {
                 "flex items-center gap-base whitespace-nowrap rounded-full px-gutter py-stack-sm text-label-md font-label-md shadow-sm transition-all active:scale-95 hover:shadow-md",
                 activeSection === action.section
                   ? "bg-primary text-on-primary"
-                  : action.color === "primary"
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container-highest text-primary border border-primary/20",
+                  : "bg-surface-container-highest text-primary border border-primary/20",
               ].join(" ")}
             >
               <span aria-hidden="true" className="material-symbols-outlined">{action.icon}</span>
