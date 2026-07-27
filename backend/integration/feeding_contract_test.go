@@ -61,38 +61,72 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 		legacyID, babyID)
 	require.NoError(t, err)
 
-	bottle := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
-		"babyId":      babyID,
-		"feedType":    "bottle",
-		"startedAt":   "2026-07-28T08:30:00Z",
-		"amountMl":    120.0,
-		"milkType":    "formula",
-		"temperature": "warm",
-	})
-	require.Empty(t, bottle.Errors)
-	bottleRecord := bottle.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
-	bottleID := bottleRecord["id"].(string)
-	assert.Equal(t, "warm", bottleRecord["temperature"], "bottle temperature must be returned by create")
+	bottleIDs := map[string]string{}
+	for _, temperature := range []string{"cold", "room", "warm"} {
+		bottle := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
+			"babyId":      babyID,
+			"feedType":    "bottle",
+			"startedAt":   "2026-07-28T08:30:00Z",
+			"amountMl":    120.0,
+			"milkType":    "formula",
+			"temperature": temperature,
+		})
+		require.Empty(t, bottle.Errors)
+		bottleRecord := bottle.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
+		bottleIDs[temperature] = bottleRecord["id"].(string)
+		assert.Equal(t, temperature, bottleRecord["temperature"], "%s bottle temperature must be returned by create", temperature)
+	}
 
-	solids := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
-		"babyId":       babyID,
-		"feedType":     "solids",
-		"startedAt":    "2026-07-28T12:15:00Z",
-		"foodName":     "Avocado",
-		"quantity":     3.0,
-		"quantityUnit": "tbsp",
-	})
-	require.Empty(t, solids.Errors)
-	solidsRecord := solids.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
-	solidsID := solidsRecord["id"].(string)
-	assert.Equal(t, 3.0, solidsRecord["quantity"], "solids quantity must be returned by create")
-	assert.Equal(t, "tbsp", solidsRecord["quantityUnit"], "solids quantity unit must be returned by create")
-	assert.Equal(t, "2026-07-28T12:15:00Z", solidsRecord["startedAt"], "selected solids time maps to startedAt")
+	type solidsCase struct {
+		quantity     float64
+		quantityUnit string
+		startedAt    string
+	}
+	solidsCases := []solidsCase{
+		{quantity: 0, quantityUnit: "tbsp", startedAt: "2026-07-28T12:00:00Z"},
+		{quantity: 0.5, quantityUnit: "oz", startedAt: "2026-07-28T12:15:00Z"},
+		{quantity: 125, quantityUnit: "g", startedAt: "2026-07-28T12:30:00Z"},
+	}
+	solidsIDs := make([]string, 0, len(solidsCases))
+	for _, testCase := range solidsCases {
+		solids := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
+			"babyId":       babyID,
+			"feedType":     "solids",
+			"startedAt":    testCase.startedAt,
+			"foodName":     "Avocado",
+			"quantity":     testCase.quantity,
+			"quantityUnit": testCase.quantityUnit,
+		})
+		require.Empty(t, solids.Errors)
+		solidsRecord := solids.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
+		solidsIDs = append(solidsIDs, solidsRecord["id"].(string))
+		assert.Equal(t, testCase.quantity, solidsRecord["quantity"], "%s quantity must be returned by create", testCase.quantityUnit)
+		assert.Equal(t, testCase.quantityUnit, solidsRecord["quantityUnit"], "solids quantity unit must be returned by create")
+		assert.Equal(t, testCase.startedAt, solidsRecord["startedAt"], "selected solids time maps to startedAt")
+	}
 
 	var persistedRows int
 	err = harness.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM feeding_sessions WHERE baby_id = $1", babyID).Scan(&persistedRows)
 	require.NoError(t, err)
-	assert.Equal(t, 3, persistedRows, "GraphQL creates must persist feeding rows alongside existing records")
+	assert.Equal(t, 7, persistedRows, "GraphQL creates must persist all field variants alongside existing records")
+
+	otherBabyResult := firstClient.Execute(authCtx, "mutation { createBaby }", map[string]interface{}{
+		"name": "Other Baby",
+		"dob":  "2026-01-02",
+		"sex":  "male",
+	})
+	require.Empty(t, otherBabyResult.Errors)
+	otherBabyID := otherBabyResult.Data.(map[string]interface{})["createBaby"].(map[string]interface{})["id"].(string)
+	_, err = harness.Pool.Exec(ctx,
+		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5)",
+		otherBabyID, userID, "Other Baby", "2026-01-02", "male")
+	require.NoError(t, err)
+	otherFeedID := "00000000-0000-4000-8000-000000000393"
+	_, err = harness.Pool.Exec(ctx, `
+		INSERT INTO feeding_sessions (id, baby_id, feed_type, started_at, notes)
+		VALUES ($1, $2, 'solids', '2026-07-28T13:00:00Z', 'must not leak into another baby')`,
+		otherFeedID, otherBabyID)
+	require.NoError(t, err)
 
 	// A fresh handler represents a reload boundary and must read from PostgreSQL,
 	// not a process-local map populated by the create request.
@@ -100,15 +134,21 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	reloaded := reloadedClient.Execute(authCtx, "query { feedingSessions }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, reloaded.Errors)
 	feeds := reloaded.Data.(map[string]interface{})["feedingSessions"].([]map[string]interface{})
-	require.Len(t, feeds, 3)
+	require.Len(t, feeds, 7)
 
 	byID := map[string]map[string]interface{}{}
 	for _, feed := range feeds {
 		byID[feed["id"].(string)] = feed
 	}
 	assert.Contains(t, byID, legacyID, "existing rows without new optional values must remain readable")
-	assert.Equal(t, "warm", byID[bottleID]["temperature"], "bottle temperature must survive reload")
-	assert.Equal(t, 3.0, byID[solidsID]["quantity"], "solids quantity must survive reload")
-	assert.Equal(t, "tbsp", byID[solidsID]["quantityUnit"], "solids quantity unit must survive reload")
-	assert.Equal(t, "2026-07-28T12:15:00Z", byID[solidsID]["startedAt"], "selected solids time must survive reload")
+	assert.NotContains(t, byID, otherFeedID, "a feeding record must not leak across babies")
+	for temperature, bottleID := range bottleIDs {
+		assert.Equal(t, temperature, byID[bottleID]["temperature"], "%s bottle temperature must survive reload", temperature)
+	}
+	for index, testCase := range solidsCases {
+		solids := byID[solidsIDs[index]]
+		assert.Equal(t, testCase.quantity, solids["quantity"], "%s quantity must survive reload", testCase.quantityUnit)
+		assert.Equal(t, testCase.quantityUnit, solids["quantityUnit"], "solids quantity unit must survive reload")
+		assert.Equal(t, testCase.startedAt, solids["startedAt"], "selected solids time must survive reload")
+	}
 }

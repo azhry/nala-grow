@@ -157,6 +157,28 @@ describe("feeding-service", () => {
         }),
       )
     })
+
+    it("keeps legacy records without the new optional fields readable", async () => {
+      const legacy = makeGqlSession({
+        id: "legacy-feed",
+        feedType: "bottle",
+        startedAt: "2026-07-20T07:00:00Z",
+      })
+      mockGetFeedingSessions.mockResolvedValue([legacy])
+
+      const [result] = await fetchFeedSessions("baby-1")
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: "legacy-feed",
+          feed_type: "bottle",
+          started_at: "2026-07-20T07:00:00Z",
+        }),
+      )
+      expect(result.temperature).toBeUndefined()
+      expect(result.quantity).toBeUndefined()
+      expect(result.quantity_unit).toBeUndefined()
+    })
   })
 
   describe("fetchFeedSessions", () => {
@@ -181,6 +203,15 @@ describe("feeding-service", () => {
 
       expect(result).toEqual([])
       expect(mockStore.setFeedSessions).toHaveBeenCalledWith([])
+    })
+
+    it("propagates a reload failure without replacing existing store data", async () => {
+      const failure = new Error("network unavailable")
+      mockGetFeedingSessions.mockRejectedValue(failure)
+
+      await expect(fetchFeedSessions("baby-1")).rejects.toThrow("network unavailable")
+
+      expect(mockStore.setFeedSessions).not.toHaveBeenCalled()
     })
   })
 
@@ -256,6 +287,81 @@ describe("feeding-service", () => {
           quantityUnit: "oz",
         }),
       )
+    })
+
+    it.each(["cold", "room", "warm"] as const)(
+      "forwards the %s bottle temperature without coercing it",
+      async (temperature) => {
+        mockCreateFeedingSession.mockResolvedValue(
+          makeGqlSession({ id: `gql-${temperature}`, feedType: "bottle" }),
+        )
+
+        await createFeedSession({
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: "2026-07-22T08:00:00Z",
+          amount_ml: 0,
+          milk_type: "water",
+          temperature,
+        })
+
+        expect(mockCreateFeedingSession).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            feedType: "bottle",
+            amountMl: 0,
+            milkType: "water",
+            temperature,
+          }),
+        )
+      },
+    )
+
+    it.each([
+      ["tbsp", 0],
+      ["oz", 0.5],
+      ["g", 125],
+    ] as const)(
+      "forwards %s solids quantity %p and its selected time exactly",
+      async (quantityUnit, quantity) => {
+        const selectedTime = "2026-07-22T14:45:00Z"
+        mockCreateFeedingSession.mockResolvedValue(
+          makeGqlSession({ id: `gql-${quantityUnit}`, feedType: "solids", startedAt: selectedTime }),
+        )
+
+        await createFeedSession({
+          baby_id: "baby-1",
+          feed_type: "solids",
+          started_at: selectedTime,
+          food_name: "Avocado",
+          quantity,
+          quantity_unit: quantityUnit,
+        })
+
+        expect(mockCreateFeedingSession).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            feedType: "solids",
+            startedAt: selectedTime,
+            quantity,
+            quantityUnit,
+          }),
+        )
+      },
+    )
+
+    it("propagates a failed create without adding a local-only record", async () => {
+      const failure = new Error("GraphQL unavailable")
+      mockCreateFeedingSession.mockRejectedValue(failure)
+
+      await expect(
+        createFeedSession({
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: "2026-07-22T08:00:00Z",
+          temperature: "room",
+        }),
+      ).rejects.toThrow("GraphQL unavailable")
+
+      expect(mockStore.addFeedSession).not.toHaveBeenCalled()
     })
   })
 
