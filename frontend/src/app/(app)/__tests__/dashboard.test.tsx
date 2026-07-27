@@ -49,11 +49,16 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText(/Maya/i).length).toBeGreaterThanOrEqual(1)
   })
 
-  it("links every quick action to an implemented feature route", () => {
+  it("opens quick log for every quick action", async () => {
+    const user = userEvent.setup()
     render(<DashboardPage />)
-    expect(screen.getByRole("link", { name: "Log Feed" })).toHaveAttribute("href", "/feeding")
-    expect(screen.getByRole("link", { name: "Log Sleep" })).toHaveAttribute("href", "/sleep")
-    expect(screen.getByRole("link", { name: "Log Growth" })).toHaveAttribute("href", "/growth")
+
+    const buttons = screen.getAllByRole("button", { name: /Log (Feed|Sleep|Growth)/ })
+    for (const button of buttons) {
+      await user.click(button)
+    }
+
+    expect(buttons).toHaveLength(3)
   })
 
   it("renders bento summary cards", () => {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
 import {
@@ -150,9 +151,9 @@ export default function GrowthPage() {
   return (
     <div className="pb-stack-lg">
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
-        <div className="flex items-center gap-3"><span className="material-symbols-outlined text-primary md:hidden">menu</span><span className="font-headline-md text-headline-md text-primary">NalaGrow</span></div>
-        <div className="hidden w-full max-w-sm items-center rounded-full bg-surface-container px-4 py-2 md:flex"><span className="material-symbols-outlined mr-2 text-on-surface-variant">search</span><span className="font-body-sm text-body-sm text-on-surface-variant">Search records...</span></div>
-        <div className="flex items-center gap-4"><button aria-label="Notifications" className="relative text-on-surface-variant" type="button"><span className="material-symbols-outlined">notifications</span><span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-error" /></button><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary">{babyName.slice(0, 1)}</div></div>
+        <div className="flex items-center gap-3"><span className="font-headline-md text-headline-md text-primary">NalaGrow</span></div>
+        <div className="hidden w-full max-w-sm items-center md:flex"><input className="w-full rounded-full bg-surface-container px-4 py-2 font-body-sm text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary" placeholder="Search records..." /></div>
+        <div className="flex items-center gap-4"><button aria-label="Notifications" className="relative text-on-surface-variant cursor-pointer" type="button"><span className="material-symbols-outlined">notifications</span><span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-error" /></button><Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary">{babyName.slice(0, 1)}</Link></div>
       </header>
       <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">

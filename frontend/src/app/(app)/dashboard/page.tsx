@@ -1,15 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", href: "/feeding", color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", href: "/sleep", color: "surface" },
-  { label: "Log Growth", icon: "monitoring", href: "/growth", color: "surface" },
+  { label: "Log Feed", icon: "restaurant", color: "primary" },
+  { label: "Log Sleep", icon: "bedtime", color: "surface" },
+  { label: "Log Growth", icon: "monitoring", color: "surface" },
 ] as const
 
 const activities = [
@@ -53,9 +52,10 @@ export default function DashboardPage() {
 
         <section className="flex gap-stack-sm overflow-x-auto pb-2 hide-scrollbar">
           {quickActions.map((action) => (
-            <Link
+            <button
               key={action.label}
-              href={action.href}
+              type="button"
+              onClick={openLog}
               className={[
                 "flex items-center gap-base whitespace-nowrap rounded-full px-gutter py-stack-sm text-label-md font-label-md shadow-sm transition-all active:scale-95 hover:shadow-md",
                 action.color === "primary"
@@ -65,7 +65,7 @@ export default function DashboardPage() {
             >
               <span aria-hidden="true" className="material-symbols-outlined">{action.icon}</span>
               {action.label}
-            </Link>
+            </button>
           ))}
         </section>
 

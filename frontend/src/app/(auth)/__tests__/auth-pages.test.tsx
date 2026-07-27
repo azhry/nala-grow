@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import LoginPage from "../login/page"
+import SignupPage from "../signup/page"
 import ResetPasswordPage from "../reset-password/page"
 
 // ─── window.location mock (used by login page redirect) ─────────────────────
@@ -205,5 +206,29 @@ describe("auth pages", () => {
         "newpassword123",
       ),
     )
+  })
+
+  it("does not render hash-only footer links on login", () => {
+    render(<LoginPage />)
+
+    const helpLink = screen.getByRole("link", { name: /help/i })
+    const privacyLink = screen.getByRole("link", { name: /privacy/i })
+
+    expect(helpLink).toHaveAttribute("href", "/help")
+    expect(privacyLink).toHaveAttribute("href", "/privacy")
+  })
+
+  it("does not render hash-only policy links on signup", () => {
+    render(<SignupPage />)
+
+    const termsLink = screen.getByRole("link", { name: /terms of service/i })
+    const privacyLink = screen.getByRole("link", { name: /privacy policy/i })
+    const footerHelpLink = screen.getByRole("link", { name: /help/i })
+    const footerPrivacyLink = screen.getAllByRole("link", { name: /privacy/i })[1]
+
+    expect(termsLink).toHaveAttribute("href", "/terms")
+    expect(privacyLink).toHaveAttribute("href", "/privacy")
+    expect(footerHelpLink).toHaveAttribute("href", "/help")
+    expect(footerPrivacyLink).toHaveAttribute("href", "/privacy")
   })
 })
