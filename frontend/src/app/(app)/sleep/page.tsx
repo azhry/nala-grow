@@ -191,8 +191,9 @@ export default function SleepPage() {
 
   const timerText = new Date((isShowingDemo ? 4522 : elapsedSeconds) * 1000).toISOString().slice(11, 19)
   return (
-    <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
+    <div>
       <AppHeader />
+      <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
       <div className="mb-stack-md flex items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-background md:font-headline-lg md:text-headline-lg">Sleep Dashboard</h1>
@@ -262,6 +263,7 @@ export default function SleepPage() {
 
       {isManualModalOpen && <ManualEntryModal start={manualStart} end={manualEnd} location={manualLocation} onStartChange={setManualStart} onEndChange={setManualEnd} onLocationChange={setManualLocation} onCancel={() => setManualModalOpen(false)} onSave={handleManualSave} />}
       {alert && <AlertModal title={alert.title} message={alert.message} onClose={() => setAlert(null)} />}
+    </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
 import {
@@ -10,7 +11,6 @@ import {
   fetchMeasurements,
 } from "@/lib/measurement-service"
 import { WhoChart, MeasurementTable, MeasurementForm } from "@/components/growth"
-import { AppHeader } from "@/components/layout/app-header"
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -149,8 +149,30 @@ export default function GrowthPage() {
   }
 
   return (
-    <div className="pb-stack-lg pt-16">
-      <AppHeader />
+    <div className="pb-stack-lg">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-1 text-primary transition-colors hover:text-primary/80" aria-label="NalaGrow home">
+            <span className="material-symbols-outlined text-primary">home</span>
+            <span className="font-headline-md text-headline-md text-primary">NalaGrow</span>
+          </Link>
+        </div>
+        <div className="hidden w-full max-w-sm items-center md:flex">
+          <div className="flex w-full items-center gap-2 rounded-full bg-surface-container px-4 py-2">
+            <span className="material-symbols-outlined text-on-surface-variant">search</span>
+            <input type="text" placeholder="Search records..." className="w-full bg-transparent font-body-sm text-body-sm text-on-surface outline-none placeholder:text-on-surface-variant placeholder:opacity-70" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="button" aria-label="Notifications" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high">
+            <span className="material-symbols-outlined">notifications</span>
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-error" />
+          </button>
+          <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80">
+            {babyName.slice(0, 1)}
+          </Link>
+        </div>
+      </header>
       <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">
           <div>

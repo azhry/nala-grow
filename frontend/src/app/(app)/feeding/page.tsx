@@ -323,8 +323,8 @@ export default function FeedingPage() {
 
   return (
     <div className="min-h-full bg-surface pb-stack-lg">
+      <AppHeader />
       <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
-        <AppHeader />
         <div className="mb-stack-md">
           <h1 className="font-headline-lg text-headline-lg text-primary">Feeding Log</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">

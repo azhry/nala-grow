@@ -297,8 +297,8 @@ export default function MilestonesPage() {
 
   return (
     <div className="pb-stack-lg">
+      <AppHeader />
       <div className="max-w-6xl mx-auto px-container-margin py-stack-md flex flex-col gap-stack-lg">
-        <AppHeader />
 
         <div className="flex flex-col gap-stack-sm">
           <div className="flex items-center justify-between">
