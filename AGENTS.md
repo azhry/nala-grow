@@ -16,6 +16,7 @@
 ## Routing
 
 - For UI/frontend work, read [frontend workflow](.agents/workflows/frontend.md) in full, then spawn the required frontend implementation subagent.
+- For backend, API, authentication, database, or migration work, read [backend workflow](.agents/workflows/backend.md) in full before implementation.
 - For Linear, GitHub, issue, PR, or release work, read [delivery workflow](.agents/workflows/delivery.md) in full.
 - For creating or editing an agent skill, read [skill workflow](.agents/workflows/skills.md) in full.
 
