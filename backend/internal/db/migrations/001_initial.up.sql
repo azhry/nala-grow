@@ -85,11 +85,3 @@ CREATE TABLE milestones (
 );
 
 CREATE INDEX idx_milestones_baby_id ON milestones(baby_id);
-
--- +goose Down
-DROP TABLE IF EXISTS milestones;
-DROP TABLE IF EXISTS sleep_sessions;
-DROP TABLE IF EXISTS feeding_sessions;
-DROP TABLE IF EXISTS measurements;
-DROP TABLE IF EXISTS babies;
-DROP TABLE IF EXISTS users;

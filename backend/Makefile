@@ -7,9 +7,9 @@ test: test-unit
 test-unit:
 	go test ./... -count=1 -short -v 2>&1
 
-# Run integration tests (requires database)
+# Run integration tests with a fresh disposable PostgreSQL container (requires Docker)
 test-integration:
-	go test ./... -count=1 -run Integration -v 2>&1
+	go test ./... -count=1 -tags=integration -run Integration -v 2>&1
 
 # Run all tests with coverage
 test-coverage:
