@@ -127,6 +127,36 @@ describe("feeding-service", () => {
         }),
       )
     })
+
+    it("preserves temperature, solids quantity and unit, and the selected start time from GraphQL", async () => {
+      const selectedTime = "2026-07-21T08:30:00Z"
+      const gqlSession: FeedingSession & {
+        temperature: "warm"
+        quantity: number
+        quantityUnit: string
+      } = {
+        ...makeGqlSession({
+          feedType: "solids",
+          startedAt: selectedTime,
+          foodName: "Oatmeal",
+        }),
+        temperature: "warm",
+        quantity: 1.5,
+        quantityUnit: "tbsp",
+      }
+      mockGetFeedingSessions.mockResolvedValue([gqlSession])
+
+      const [result] = await fetchFeedSessions("baby-1")
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          started_at: selectedTime,
+          temperature: "warm",
+          quantity: 1.5,
+          quantity_unit: "tbsp",
+        }),
+      )
+    })
   })
 
   describe("fetchFeedSessions", () => {
@@ -193,6 +223,39 @@ describe("feeding-service", () => {
       expect(result.feed_type).toBe("bottle")
       expect(result.amount_ml).toBe(150)
       expect(mockStore.addFeedSession).toHaveBeenCalledWith(result)
+    })
+
+    it("forwards bottle temperature and solids quantity, unit, and selected time to the GraphQL client", async () => {
+      const selectedTime = "2026-07-22T14:45:00Z"
+      mockCreateFeedingSession.mockResolvedValue(
+        makeGqlSession({
+          id: "gql-solids",
+          feedType: "solids",
+          startedAt: selectedTime,
+        }),
+      )
+
+      await createFeedSession({
+        baby_id: "baby-1",
+        feed_type: "solids",
+        started_at: selectedTime,
+        temperature: "warm",
+        food_name: "Avocado",
+        quantity: 2,
+        quantity_unit: "oz",
+      })
+
+      expect(mockCreateFeedingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          babyId: "baby-1",
+          feedType: "solids",
+          startedAt: selectedTime,
+          temperature: "warm",
+          foodName: "Avocado",
+          quantity: 2,
+          quantityUnit: "oz",
+        }),
+      )
     })
   })
 
