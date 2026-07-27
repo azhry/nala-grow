@@ -5,7 +5,7 @@ Use this template for test-only work: unit, contract, integration, E2E, regressi
 Choose exactly one outcome mode:
 
 - **Green verification:** the PR adds or repairs tests that must exit 0.
-- **Red-test handoff:** the PR deliberately captures missing production behavior for a paired implementation issue. The targeted test must reach the intended assertion and fail for that reason only. Infrastructure/setup failures are blockers, not acceptable red evidence. A red-only PR must not merge into `main`.
+- **Red-test handoff:** the PR deliberately captures missing production behavior for a paired implementation issue. The targeted test must reach the intended assertion and fail for that reason only. Infrastructure/setup failures are blockers, not acceptable red evidence. When the issue explicitly authorizes an intentional-red merge, this test-only PR may merge into `main` while the isolated target command remains red, provided every required GitHub check is green and branch protection is not bypassed.
 
 ## Linked work
 
@@ -14,6 +14,8 @@ Choose exactly one outcome mode:
 - Parent/source issue: [issue ID and URL, or "None"]
 - Outcome mode: [Green verification | Red-test handoff]
 - Handoff commit/branch: [Required for red-test handoff; otherwise "Not applicable"]
+- Merge authorization: [Issue text authorizing intentional-red merge, or "Not applicable"]
+- Paired issue start point: [Updated `main` after this PR merges, or "Not applicable"]
 
 ## Test contract
 
@@ -76,12 +78,18 @@ Complete this section only for red-test handoffs.
 - Setup stages that succeeded before the assertion: [Compile, container, migrations, fixtures, API request]
 - Unrelated suites that remain green: [Commands and exits]
 - Paired implementation start point: [Commit SHA/branch]
+- Test issue completion evidence: [Tracker update linking this commit, PR, command, exit, and assertion failure]
+- Red-suite isolation: [Build tag, suite, or lane that keeps the intentional red command distinct from required green checks]
+- Required GitHub checks: [Names and green results; never bypass branch protection]
+- Merge path: [This test-only PR → `main`; paired implementation starts from updated `main` → separate green PR]
 - Protection against weakening:
   - [ ] Test is not skipped or quarantined.
   - [ ] Failure is not caused by environment/setup.
   - [ ] No production implementation was added.
   - [ ] Paired implementation issue must make this test green unchanged in substance.
-  - [ ] This red-only PR will not merge into `main`.
+  - [ ] The issue description explicitly authorizes the intentional-red merge.
+  - [ ] Every required GitHub check is green; no protection or check is bypassed.
+  - [ ] The paired implementation issue is updated to start from `main` after this PR merges.
 
 ## Green verification evidence
 
@@ -108,6 +116,7 @@ Complete this section for green verification or after the paired implementation 
 - [ ] Fixtures are deterministic and isolated.
 - [ ] Mocks do not substitute for a required real API/database/browser boundary.
 - [ ] Red mode reaches the intended assertion; setup failures are not presented as expected red evidence.
+- [ ] Red mode records a complete handoff and does not treat the intended contract assertion as a task blocker.
 - [ ] Green mode records zero exits for every required suite.
 - [ ] Cleanup and repeat-run evidence are recorded.
 - [ ] No test was weakened, skipped, or made order-dependent to obtain the reported result.

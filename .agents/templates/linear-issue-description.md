@@ -73,10 +73,15 @@ Repeat this subsection for every operation used or required by the UI. Do not gr
 
 ## Dependencies and sequencing
 
+- Delivery mode: [Independent green PR | Intentional-red test PR | Paired implementation consuming merged red test].
 - Blocked by: [exact issue IDs and what each must deliver, or "None"].
 - Blocks: [exact issue IDs, or "None"].
 - Required order: [for example, "Create/complete test coverage first; implementation must remain blocked until then"].
 - Start gate: [state/evidence that must exist before this issue may begin].
+- Handoff artifact: [exact commit/branch/PR and expected red or green state, or "Not applicable"].
+- Merge vehicle: [this issue's PR | other explicitly named issue].
+
+For an intentional-red test issue, keep its PR and the paired production PR separate. The test PR may merge into `main` only when the issue explicitly authorizes that delivery mode, the intended failing command is isolated and recorded, and every required GitHub check remains green without bypassing branch protection. The paired implementation issue then starts from updated `main`, makes the same test green without weakening it, and merges through its own PR.
 
 ## Implementation plan
 
@@ -91,6 +96,7 @@ Repeat this subsection for every operation used or required by the UI. Do not gr
 - [No interactive-looking control is left as a no-op, if this is UI work].
 - [Relevant automated tests pass, or pre-existing failures are identified separately].
 - [Required delivery artifact: commit, PR, tracker update].
+- [For intentional-red delivery: the exact assertion fails after successful setup, required checks remain green, the test-only PR merges, and the paired implementation issue is updated to start from that merged test].
 
 ## Correctness checks
 
@@ -107,6 +113,7 @@ Repeat this subsection for every operation used or required by the UI. Do not gr
 3. Respect the dependency start gate above. A blocked implementation issue must not begin before its prerequisite delivers the specified evidence.
 4. Keep required contract information in this description. If new evidence changes the contract, update and re-read the description before continuing.
 5. Do not move the issue to review until the Completion self-audit is recorded with evidence.
+6. For paired red-test delivery, keep the issues and PRs separate: merge the explicitly authorized test-only PR first, then start the implementation issue from updated `main` and make that test green.
 
 ## Completion self-audit
 
@@ -117,5 +124,6 @@ Before handoff, record the completed checklist in the issue or PR and link the e
 - [ ] Every listed API operation, request field, response field, and transformation was implemented and tested where applicable.
 - [ ] Every required viewport, accessibility behavior, error state, empty state, and loading state was verified where applicable.
 - [ ] Dependency ordering was respected and blocker relationships remain correct.
+- [ ] Delivery mode, handoff artifact, merge vehicle, and paired issue are explicit and consistent.
 - [ ] Exact verification commands and exit statuses are recorded; failures are not described as passes.
 - [ ] The final diff, commit, PR, and tracker state contain only this issue's intended work.
