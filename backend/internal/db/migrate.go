@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 func RunMigrations(databaseURL string) error {
@@ -18,7 +18,12 @@ func RunMigrations(databaseURL string) error {
 		return fmt.Errorf("migrations directory not found")
 	}
 
-	m, err := migrate.New("file://"+migrationsPath, databaseURL)
+	sourceDriver, err := iofs.New(os.DirFS(migrationsPath), ".")
+	if err != nil {
+		return fmt.Errorf("migration source init: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
 	if err != nil {
 		return fmt.Errorf("migrate init: %w", err)
 	}
