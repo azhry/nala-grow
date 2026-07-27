@@ -239,7 +239,7 @@ export default function DashboardPage() {
   return (
     <div className="pb-stack-lg">
       <AppHeader />
-      <div className="px-container-margin md:px-stack-lg space-y-stack-md max-w-6xl mx-auto">
+      <div className="px-container-margin md:px-stack-lg space-y-stack-md max-w-6xl mx-auto pt-16">
         <section className="py-stack-sm">
           <h2 className="font-headline-lg text-headline-lg text-on-surface">
             {greeting}, {babyName}!
