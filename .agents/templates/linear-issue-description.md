@@ -1,29 +1,82 @@
 # Linear issue description template
 
-Use this template when creating a task or when an existing task is too incomplete for another agent to implement safely. Replace every bracketed placeholder and remove sections that genuinely do not apply.
+Use this template when creating a task or when an existing task is too incomplete for another agent to implement safely. Replace every bracketed placeholder. Remove a conditional section only when it genuinely does not apply.
+
+The issue description is the implementation contract. Put all information required to execute and verify the task in the description itself, not only in comments, private reasoning, a parent issue, or a PR. Comments may record progress, but an agent must be able to implement the issue correctly from its description plus the repository instructions.
+
+## Authoring and readiness gate
+
+- Read the complete source request, parent issue, linked references, comments, relevant code, and tests before finalizing this description.
+- Translate every source requirement into an explicit, independently checkable item below. Do not replace literal requirements with a shorter summary.
+- Preserve user-supplied reference material verbatim.
+- If several symptoms share one root cause, one issue may cover them only when every affected surface, reproduction path, and acceptance check is enumerated.
+- If a source task requires one issue or dependency pair per operation/work item, create them literally. Do not silently aggregate operations.
+- Put API contracts, affected flows, dependencies, and mandatory checks in the description. A comment is not a substitute.
+- Re-read the saved issue and perform the Completion self-audit before moving it out of backlog/todo or beginning implementation.
 
 ## Category
 
 **[Bug | Feature | Refactor | Chore | Research] — [short category qualifier].**
 
-> Readiness rule: a design reference by itself is incomplete. Before implementation begins, this description must contain every heading in this template, with evidence-based content rather than a private agent plan.
+> Readiness rule: a design reference, comment, private plan, or parent issue by itself is incomplete. Before implementation begins, this description must contain every applicable heading in this template with evidence-based content.
 
 ## Problem analysis
 
 ### Reference material
 
 - Preserve any user-supplied HTML, mockups, screenshots, and example data below this section verbatim. Treat it as the visual/behavioral source of truth unless the issue explicitly says otherwise.
+- Parent/source issue: [exact issue ID and the inherited requirements this issue must satisfy].
 
 ### Confirmed findings
 
 1. **[Symptom or missing behavior]** — [evidence, affected route/module, and user impact].
 2. **[Cause or implementation gap]** — [evidence and affected path].
 
+### Discovery evidence
+
+- Source-code review: [finding and exact paths, or "Not performed / not applicable"].
+- Runtime/browser/API validation: [finding, viewport/scenario, and observable result, or "Not performed" with reason].
+- Discovery classification: [source review | runtime validation | both].
+
+### Affected surfaces and flows
+
+- [Entry point] → [normal in-product navigation] → [affected page/control/outcome].
+- [Additional page, viewport, role, state, or shared occurrence].
+
+### Reproduction steps
+
+1. [Start from the normal user entry point; do not rely on a direct URL unless the route is only reachable that way].
+2. [Perform the user action].
+3. [State the actual result and the expected result].
+
 ### Scope boundary
 
 - In scope: [specific behavior, files, routes, or components].
 - Out of scope: [nearby work deliberately excluded].
 - Open questions / assumptions: [only unresolved decisions; label assumptions explicitly].
+
+## Data / API contract (required for data-backed work)
+
+Repeat this subsection for every operation used or required by the UI. Do not group distinct operations unless the source issue explicitly permits one work item.
+
+### [UI surface or flow] — [operation name or endpoint]
+
+- API type: [GraphQL query | GraphQL mutation | REST method and path].
+- Operation/path: [exact operation name or HTTP method/path].
+- Request variables/payload:
+  - `[field]`: [type, required/optional, meaning].
+- Response structure:
+  - `[field]`: [type, meaning, nullable/default behavior].
+- UI transformation: [how API fields map to view/store/domain fields].
+- Missing fields or mismatches: [exact omissions, naming differences, lossy transformations, or "None"].
+- Error/loading/empty behavior: [required observable behavior].
+
+## Dependencies and sequencing
+
+- Blocked by: [exact issue IDs and what each must deliver, or "None"].
+- Blocks: [exact issue IDs, or "None"].
+- Required order: [for example, "Create/complete test coverage first; implementation must remain blocked until then"].
+- Start gate: [state/evidence that must exist before this issue may begin].
 
 ## Implementation plan
 
@@ -41,8 +94,28 @@ Use this template when creating a task or when an existing task is too incomplet
 
 ## Correctness checks
 
-- Automated: [exact test suite(s), expected assertions, and test seam].
+- Automated: [exact command/test suite, expected assertions, and test seam].
 - Interactive: [desktop/mobile/browser flows, keyboard checks, or API scenarios].
 - Visual (when a design reference exists): [desktop and mobile comparison against the supplied reference; content/images/colors/typography/layout checklist].
-- Build/lint: [commands or CI checks].
+- Build/lint: [exact commands or CI checks].
 - Known limitations / pre-existing failures: [exact failing command, affected path, and why it is unrelated; or "None known"].
+
+## Required execution protocol
+
+1. Read this entire description and the repository instructions before changing code.
+2. Treat every enumerated surface, operation, field, state, viewport, and acceptance criterion as required scope. Do not silently omit, combine, or substitute items.
+3. Respect the dependency start gate above. A blocked implementation issue must not begin before its prerequisite delivers the specified evidence.
+4. Keep required contract information in this description. If new evidence changes the contract, update and re-read the description before continuing.
+5. Do not move the issue to review until the Completion self-audit is recorded with evidence.
+
+## Completion self-audit
+
+Before handoff, record the completed checklist in the issue or PR and link the evidence:
+
+- [ ] Every in-scope requirement and every source/parent requirement is mapped to an implemented outcome or an explicit blocker.
+- [ ] Every affected surface and normal navigation path was exercised where applicable.
+- [ ] Every listed API operation, request field, response field, and transformation was implemented and tested where applicable.
+- [ ] Every required viewport, accessibility behavior, error state, empty state, and loading state was verified where applicable.
+- [ ] Dependency ordering was respected and blocker relationships remain correct.
+- [ ] Exact verification commands and exit statuses are recorded; failures are not described as passes.
+- [ ] The final diff, commit, PR, and tracker state contain only this issue's intended work.
