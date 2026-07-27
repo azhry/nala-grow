@@ -10,7 +10,7 @@ export function AppHeader() {
   const babyName = activeBaby?.name ?? "Baby"
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"

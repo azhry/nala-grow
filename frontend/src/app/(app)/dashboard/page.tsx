@@ -1,16 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 import { AppHeader } from "@/components/layout/app-header"
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", href: "/feeding", color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", href: "/sleep", color: "surface" },
-  { label: "Log Growth", icon: "monitoring", href: "/growth", color: "surface" },
+  { label: "Log Feed", icon: "restaurant", target: "section-feed", color: "primary" },
+  { label: "Log Sleep", icon: "bedtime", target: "section-sleep", color: "surface" },
+  { label: "Log Growth", icon: "monitoring", target: "section-growth", color: "surface" },
 ] as const
 
 const activities = [
@@ -41,7 +40,7 @@ export default function DashboardPage() {
   const babyName = activeBaby?.name ?? "Maya"
 
   return (
-    <div className="pb-stack-lg pt-16">
+    <div className="pb-stack-lg">
       <AppHeader />
       <div className="px-container-margin md:px-stack-lg space-y-stack-md max-w-6xl mx-auto">
         <section className="py-stack-sm">
@@ -55,9 +54,13 @@ export default function DashboardPage() {
 
         <section className="flex gap-stack-sm overflow-x-auto pb-2 hide-scrollbar">
           {quickActions.map((action) => (
-            <Link
+            <button
               key={action.label}
-              href={action.href}
+              type="button"
+              onClick={() => {
+                const el = document.getElementById(action.target)
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+              }}
               className={[
                 "flex items-center gap-base whitespace-nowrap rounded-full px-gutter py-stack-sm text-label-md font-label-md shadow-sm transition-all active:scale-95 hover:shadow-md",
                 action.color === "primary"
@@ -67,12 +70,12 @@ export default function DashboardPage() {
             >
               <span aria-hidden="true" className="material-symbols-outlined">{action.icon}</span>
               {action.label}
-            </Link>
+            </button>
           ))}
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-stack-md">
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
+          <div id="section-feed" className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
             <div className="flex items-start justify-between">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-container/20 text-primary">
                 <span className="material-symbols-outlined fill-1 text-[28px]">restaurant</span>
@@ -92,7 +95,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
+          <div id="section-sleep" className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-tertiary-container/20 text-tertiary">
               <span className="material-symbols-outlined fill-1 text-[28px]">bedtime</span>
             </div>
@@ -107,7 +110,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
+          <div id="section-growth" className="bento-card flex min-h-[160px] flex-col justify-between rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary-container/50 text-secondary">
               <span className="material-symbols-outlined fill-1 text-[28px]">monitoring</span>
             </div>

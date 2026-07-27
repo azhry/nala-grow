@@ -191,7 +191,7 @@ export default function SleepPage() {
 
   const timerText = new Date((isShowingDemo ? 4522 : elapsedSeconds) * 1000).toISOString().slice(11, 19)
   return (
-    <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg pt-16">
+    <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
       <AppHeader />
       <div className="mb-stack-md flex items-center justify-between gap-4">
         <div>
