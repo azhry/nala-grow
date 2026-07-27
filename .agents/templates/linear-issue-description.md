@@ -81,7 +81,7 @@ Repeat this subsection for every operation used or required by the UI. Do not gr
 - Handoff artifact: [exact commit/branch/PR and expected red or green state, or "Not applicable"].
 - Merge vehicle: [this issue's PR | other explicitly named issue].
 
-For an intentional-red test issue, keep its PR and the paired production PR separate. The test PR may merge into `main` only when the issue explicitly authorizes that delivery mode, the intended failing command is isolated and recorded, and every required GitHub check remains green without bypassing branch protection. The paired implementation issue then starts from updated `main`, makes the same test green without weakening it, and merges through its own PR.
+For an intentional-red test issue, keep its PR and the paired production PR separate. The test PR may merge into `main` when the issue explicitly authorizes that delivery mode, its designated GitHub check fails only at the recorded contract assertion, and compilation, infrastructure/setup, cleanup, and unrelated checks remain green. Do not treat that designated expected-red check as a blocker. The paired implementation issue then starts from updated `main`, makes the same test green without weakening it, and merges through its own PR.
 
 ## Implementation plan
 
@@ -96,7 +96,7 @@ For an intentional-red test issue, keep its PR and the paired production PR sepa
 - [No interactive-looking control is left as a no-op, if this is UI work].
 - [Relevant automated tests pass, or pre-existing failures are identified separately].
 - [Required delivery artifact: commit, PR, tracker update].
-- [For intentional-red delivery: the exact assertion fails after successful setup, required checks remain green, the test-only PR merges, and the paired implementation issue is updated to start from that merged test].
+- [For intentional-red delivery: the designated GitHub check fails at the exact assertion after successful setup, unrelated checks remain green, the test-only PR merges, and the paired implementation issue is updated to start from that merged test].
 
 ## Correctness checks
 
