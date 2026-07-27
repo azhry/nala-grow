@@ -41,6 +41,9 @@ describe("DashboardPage", () => {
   beforeEach(() => {
     storeState = {
       activeBaby: { id: "1", name: "Maya", dob: "2024-01-10", sex: "female" },
+      feedSessions: [],
+      sleepSessions: [],
+      measurements: [],
     }
   })
 
