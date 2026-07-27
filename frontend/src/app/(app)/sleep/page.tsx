@@ -8,6 +8,7 @@ import {
   fetchSleepSessions,
   updateSleepSession as updateSleepSessionApi,
 } from "@/lib/sleep-service"
+import { AppHeader } from "@/components/layout/app-header"
 
 const locations: SleepLocation[] = ["crib", "bed", "carrier", "stroller", "contact"]
 
@@ -191,13 +192,14 @@ export default function SleepPage() {
   const timerText = new Date((isShowingDemo ? 4522 : elapsedSeconds) * 1000).toISOString().slice(11, 19)
   return (
     <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
-      <header className="mb-stack-md flex items-end justify-between gap-4">
+      <AppHeader />
+      <div className="mb-stack-md flex items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-background md:font-headline-lg md:text-headline-lg">Sleep Dashboard</h1>
           <p className="font-body-md text-on-surface-variant">Monitoring {babyName}&apos;s rest and cycles.</p>
         </div>
         <button type="button" onClick={() => setAlert({ title: "Sleep Trends", message: "Opening detailed analytics view..." })} className="hidden rounded-full border border-primary-container bg-surface-container-high px-6 py-2 font-label-md text-primary transition-colors hover:bg-primary-container md:block">View Trends</button>
-      </header>
+      </div>
 
       <section className="mb-stack-lg grid grid-cols-1 gap-gutter md:grid-cols-3">
         <MetricCard icon="schedule" label="Total sleep today" value={formatHours(totalMinutes)} suffix="h" />

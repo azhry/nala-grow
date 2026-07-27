@@ -132,11 +132,8 @@ describe("FeedingPage", () => {
       expect(screen.queryByText("180ml Breastmilk")).not.toBeInTheDocument()
     })
 
-    it("opens notification feedback and lets the feed panel close and reopen", () => {
+    it("lets the feed panel close and reopen", () => {
       renderPage()
-
-      fireEvent.click(screen.getByLabelText("Notifications"))
-      expect(screen.getByRole("status")).toHaveTextContent("all caught up")
 
       fireEvent.click(screen.getByLabelText("Close feed entry"))
       expect(screen.queryByRole("heading", { name: "Record Feed" })).not.toBeInTheDocument()

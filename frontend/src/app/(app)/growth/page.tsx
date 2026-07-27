@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
 import {
@@ -11,6 +10,7 @@ import {
   fetchMeasurements,
 } from "@/lib/measurement-service"
 import { WhoChart, MeasurementTable, MeasurementForm } from "@/components/growth"
+import { AppHeader } from "@/components/layout/app-header"
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -150,6 +150,7 @@ export default function GrowthPage() {
 
   return (
     <div className="pb-stack-lg">
+      <AppHeader />
       <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">
           <div>
@@ -159,22 +160,6 @@ export default function GrowthPage() {
             <p className="font-body-md text-body-md text-on-surface-variant">
               Monitoring {babyName}&apos;s healthy development journey.
             </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high"
-            >
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-error" />
-            </button>
-            <Link
-              href="/profile"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary"
-            >
-              {babyName.slice(0, 1)}
-            </Link>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-surface-container p-1">
             {(["metric", "imperial"] as const).map((option) => (
