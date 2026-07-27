@@ -1,14 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { FAB } from "@/components/ui"
 import { useAppStore } from "@/lib/store"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
+import { AppHeader } from "@/components/layout/app-header"
 
 const quickActions = [
-  { label: "Log Feed", icon: "restaurant", color: "primary" },
-  { label: "Log Sleep", icon: "bedtime", color: "surface" },
-  { label: "Log Growth", icon: "monitoring", color: "surface" },
+  { label: "Log Feed", icon: "restaurant", href: "/feeding", color: "primary" },
+  { label: "Log Sleep", icon: "bedtime", href: "/sleep", color: "surface" },
+  { label: "Log Growth", icon: "monitoring", href: "/growth", color: "surface" },
 ] as const
 
 const activities = [
@@ -39,7 +41,8 @@ export default function DashboardPage() {
   const babyName = activeBaby?.name ?? "Maya"
 
   return (
-    <div className="pb-stack-lg">
+    <div className="pb-stack-lg pt-16">
+      <AppHeader />
       <div className="px-container-margin md:px-stack-lg space-y-stack-md max-w-6xl mx-auto">
         <section className="py-stack-sm">
           <h2 className="font-headline-lg text-headline-lg text-on-surface">
@@ -52,10 +55,9 @@ export default function DashboardPage() {
 
         <section className="flex gap-stack-sm overflow-x-auto pb-2 hide-scrollbar">
           {quickActions.map((action) => (
-            <button
+            <Link
               key={action.label}
-              type="button"
-              onClick={openLog}
+              href={action.href}
               className={[
                 "flex items-center gap-base whitespace-nowrap rounded-full px-gutter py-stack-sm text-label-md font-label-md shadow-sm transition-all active:scale-95 hover:shadow-md",
                 action.color === "primary"
@@ -65,7 +67,7 @@ export default function DashboardPage() {
             >
               <span aria-hidden="true" className="material-symbols-outlined">{action.icon}</span>
               {action.label}
-            </button>
+            </Link>
           ))}
         </section>
 

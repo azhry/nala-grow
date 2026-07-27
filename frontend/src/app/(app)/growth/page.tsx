@@ -149,7 +149,7 @@ export default function GrowthPage() {
   }
 
   return (
-    <div className="pb-stack-lg">
+    <div className="pb-stack-lg pt-16">
       <AppHeader />
       <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">

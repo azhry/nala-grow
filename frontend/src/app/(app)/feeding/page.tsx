@@ -322,7 +322,7 @@ export default function FeedingPage() {
   }
 
   return (
-    <div className="min-h-full bg-warm-cream pb-stack-lg">
+    <div className="min-h-full bg-surface pb-stack-lg pt-16">
       <div className="w-full max-w-7xl mx-auto p-container-margin lg:p-stack-lg">
         <AppHeader />
         <div className="mb-stack-md">

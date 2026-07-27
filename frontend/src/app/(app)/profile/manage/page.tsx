@@ -57,7 +57,7 @@ export default function ManageProfilesPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-surface pb-stack-lg">
+    <div className="min-h-dvh bg-surface pb-stack-lg pt-16">
       <AppHeader />
       <main className="mx-auto mt-stack-md max-w-[1040px] px-container-margin">
         <div className="mb-stack-md">

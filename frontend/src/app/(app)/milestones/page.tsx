@@ -296,7 +296,7 @@ export default function MilestonesPage() {
   const upcomingMilestones = isDemo ? demoGoals : babyMilestones
 
   return (
-    <div className="pb-stack-lg">
+    <div className="pb-stack-lg pt-16">
       <div className="max-w-6xl mx-auto px-container-margin py-stack-md flex flex-col gap-stack-lg">
         <AppHeader />
 
