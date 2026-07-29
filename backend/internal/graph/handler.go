@@ -90,9 +90,9 @@ type FeedingSession struct {
 	MilkType         string   `json:"milkType"`
 	FoodName         string   `json:"foodName"`
 	Reaction         string   `json:"reaction"`
-	Temperature      string   `json:"temperature"`
+	Temperature      *string  `json:"temperature"`
 	Quantity         *float64 `json:"quantity"`
-	QuantityUnit     string   `json:"quantityUnit"`
+	QuantityUnit     *string  `json:"quantityUnit"`
 	Notes            string   `json:"notes"`
 	CreatedAt        string   `json:"createdAt"`
 }
@@ -1345,7 +1345,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			ID:               uuid(),
 			BabyID:           babyID,
 			FeedType:         feedType,
-			StartedAt:        getVar(variables, "startedAt"),
+			StartedAt:        feedingStartedAt(variables),
 			EndedAt:          getVar(variables, "endedAt"),
 			LeftDurationSec:  getVarInt(variables, "leftDurationSec"),
 			RightDurationSec: getVarInt(variables, "rightDurationSec"),
@@ -1353,9 +1353,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			MilkType:         getVar(variables, "milkType"),
 			FoodName:         getVar(variables, "foodName"),
 			Reaction:         getVar(variables, "reaction"),
-			Temperature:      getVar(variables, "temperature"),
+			Temperature:      feedingString(variables, "temperature"),
 			Quantity:         feedingQuantity(variables),
-			QuantityUnit:     getVar(variables, "quantityUnit"),
+			QuantityUnit:     feedingString(variables, "quantityUnit"),
 			Notes:            getVar(variables, "notes"),
 			CreatedAt:        time.Now().UTC().Format(time.RFC3339),
 		}
@@ -1766,9 +1766,9 @@ func feedingSessionToMap(s FeedingSession) map[string]interface{} {
 		"milkType":         s.MilkType,
 		"foodName":         s.FoodName,
 		"reaction":         s.Reaction,
-		"temperature":      s.Temperature,
+		"temperature":      stringValue(s.Temperature),
 		"quantity":         quantityValue(s.Quantity),
-		"quantityUnit":     s.QuantityUnit,
+		"quantityUnit":     stringValue(s.QuantityUnit),
 		"notes":            s.Notes,
 		"createdAt":        s.CreatedAt,
 	}
@@ -1780,7 +1780,7 @@ const feedingSessionColumns = `
 	COALESCE(to_char(ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
 	left_duration_sec, right_duration_sec, COALESCE(amount_ml, 0)::float8,
 	COALESCE(milk_type, ''), COALESCE(food_name, ''), COALESCE(reaction, ''),
-	COALESCE(temperature, ''), quantity IS NOT NULL, COALESCE(quantity, 0)::float8, COALESCE(quantity_unit, ''),
+	temperature, quantity IS NOT NULL, COALESCE(quantity, 0)::float8, quantity_unit,
 	notes,
 	to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
 
@@ -1882,13 +1882,13 @@ func applyFeedingSessionUpdates(session *FeedingSession, variables map[string]in
 	if reaction := getVar(variables, "reaction"); reaction != "" {
 		session.Reaction = reaction
 	}
-	if temperature := getVar(variables, "temperature"); temperature != "" {
+	if temperature := feedingString(variables, "temperature"); temperature != nil {
 		session.Temperature = temperature
 	}
 	if quantity, ok := optionalFloatVar(variables, "quantity"); ok {
 		session.Quantity = &quantity
 	}
-	if quantityUnit := getVar(variables, "quantityUnit"); quantityUnit != "" {
+	if quantityUnit := feedingString(variables, "quantityUnit"); quantityUnit != nil {
 		session.QuantityUnit = quantityUnit
 	}
 	if notes := getVar(variables, "notes"); notes != "" {
@@ -1901,6 +1901,28 @@ func feedingQuantity(variables map[string]interface{}) *float64 {
 		return &quantity
 	}
 	return nil
+}
+
+func feedingString(variables map[string]interface{}, key string) *string {
+	value := getVar(variables, key)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func stringValue(value *string) interface{} {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func feedingStartedAt(variables map[string]interface{}) string {
+	if startedAt := getVar(variables, "startedAt"); startedAt != "" {
+		return startedAt
+	}
+	return time.Now().UTC().Format(time.RFC3339)
 }
 
 func optionalFloatVar(vars map[string]interface{}, key string) (float64, bool) {

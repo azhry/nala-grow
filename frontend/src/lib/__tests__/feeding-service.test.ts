@@ -185,6 +185,20 @@ describe("feeding-service", () => {
       expect(result.quantity).toBeUndefined()
       expect(result.quantity_unit).toBeUndefined()
     })
+
+    it("normalizes nullable GraphQL fields to undefined without losing a zero quantity", async () => {
+      mockGetFeedingSessions.mockResolvedValue([
+        makeGqlSession({ temperature: null, quantity: null, quantityUnit: null }),
+        makeGqlSession({ id: "zero-quantity", quantity: 0 }),
+      ])
+
+      const [legacy, zeroQuantity] = await fetchFeedSessions("baby-1")
+
+      expect(legacy.temperature).toBeUndefined()
+      expect(legacy.quantity).toBeUndefined()
+      expect(legacy.quantity_unit).toBeUndefined()
+      expect(zeroQuantity.quantity).toBe(0)
+    })
   })
 
   describe("fetchFeedSessions", () => {

@@ -23,7 +23,7 @@ function toStoreFeedSession(s: FeedingSession): StoreFeedSession {
     milk_type: (s.milkType as StoreFeedSession["milk_type"]) || undefined,
     temperature: (s.temperature as StoreFeedSession["temperature"]) || undefined,
     food_name: s.foodName || undefined,
-    quantity: s.quantity,
+    quantity: s.quantity ?? undefined,
     quantity_unit: s.quantityUnit || undefined,
     reaction: (s.reaction as StoreFeedSession["reaction"]) || undefined,
     notes: s.notes || undefined,

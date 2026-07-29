@@ -74,10 +74,10 @@ export interface FeedingSession {
   rightDurationSec: number
   amountMl: number
   milkType: string
-  temperature?: string
+  temperature?: string | null
   foodName: string
-  quantity?: number
-  quantityUnit?: string
+  quantity?: number | null
+  quantityUnit?: string | null
   reaction: string
   notes: string
   createdAt: string
