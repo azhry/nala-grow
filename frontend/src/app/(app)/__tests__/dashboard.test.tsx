@@ -3,108 +3,74 @@ import userEvent from "@testing-library/user-event"
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import DashboardPage from "../dashboard/page"
 
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-}))
-
-jest.mock("@/components/ui", () => ({
-  FAB: ({
-    icon,
-    onClick,
-    ...props
-  }: {
-    icon: string
-    onClick?: () => void
-  } & ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button data-testid="fab" onClick={onClick} {...props}>
-      <span>{icon}</span>
-    </button>
-  ),
-}))
-
-jest.mock("@/components/providers/quick-log-provider", () => {
-  const openLog = jest.fn()
-  return {
-    useQuickLog: () => ({ open: false, openLog, closeLog: jest.fn() }),
-    QuickLogProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  }
-})
+jest.mock("@/components/ui", () => ({ FAB: ({ icon, onClick, ...props }: { icon: string; onClick?: () => void } & ButtonHTMLAttributes<HTMLButtonElement>) => <button data-testid="fab" onClick={onClick} {...props}><span>{icon}</span></button> }))
+jest.mock("@/components/providers/quick-log-provider", () => ({ useQuickLog: () => ({ openLog: jest.fn() }), QuickLogProvider: ({ children }: { children: ReactNode }) => <>{children}</> }))
 
 let storeState: Record<string, unknown>
+jest.mock("@/lib/store", () => ({ useAppStore: (selector: (state: Record<string, unknown>) => unknown) => selector(storeState) }))
 
-jest.mock("@/lib/store", () => ({
-  useAppStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector(storeState),
-}))
+const now = new Date()
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+const todayAt = (hour: number, minute = 0) => `${today}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`
 
 describe("DashboardPage", () => {
   beforeEach(() => {
-    storeState = {
-      activeBaby: { id: "1", name: "Maya", dob: "2024-01-10", sex: "female" },
-      feedSessions: [],
-      sleepSessions: [],
-      measurements: [],
+    storeState = { activeBaby: { id: "1", name: "Maya", dob: "2024-01-10", sex: "female" }, feedSessions: [], sleepSessions: [], measurements: [] }
+  })
+
+  it("renders truthful empty summaries and does not invent activities", () => {
+    render(<DashboardPage />)
+    expect(screen.getByText(/No events logged today yet/i)).toBeInTheDocument()
+    expect(screen.getByText("No feeds yet")).toBeInTheDocument()
+    expect(screen.getByText(/No activity logged for Maya today/i)).toBeInTheDocument()
+    expect(screen.queryByText("Diaper Change")).not.toBeInTheDocument()
+  })
+
+  it("derives feed summary, activity, and status from the active baby's store data", () => {
+    storeState.feedSessions = [{ id: "feed-1", baby_id: "1", feed_type: "breast", started_at: todayAt(10), left_duration_sec: 900, position: "left" }]
+    storeState.sleepSessions = [{ id: "other", baby_id: "other-baby", started_at: todayAt(11), ended_at: todayAt(12) }]
+    render(<DashboardPage />)
+    expect(screen.getByText(/You’ve logged 1 event today/i)).toBeInTheDocument()
+    expect(screen.getByText("Breastfeed")).toBeInTheDocument()
+    expect(screen.getByText(/15 min/i)).toBeInTheDocument()
+    expect(screen.getByText(/Total today: 1 feeds/i)).toBeInTheDocument()
+  })
+
+  it("marks an old feed as overdue instead of using a static green status", () => {
+    storeState.feedSessions = [{ id: "feed-1", baby_id: "1", feed_type: "bottle", started_at: "2020-01-01T10:00:00", amount_ml: 120 }]
+    render(<DashboardPage />)
+    expect(screen.getAllByText("Feed overdue").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Green Status")).not.toBeInTheDocument()
+  })
+
+  it("shows all store-backed activities and toggles the list", async () => {
+    const user = userEvent.setup()
+    storeState.feedSessions = Array.from({ length: 4 }, (_, index) => ({ id: `feed-${index}`, baby_id: "1", feed_type: "bottle" as const, started_at: todayAt(12, index), amount_ml: 90 }))
+    render(<DashboardPage />)
+    expect(screen.getByRole("button", { name: "View All" })).toHaveAttribute("aria-expanded", "false")
+    await user.click(screen.getByRole("button", { name: "View All" }))
+    expect(screen.getByRole("button", { name: "Show Less" })).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("opens each quick-action summary and closes it again", async () => {
+    const user = userEvent.setup()
+    render(<DashboardPage />)
+    for (const [label, heading] of [["Log Feed", "Feed Summary"], ["Log Sleep", "Sleep Summary"], ["Log Growth", "Growth Summary"]]) {
+      await user.click(screen.getByRole("button", { name: label }))
+      expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Close" }))
     }
   })
 
-  it("renders greeting with baby name", () => {
+  it("exposes mobile scroll affordance and a quick-log FAB", () => {
     render(<DashboardPage />)
-    expect(screen.getAllByText(/Maya/i).length).toBeGreaterThanOrEqual(1)
-  })
-
-  it("renders quick action buttons", () => {
-    render(<DashboardPage />)
-    expect(screen.getByRole("button", { name: "Log Feed" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Log Sleep" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Log Growth" })).toBeInTheDocument()
-  })
-
-  it("renders bento summary cards", () => {
-    render(<DashboardPage />)
-    expect(screen.getByText("Last Feed")).toBeInTheDocument()
-    expect(screen.getByText("Sleep")).toBeInTheDocument()
-    expect(screen.getByText("Growth")).toBeInTheDocument()
-  })
-
-  it("renders recent activities section", () => {
-    render(<DashboardPage />)
-    expect(screen.getAllByText("Breastfeed").length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText("Nap")).toBeInTheDocument()
-    expect(screen.getByText("Diaper Change")).toBeInTheDocument()
-  })
-
-  it("expands and collapses the full activity list", async () => {
-    const user = userEvent.setup()
-    render(<DashboardPage />)
-
-    expect(screen.queryByText("6:30 AM")).not.toBeInTheDocument()
-    const toggle = screen.getByRole("button", { name: "View All" })
-    expect(toggle).toHaveAttribute("aria-expanded", "false")
-
-    await user.click(toggle)
-
-    expect(screen.getByText("6:30 AM")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Show Less" })).toHaveAttribute("aria-expanded", "true")
-
-    await user.click(screen.getByRole("button", { name: "Show Less" }))
-
-    expect(screen.queryByText("6:30 AM")).not.toBeInTheDocument()
-  })
-
-  it("renders daily insight card", () => {
-    render(<DashboardPage />)
-    expect(screen.getByText("Daily Insight")).toBeInTheDocument()
-    expect(screen.getByText(/Consistency is key for nap transitions/i)).toBeInTheDocument()
-  })
-
-  it("renders the mobile FAB for quick logging", () => {
-    render(<DashboardPage />)
+    expect(screen.getByText("Swipe for more actions")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Open quick logging actions" })).toBeInTheDocument()
   })
 
-  it("renders greeting with default name when no active baby", () => {
+  it("renders a neutral profile prompt without an active baby", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
-    expect(screen.getByText("Good", { exact: false })).toBeInTheDocument()
+    expect(screen.getByText(/Choose a baby profile/i)).toBeInTheDocument()
   })
 })

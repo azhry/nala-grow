@@ -22,7 +22,7 @@ const FAB = forwardRef<HTMLButtonElement, FABProps>(
         ref={ref}
         className={[
           fixed
-            ? "fixed bottom-24 right-6 z-40 md:hidden"
+            ? "fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6 z-40 md:hidden"
             : "inline-flex",
           "w-14 h-14 rounded-full",
           "flex items-center justify-center",
