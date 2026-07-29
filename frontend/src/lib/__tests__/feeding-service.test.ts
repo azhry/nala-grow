@@ -59,7 +59,10 @@ function makeGqlSession(overrides: Partial<FeedingSession> = {}): FeedingSession
     rightDurationSec: 180,
     amountMl: 0,
     milkType: "",
+    temperature: undefined,
     foodName: "",
+    quantity: undefined,
+    quantityUnit: undefined,
     reaction: "",
     notes: "",
     createdAt: "2026-07-20T10:00:00Z",
@@ -99,7 +102,10 @@ describe("feeding-service", () => {
         right_duration_sec: undefined,
         amount_ml: 150,
         milk_type: "formula",
+        temperature: undefined,
         food_name: undefined,
+        quantity: undefined,
+        quantity_unit: undefined,
         reaction: undefined,
         notes: "took well",
       })
@@ -179,6 +185,20 @@ describe("feeding-service", () => {
       expect(result.quantity).toBeUndefined()
       expect(result.quantity_unit).toBeUndefined()
     })
+
+    it("normalizes nullable GraphQL fields to undefined without losing a zero quantity", async () => {
+      mockGetFeedingSessions.mockResolvedValue([
+        makeGqlSession({ temperature: null, quantity: null, quantityUnit: null }),
+        makeGqlSession({ id: "zero-quantity", quantity: 0 }),
+      ])
+
+      const [legacy, zeroQuantity] = await fetchFeedSessions("baby-1")
+
+      expect(legacy.temperature).toBeUndefined()
+      expect(legacy.quantity).toBeUndefined()
+      expect(legacy.quantity_unit).toBeUndefined()
+      expect(zeroQuantity.quantity).toBe(0)
+    })
   })
 
   describe("fetchFeedSessions", () => {
@@ -246,7 +266,10 @@ describe("feeding-service", () => {
         rightDurationSec: undefined,
         amountMl: 150,
         milkType: "formula",
+        temperature: "warm",
         foodName: undefined,
+        quantity: undefined,
+        quantityUnit: undefined,
         reaction: undefined,
         notes: undefined,
       })

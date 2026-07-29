@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type storedUser struct {
@@ -19,18 +21,18 @@ type storedUser struct {
 }
 
 var (
-	usersMu            sync.RWMutex
-	users              = map[string]storedUser{}
-	babiesMu           sync.RWMutex
-	babies             = map[string]BabyProfile{}
-	measurementsMu     sync.RWMutex
-	measurements       = map[string]Measurement{}
-	feedingSessionsMu  sync.RWMutex
-	feedingSessions    = map[string]FeedingSession{}
-	sleepSessionsMu    sync.RWMutex
-	sleepSessions      = map[string]SleepSession{}
-	milestonesMu       sync.RWMutex
-	milestones         = map[string]Milestone{}
+	usersMu           sync.RWMutex
+	users             = map[string]storedUser{}
+	babiesMu          sync.RWMutex
+	babies            = map[string]BabyProfile{}
+	measurementsMu    sync.RWMutex
+	measurements      = map[string]Measurement{}
+	feedingSessionsMu sync.RWMutex
+	feedingSessions   = map[string]FeedingSession{}
+	sleepSessionsMu   sync.RWMutex
+	sleepSessions     = map[string]SleepSession{}
+	milestonesMu      sync.RWMutex
+	milestones        = map[string]Milestone{}
 )
 
 type BabyProfile struct {
@@ -77,24 +79,27 @@ type SleepSession struct {
 }
 
 type FeedingSession struct {
-	ID               string  `json:"id"`
-	BabyID           string  `json:"babyId"`
-	FeedType         string  `json:"feedType"`
-	StartedAt        string  `json:"startedAt"`
-	EndedAt          string  `json:"endedAt"`
-	LeftDurationSec  int     `json:"leftDurationSec"`
-	RightDurationSec int     `json:"rightDurationSec"`
-	AmountML         float64 `json:"amountMl"`
-	MilkType         string  `json:"milkType"`
-	FoodName         string  `json:"foodName"`
-	Reaction         string  `json:"reaction"`
-	Notes            string  `json:"notes"`
-	CreatedAt        string  `json:"createdAt"`
+	ID               string   `json:"id"`
+	BabyID           string   `json:"babyId"`
+	FeedType         string   `json:"feedType"`
+	StartedAt        string   `json:"startedAt"`
+	EndedAt          string   `json:"endedAt"`
+	LeftDurationSec  int      `json:"leftDurationSec"`
+	RightDurationSec int      `json:"rightDurationSec"`
+	AmountML         float64  `json:"amountMl"`
+	MilkType         string   `json:"milkType"`
+	FoodName         string   `json:"foodName"`
+	Reaction         string   `json:"reaction"`
+	Temperature      *string  `json:"temperature"`
+	Quantity         *float64 `json:"quantity"`
+	QuantityUnit     *string  `json:"quantityUnit"`
+	Notes            string   `json:"notes"`
+	CreatedAt        string   `json:"createdAt"`
 }
 
 type Handler struct {
-	db        interface{ Close() }
-	auth      *auth.Service
+	db             interface{ Close() }
+	auth           *auth.Service
 	googleVerifier *auth.GoogleTokenVerifier
 	resetTokens    *auth.ResetTokenStore
 	googleClientID string
@@ -107,6 +112,11 @@ func NewHandler(db interface{ Close() }, authSvc *auth.Service) *Handler {
 		googleVerifier: auth.NewGoogleTokenVerifier(),
 		resetTokens:    auth.NewResetTokenStore(),
 	}
+}
+
+func (h *Handler) feedingPool() *pgxpool.Pool {
+	pool, _ := h.db.(*pgxpool.Pool)
+	return pool
 }
 
 // SetGoogleClientID configures the expected Google OAuth client ID for token verification.
@@ -415,15 +425,15 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 
 		return ExecResult{Data: map[string]interface{}{
 			"exportData": map[string]interface{}{
-				"babyName":       b.Name,
-				"babyDob":        b.DOB,
-				"babySex":        b.Sex,
-				"feedSessions":   feedList,
-				"sleepSessions":  sleepList,
-				"measurements":   measList,
-				"milestones":     msList,
-				"dateFrom":       dateFrom,
-				"dateTo":         dateTo,
+				"babyName":      b.Name,
+				"babyDob":       b.DOB,
+				"babySex":       b.Sex,
+				"feedSessions":  feedList,
+				"sleepSessions": sleepList,
+				"measurements":  measList,
+				"milestones":    msList,
+				"dateFrom":      dateFrom,
+				"dateTo":        dateTo,
 			},
 		}}
 	}
@@ -557,14 +567,24 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if !ok || b.UserID != userID {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
-		feedingSessionsMu.RLock()
 		var list []map[string]interface{}
-		for _, s := range feedingSessions {
-			if s.BabyID == babyID {
+		if pool := h.feedingPool(); pool != nil {
+			sessions, err := loadFeedingSessions(ctx, pool, babyID)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not load feeding sessions"}}}
+			}
+			for _, s := range sessions {
 				list = append(list, feedingSessionToMap(s))
 			}
+		} else {
+			feedingSessionsMu.RLock()
+			for _, s := range feedingSessions {
+				if s.BabyID == babyID {
+					list = append(list, feedingSessionToMap(s))
+				}
+			}
+			feedingSessionsMu.RUnlock()
 		}
-		feedingSessionsMu.RUnlock()
 		if list == nil {
 			list = []map[string]interface{}{}
 		}
@@ -582,9 +602,17 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		feedingSessionsMu.RLock()
-		s, ok := feedingSessions[id]
-		feedingSessionsMu.RUnlock()
+		var s FeedingSession
+		var ok bool
+		if pool := h.feedingPool(); pool != nil {
+			var err error
+			s, err = loadFeedingSession(ctx, pool, id)
+			ok = err == nil
+		} else {
+			feedingSessionsMu.RLock()
+			s, ok = feedingSessions[id]
+			feedingSessionsMu.RUnlock()
+		}
 		if !ok {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
@@ -1317,7 +1345,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			ID:               uuid(),
 			BabyID:           babyID,
 			FeedType:         feedType,
-			StartedAt:        getVar(variables, "startedAt"),
+			StartedAt:        feedingStartedAt(variables),
 			EndedAt:          getVar(variables, "endedAt"),
 			LeftDurationSec:  getVarInt(variables, "leftDurationSec"),
 			RightDurationSec: getVarInt(variables, "rightDurationSec"),
@@ -1325,12 +1353,21 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			MilkType:         getVar(variables, "milkType"),
 			FoodName:         getVar(variables, "foodName"),
 			Reaction:         getVar(variables, "reaction"),
+			Temperature:      feedingString(variables, "temperature"),
+			Quantity:         feedingQuantity(variables),
+			QuantityUnit:     feedingString(variables, "quantityUnit"),
 			Notes:            getVar(variables, "notes"),
 			CreatedAt:        time.Now().UTC().Format(time.RFC3339),
 		}
-		feedingSessionsMu.Lock()
-		feedingSessions[s.ID] = s
-		feedingSessionsMu.Unlock()
+		if pool := h.feedingPool(); pool != nil {
+			if err := insertFeedingSession(ctx, pool, s); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not save feeding session"}}}
+			}
+		} else {
+			feedingSessionsMu.Lock()
+			feedingSessions[s.ID] = s
+			feedingSessionsMu.Unlock()
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"createFeedingSession": feedingSessionToMap(s),
 		}}
@@ -1345,6 +1382,25 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
+		if pool := h.feedingPool(); pool != nil {
+			s, err := loadFeedingSession(ctx, pool, id)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+			}
+			babiesMu.RLock()
+			b, babyOk := babies[s.BabyID]
+			babiesMu.RUnlock()
+			if !babyOk || b.UserID != userID {
+				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+			}
+			applyFeedingSessionUpdates(&s, variables)
+			if err := updateFeedingSession(ctx, pool, s); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not update feeding session"}}}
+			}
+			return ExecResult{Data: map[string]interface{}{
+				"updateFeedingSession": feedingSessionToMap(s),
+			}}
+		}
 		feedingSessionsMu.Lock()
 		s, exists := feedingSessions[id]
 		if !exists {
@@ -1358,36 +1414,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			feedingSessionsMu.Unlock()
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
-		if feedType := getVar(variables, "feedType"); feedType != "" {
-			s.FeedType = feedType
-		}
-		if startedAt := getVar(variables, "startedAt"); startedAt != "" {
-			s.StartedAt = startedAt
-		}
-		if endedAt := getVar(variables, "endedAt"); endedAt != "" {
-			s.EndedAt = endedAt
-		}
-		if leftDur := getVarInt(variables, "leftDurationSec"); leftDur != 0 {
-			s.LeftDurationSec = leftDur
-		}
-		if rightDur := getVarInt(variables, "rightDurationSec"); rightDur != 0 {
-			s.RightDurationSec = rightDur
-		}
-		if amountML := getVarFloat(variables, "amountMl"); amountML != 0 {
-			s.AmountML = amountML
-		}
-		if milkType := getVar(variables, "milkType"); milkType != "" {
-			s.MilkType = milkType
-		}
-		if foodName := getVar(variables, "foodName"); foodName != "" {
-			s.FoodName = foodName
-		}
-		if reaction := getVar(variables, "reaction"); reaction != "" {
-			s.Reaction = reaction
-		}
-		if notes := getVar(variables, "notes"); notes != "" {
-			s.Notes = notes
-		}
+		applyFeedingSessionUpdates(&s, variables)
 		feedingSessions[id] = s
 		feedingSessionsMu.Unlock()
 		return ExecResult{Data: map[string]interface{}{
@@ -1403,6 +1430,24 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		id := getVar(variables, "id")
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
+		}
+		if pool := h.feedingPool(); pool != nil {
+			s, err := loadFeedingSession(ctx, pool, id)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+			}
+			babiesMu.RLock()
+			b, babyOk := babies[s.BabyID]
+			babiesMu.RUnlock()
+			if !babyOk || b.UserID != userID {
+				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+			}
+			if _, err := pool.Exec(ctx, "DELETE FROM feeding_sessions WHERE id = $1", id); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not delete feeding session"}}}
+			}
+			return ExecResult{Data: map[string]interface{}{
+				"deleteFeedingSession": feedingSessionToMap(s),
+			}}
 		}
 		var deleted *FeedingSession
 		feedingSessionsMu.Lock()
@@ -1721,9 +1766,197 @@ func feedingSessionToMap(s FeedingSession) map[string]interface{} {
 		"milkType":         s.MilkType,
 		"foodName":         s.FoodName,
 		"reaction":         s.Reaction,
+		"temperature":      stringValue(s.Temperature),
+		"quantity":         quantityValue(s.Quantity),
+		"quantityUnit":     stringValue(s.QuantityUnit),
 		"notes":            s.Notes,
 		"createdAt":        s.CreatedAt,
 	}
+}
+
+const feedingSessionColumns = `
+	id::text, baby_id::text, feed_type,
+	to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+	COALESCE(to_char(ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+	left_duration_sec, right_duration_sec, COALESCE(amount_ml, 0)::float8,
+	COALESCE(milk_type, ''), COALESCE(food_name, ''), COALESCE(reaction, ''),
+	temperature, quantity IS NOT NULL, COALESCE(quantity, 0)::float8, quantity_unit,
+	notes,
+	to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+
+func scanFeedingSession(row pgx.Row) (FeedingSession, error) {
+	var session FeedingSession
+	var hasQuantity bool
+	var quantity float64
+	err := row.Scan(
+		&session.ID, &session.BabyID, &session.FeedType, &session.StartedAt, &session.EndedAt,
+		&session.LeftDurationSec, &session.RightDurationSec, &session.AmountML, &session.MilkType,
+		&session.FoodName, &session.Reaction, &session.Temperature, &hasQuantity, &quantity,
+		&session.QuantityUnit, &session.Notes, &session.CreatedAt,
+	)
+	if hasQuantity {
+		session.Quantity = &quantity
+	}
+	return session, err
+}
+
+func loadFeedingSession(ctx context.Context, pool *pgxpool.Pool, id string) (FeedingSession, error) {
+	return scanFeedingSession(pool.QueryRow(ctx, `SELECT `+feedingSessionColumns+` FROM feeding_sessions WHERE id = $1`, id))
+}
+
+func loadFeedingSessions(ctx context.Context, pool *pgxpool.Pool, babyID string) ([]FeedingSession, error) {
+	rows, err := pool.Query(ctx, `SELECT `+feedingSessionColumns+` FROM feeding_sessions WHERE baby_id = $1 ORDER BY started_at DESC, created_at DESC`, babyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []FeedingSession
+	for rows.Next() {
+		session, err := scanFeedingSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func insertFeedingSession(ctx context.Context, pool *pgxpool.Pool, session FeedingSession) error {
+	_, err := pool.Exec(ctx, `
+		INSERT INTO feeding_sessions (
+			id, baby_id, feed_type, started_at, ended_at, left_duration_sec, right_duration_sec,
+			amount_ml, milk_type, food_name, reaction, temperature, quantity, quantity_unit, notes, created_at
+		) VALUES (
+			$1, $2, $3, $4::timestamptz, NULLIF($5, '')::timestamptz, $6, $7,
+			$8, $9, $10, $11, NULLIF($12, ''), $13, NULLIF($14, ''), $15, $16::timestamptz
+		)`,
+		session.ID, session.BabyID, session.FeedType, session.StartedAt, session.EndedAt,
+		session.LeftDurationSec, session.RightDurationSec, session.AmountML, session.MilkType,
+		session.FoodName, session.Reaction, session.Temperature, quantityValue(session.Quantity), session.QuantityUnit,
+		session.Notes, session.CreatedAt,
+	)
+	return err
+}
+
+func updateFeedingSession(ctx context.Context, pool *pgxpool.Pool, session FeedingSession) error {
+	_, err := pool.Exec(ctx, `
+		UPDATE feeding_sessions SET
+			feed_type = $2, started_at = $3::timestamptz, ended_at = NULLIF($4, '')::timestamptz,
+			left_duration_sec = $5, right_duration_sec = $6, amount_ml = $7, milk_type = $8,
+			food_name = $9, reaction = $10, temperature = NULLIF($11, ''), quantity = $12,
+			quantity_unit = NULLIF($13, ''), notes = $14
+		WHERE id = $1`,
+		session.ID, session.FeedType, session.StartedAt, session.EndedAt, session.LeftDurationSec,
+		session.RightDurationSec, session.AmountML, session.MilkType, session.FoodName, session.Reaction,
+		session.Temperature, quantityValue(session.Quantity), session.QuantityUnit, session.Notes,
+	)
+	return err
+}
+
+func applyFeedingSessionUpdates(session *FeedingSession, variables map[string]interface{}) {
+	if feedType := getVar(variables, "feedType"); feedType != "" {
+		session.FeedType = feedType
+	}
+	if startedAt := getVar(variables, "startedAt"); startedAt != "" {
+		session.StartedAt = startedAt
+	}
+	if endedAt := getVar(variables, "endedAt"); endedAt != "" {
+		session.EndedAt = endedAt
+	}
+	if leftDur := getVarInt(variables, "leftDurationSec"); leftDur != 0 {
+		session.LeftDurationSec = leftDur
+	}
+	if rightDur := getVarInt(variables, "rightDurationSec"); rightDur != 0 {
+		session.RightDurationSec = rightDur
+	}
+	if amountML := getVarFloat(variables, "amountMl"); amountML != 0 {
+		session.AmountML = amountML
+	}
+	if milkType := getVar(variables, "milkType"); milkType != "" {
+		session.MilkType = milkType
+	}
+	if foodName := getVar(variables, "foodName"); foodName != "" {
+		session.FoodName = foodName
+	}
+	if reaction := getVar(variables, "reaction"); reaction != "" {
+		session.Reaction = reaction
+	}
+	if temperature := feedingString(variables, "temperature"); temperature != nil {
+		session.Temperature = temperature
+	}
+	if quantity, ok := optionalFloatVar(variables, "quantity"); ok {
+		session.Quantity = &quantity
+	}
+	if quantityUnit := feedingString(variables, "quantityUnit"); quantityUnit != nil {
+		session.QuantityUnit = quantityUnit
+	}
+	if notes := getVar(variables, "notes"); notes != "" {
+		session.Notes = notes
+	}
+}
+
+func feedingQuantity(variables map[string]interface{}) *float64 {
+	if quantity, ok := optionalFloatVar(variables, "quantity"); ok {
+		return &quantity
+	}
+	return nil
+}
+
+func feedingString(variables map[string]interface{}, key string) *string {
+	value := getVar(variables, key)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func stringValue(value *string) interface{} {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func feedingStartedAt(variables map[string]interface{}) string {
+	if startedAt := getVar(variables, "startedAt"); startedAt != "" {
+		return startedAt
+	}
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func optionalFloatVar(vars map[string]interface{}, key string) (float64, bool) {
+	if vars == nil {
+		return 0, false
+	}
+	input, _ := vars["input"].(map[string]interface{})
+	if input != nil {
+		if value, exists := input[key]; exists {
+			return floatFromValue(value)
+		}
+	}
+	if value, exists := vars[key]; exists {
+		return floatFromValue(value)
+	}
+	return 0, false
+}
+
+func floatFromValue(value interface{}) (float64, bool) {
+	switch value := value.(type) {
+	case float64:
+		return value, true
+	case int:
+		return float64(value), true
+	default:
+		return 0, false
+	}
+}
+
+func quantityValue(quantity *float64) interface{} {
+	if quantity == nil {
+		return nil
+	}
+	return *quantity
 }
 
 func measurementToMap(m Measurement) map[string]interface{} {

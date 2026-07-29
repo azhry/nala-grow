@@ -206,7 +206,10 @@ export const FEEDING_SESSIONS_QUERY = `query feedingSessions($babyId: ID!) {
     rightDurationSec
     amountMl
     milkType
+    temperature
     foodName
+    quantity
+    quantityUnit
     reaction
     notes
     createdAt
@@ -224,15 +227,18 @@ export const FEEDING_SESSION_QUERY = `query feedingSession($id: ID!) {
     rightDurationSec
     amountMl
     milkType
+    temperature
     foodName
+    quantity
+    quantityUnit
     reaction
     notes
     createdAt
   }
 }`
 
-export const CREATE_FEEDING_SESSION_MUTATION = `mutation createFeedingSession($babyId: ID!, $feedType: String!, $startedAt: String, $endedAt: String, $leftDurationSec: Int, $rightDurationSec: Int, $amountMl: Float, $milkType: String, $foodName: String, $reaction: String, $notes: String) {
-  createFeedingSession(babyId: $babyId, feedType: $feedType, startedAt: $startedAt, endedAt: $endedAt, leftDurationSec: $leftDurationSec, rightDurationSec: $rightDurationSec, amountMl: $amountMl, milkType: $milkType, foodName: $foodName, reaction: $reaction, notes: $notes) {
+export const CREATE_FEEDING_SESSION_MUTATION = `mutation createFeedingSession($babyId: ID!, $feedType: String!, $startedAt: String, $endedAt: String, $leftDurationSec: Int, $rightDurationSec: Int, $amountMl: Float, $milkType: String, $temperature: String, $foodName: String, $quantity: Float, $quantityUnit: String, $reaction: String, $notes: String) {
+  createFeedingSession(babyId: $babyId, feedType: $feedType, startedAt: $startedAt, endedAt: $endedAt, leftDurationSec: $leftDurationSec, rightDurationSec: $rightDurationSec, amountMl: $amountMl, milkType: $milkType, temperature: $temperature, foodName: $foodName, quantity: $quantity, quantityUnit: $quantityUnit, reaction: $reaction, notes: $notes) {
     id
     babyId
     feedType
@@ -242,15 +248,18 @@ export const CREATE_FEEDING_SESSION_MUTATION = `mutation createFeedingSession($b
     rightDurationSec
     amountMl
     milkType
+    temperature
     foodName
+    quantity
+    quantityUnit
     reaction
     notes
     createdAt
   }
 }`
 
-export const UPDATE_FEEDING_SESSION_MUTATION = `mutation updateFeedingSession($id: ID!, $feedType: String, $startedAt: String, $endedAt: String, $leftDurationSec: Int, $rightDurationSec: Int, $amountMl: Float, $milkType: String, $foodName: String, $reaction: String, $notes: String) {
-  updateFeedingSession(id: $id, feedType: $feedType, startedAt: $startedAt, endedAt: $endedAt, leftDurationSec: $leftDurationSec, rightDurationSec: $rightDurationSec, amountMl: $amountMl, milkType: $milkType, foodName: $foodName, reaction: $reaction, notes: $notes) {
+export const UPDATE_FEEDING_SESSION_MUTATION = `mutation updateFeedingSession($id: ID!, $feedType: String, $startedAt: String, $endedAt: String, $leftDurationSec: Int, $rightDurationSec: Int, $amountMl: Float, $milkType: String, $temperature: String, $foodName: String, $quantity: Float, $quantityUnit: String, $reaction: String, $notes: String) {
+  updateFeedingSession(id: $id, feedType: $feedType, startedAt: $startedAt, endedAt: $endedAt, leftDurationSec: $leftDurationSec, rightDurationSec: $rightDurationSec, amountMl: $amountMl, milkType: $milkType, temperature: $temperature, foodName: $foodName, quantity: $quantity, quantityUnit: $quantityUnit, reaction: $reaction, notes: $notes) {
     id
     babyId
     feedType
@@ -260,7 +269,10 @@ export const UPDATE_FEEDING_SESSION_MUTATION = `mutation updateFeedingSession($i
     rightDurationSec
     amountMl
     milkType
+    temperature
     foodName
+    quantity
+    quantityUnit
     reaction
     notes
     createdAt
@@ -278,7 +290,10 @@ export const DELETE_FEEDING_SESSION_MUTATION = `mutation deleteFeedingSession($i
     rightDurationSec
     amountMl
     milkType
+    temperature
     foodName
+    quantity
+    quantityUnit
     reaction
     notes
     createdAt

@@ -21,7 +21,10 @@ function toStoreFeedSession(s: FeedingSession): StoreFeedSession {
     right_duration_sec: s.rightDurationSec || undefined,
     amount_ml: s.amountMl || undefined,
     milk_type: (s.milkType as StoreFeedSession["milk_type"]) || undefined,
+    temperature: (s.temperature as StoreFeedSession["temperature"]) || undefined,
     food_name: s.foodName || undefined,
+    quantity: s.quantity ?? undefined,
+    quantity_unit: s.quantityUnit || undefined,
     reaction: (s.reaction as StoreFeedSession["reaction"]) || undefined,
     notes: s.notes || undefined,
   }
@@ -48,7 +51,10 @@ export async function createFeedSession(
     rightDurationSec: data.right_duration_sec,
     amountMl: data.amount_ml,
     milkType: data.milk_type,
+    temperature: data.temperature,
     foodName: data.food_name,
+    quantity: data.quantity,
+    quantityUnit: data.quantity_unit,
     reaction: data.reaction,
     notes: data.notes,
   })
@@ -74,7 +80,10 @@ export async function updateFeedSession(
     rightDurationSec: data.right_duration_sec,
     amountMl: data.amount_ml,
     milkType: data.milk_type,
+    temperature: data.temperature,
     foodName: data.food_name,
+    quantity: data.quantity,
+    quantityUnit: data.quantity_unit,
     reaction: data.reaction,
     notes: data.notes,
   })

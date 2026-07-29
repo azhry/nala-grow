@@ -77,6 +77,14 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 		assert.Equal(t, temperature, bottleRecord["temperature"], "%s bottle temperature must be returned by create", temperature)
 	}
 
+	defaultStartedAt := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
+		"babyId":   babyID,
+		"feedType": "bottle",
+	})
+	require.Empty(t, defaultStartedAt.Errors)
+	defaultStartedAtRecord := defaultStartedAt.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
+	assert.NotEmpty(t, defaultStartedAtRecord["startedAt"], "omitting startedAt must use a server timestamp")
+
 	type solidsCase struct {
 		quantity     float64
 		quantityUnit string
@@ -108,7 +116,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	var persistedRows int
 	err = harness.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM feeding_sessions WHERE baby_id = $1", babyID).Scan(&persistedRows)
 	require.NoError(t, err)
-	assert.Equal(t, 7, persistedRows, "GraphQL creates must persist all field variants alongside existing records")
+	assert.Equal(t, 8, persistedRows, "GraphQL creates must persist all field variants alongside existing records")
 
 	otherBabyResult := firstClient.Execute(authCtx, "mutation { createBaby }", map[string]interface{}{
 		"name": "Other Baby",
@@ -134,7 +142,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	reloaded := reloadedClient.Execute(authCtx, "query { feedingSessions }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, reloaded.Errors)
 	feeds := reloaded.Data.(map[string]interface{})["feedingSessions"].([]map[string]interface{})
-	require.Len(t, feeds, 7)
+	require.Len(t, feeds, 8)
 
 	byID := map[string]map[string]interface{}{}
 	for _, feed := range feeds {
@@ -142,6 +150,9 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	}
 	assert.Contains(t, byID, legacyID, "existing rows without new optional values must remain readable")
 	assert.NotContains(t, byID, otherFeedID, "a feeding record must not leak across babies")
+	assert.Nil(t, byID[legacyID]["temperature"], "legacy missing temperature must remain null")
+	assert.Nil(t, byID[legacyID]["quantity"], "legacy missing quantity must remain null")
+	assert.Nil(t, byID[legacyID]["quantityUnit"], "legacy missing quantity unit must remain null")
 	for temperature, bottleID := range bottleIDs {
 		assert.Equal(t, temperature, byID[bottleID]["temperature"], "%s bottle temperature must survive reload", temperature)
 	}
