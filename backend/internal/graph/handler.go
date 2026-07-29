@@ -510,14 +510,24 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if !ok || b.UserID != userID {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
-		sleepSessionsMu.RLock()
 		var list []map[string]interface{}
-		for _, s := range sleepSessions {
-			if s.BabyID == babyID {
+		if pool := h.feedingPool(); pool != nil {
+			sessions, err := loadSleepSessions(ctx, pool, babyID, userID)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not load sleep sessions"}}}
+			}
+			for _, s := range sessions {
 				list = append(list, sleepSessionToMap(s))
 			}
+		} else {
+			sleepSessionsMu.RLock()
+			for _, s := range sleepSessions {
+				if s.BabyID == babyID {
+					list = append(list, sleepSessionToMap(s))
+				}
+			}
+			sleepSessionsMu.RUnlock()
 		}
-		sleepSessionsMu.RUnlock()
 		if list == nil {
 			list = []map[string]interface{}{}
 		}
@@ -642,14 +652,24 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if !ok || b.UserID != userID {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
-		measurementsMu.RLock()
 		var list []map[string]interface{}
-		for _, m := range measurements {
-			if m.BabyID == babyID {
+		if pool := h.feedingPool(); pool != nil {
+			records, err := loadMeasurements(ctx, pool, babyID, userID)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not load measurements"}}}
+			}
+			for _, m := range records {
 				list = append(list, measurementToMap(m))
 			}
+		} else {
+			measurementsMu.RLock()
+			for _, m := range measurements {
+				if m.BabyID == babyID {
+					list = append(list, measurementToMap(m))
+				}
+			}
+			measurementsMu.RUnlock()
 		}
-		measurementsMu.RUnlock()
 		if list == nil {
 			list = []map[string]interface{}{}
 		}
@@ -1820,6 +1840,70 @@ func loadFeedingSessions(ctx context.Context, pool *pgxpool.Pool, babyID string)
 		sessions = append(sessions, session)
 	}
 	return sessions, rows.Err()
+}
+
+// loadSleepSessions reads care records through PostgreSQL and verifies the
+// requesting user owns the requested baby in the same query.
+func loadSleepSessions(ctx context.Context, pool *pgxpool.Pool, babyID, userID string) ([]SleepSession, error) {
+	rows, err := pool.Query(ctx, `SELECT s.id::text, s.baby_id::text,
+		to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		COALESCE(to_char(s.ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		s.location, s.notes,
+		to_char(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM sleep_sessions s
+		JOIN babies b ON b.id = s.baby_id
+		WHERE s.baby_id = $1 AND b.user_id = $2
+		ORDER BY s.started_at DESC, s.created_at DESC`, babyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sessions := make([]SleepSession, 0)
+	for rows.Next() {
+		var session SleepSession
+		if err := rows.Scan(&session.ID, &session.BabyID, &session.StartedAt, &session.EndedAt, &session.Location, &session.Notes, &session.CreatedAt); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+// loadMeasurements maps the normalized measurement row to the API's
+// combined measurement shape while maintaining PostgreSQL ownership isolation.
+func loadMeasurements(ctx context.Context, pool *pgxpool.Pool, babyID, userID string) ([]Measurement, error) {
+	rows, err := pool.Query(ctx, `SELECT m.id::text, m.baby_id::text, m.type, m.value::float8,
+		to_char(m.date, 'YYYY-MM-DD'),
+		to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM measurements m
+		JOIN babies b ON b.id = m.baby_id
+		WHERE m.baby_id = $1 AND b.user_id = $2
+		ORDER BY m.date DESC, m.created_at DESC`, babyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	records := make([]Measurement, 0)
+	for rows.Next() {
+		var record Measurement
+		var measurementType string
+		var value float64
+		if err := rows.Scan(&record.ID, &record.BabyID, &measurementType, &value, &record.Date, &record.CreatedAt); err != nil {
+			return nil, err
+		}
+		switch measurementType {
+		case "weight":
+			record.Weight = value
+		case "height":
+			record.Height = value
+		case "head_circumference":
+			record.HeadCircumference = value
+		}
+		records = append(records, record)
+	}
+	return records, rows.Err()
 }
 
 func insertFeedingSession(ctx context.Context, pool *pgxpool.Pool, session FeedingSession) error {
