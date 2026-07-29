@@ -27,6 +27,7 @@ describe("FAB", () => {
   it("has fixed positioning by default", () => {
     const { container } = render(<FAB />)
     expect(container.firstChild).toHaveClass("fixed")
+    expect(container.firstChild).toHaveClass("bottom-[calc(6rem+env(safe-area-inset-bottom))]")
   })
 
   it("removes fixed positioning when fixed=false", () => {
