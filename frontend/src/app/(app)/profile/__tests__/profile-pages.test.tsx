@@ -9,6 +9,7 @@ import {
 import CreateBabyProfilePage from "../create/page"
 import EditBabyProfilePage from "../edit/page"
 import ManageProfilesPage from "../manage/page"
+import ProfileIndexPage from "../page"
 
 const mockPush = jest.fn()
 const mockBack = jest.fn()
@@ -18,11 +19,13 @@ const mockDeleteBaby = jest.fn()
 const mockUploadBabyPhoto = jest.fn()
 const mockSetActiveBaby = jest.fn()
 const mockSetBabies = jest.fn()
+const mockReplace = jest.fn()
+const mockFetchBabies = jest.fn()
 
 let storeState: Record<string, any>
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ back: mockBack, push: mockPush }),
+  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
   useSearchParams: () => new URLSearchParams("id=baby-1"),
 }))
 
@@ -51,6 +54,7 @@ jest.mock("@/lib/baby-service", () => ({
   createBaby: (...args: any[]) => mockCreateBaby(...args),
   deleteBaby: (...args: any[]) => mockDeleteBaby(...args),
   updateBaby: (...args: any[]) => mockUpdateBaby(...args),
+  fetchBabies: (...args: any[]) => mockFetchBabies(...args),
 }))
 
 jest.mock("@/lib/photo-utils", () => ({
@@ -86,6 +90,7 @@ describe("profile pages", () => {
       babies: [babyOne, babyTwo],
       setActiveBaby: mockSetActiveBaby,
       setBabies: mockSetBabies,
+      _hasHydrated: true,
     }
     mockUploadBabyPhoto.mockResolvedValue("https://storage.test/new-photo.jpg")
     Object.defineProperty(URL, "createObjectURL", {
@@ -195,5 +200,19 @@ describe("profile pages", () => {
 
     await waitFor(() => expect(mockDeleteBaby).toHaveBeenCalledWith("baby-2"))
     expect(mockSetBabies).toHaveBeenCalledWith([babyOne])
+  })
+
+  it("loads persisted profiles before deciding where to redirect after login", async () => {
+    storeState.babies = []
+    storeState.activeBaby = null
+    mockFetchBabies.mockResolvedValue([babyOne])
+
+    render(<ProfileIndexPage />)
+
+    await waitFor(() => expect(mockFetchBabies).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(mockSetBabies).toHaveBeenCalledWith([babyOne]),
+    )
+    expect(mockSetActiveBaby).toHaveBeenCalledWith(babyOne)
   })
 })
