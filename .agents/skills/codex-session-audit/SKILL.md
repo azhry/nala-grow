@@ -22,7 +22,7 @@ Audit one requested local Codex session at a time. Treat the session log as sens
 5. Follow every local attachment or pasted-request file referenced by a user message and read it fully when accessible. For a `[TRUNCATED ...]` tool record that affects a finding, read the referenced raw event/file locally before deciding. Do not silently treat an excerpt as complete evidence.
 6. Build a coverage ledger before analysis: snapshot hash/cutoff, pages read, referenced attachments read, user requests, agent decisions, tool failures, verification claims, instruction reads, and unresolved work. If any page or required attachment cannot be read, label the audit incomplete.
 7. Inspect Codex-relevant project sources only when the transcript shows they were loaded or applicable: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, and `.codex/`. Inspect KiloCode sources only with explicit cross-tool evidence.
-8. Produce every section in [audit protocol](references/audit-protocol.md). The requested focus must appear in the report, but it must not replace whole-session findings.
+8. Produce and return every section in [audit protocol](references/audit-protocol.md). The requested focus must appear in the report, but it must not replace whole-session findings. Do not replace the detailed report with an executive summary, a shortened handoff, or a statement that a report was produced.
 
 ## Access diagnosis
 
