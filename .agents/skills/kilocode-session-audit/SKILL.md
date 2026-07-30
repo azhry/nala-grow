@@ -19,7 +19,7 @@ KiloCode session data is local and potentially sensitive. Inspect it read-only. 
    On Windows, try `py` or `python` only when either resolves to an installed interpreter. Otherwise resolve the workspace-bundled Python first. The extractor checks `%USERPROFILE%/.local/share/kilo/kilo.db`, inventories tables/columns, and searches only schema-confirmed text columns for the exact ID. It produces redacted row metadata, not conversation bodies.
 3. If the database is absent, unreadable, has no matching row, or has an unfamiliar schema, report that condition. Do not invent KiloCode table names or fallback SQL.
 4. For a confirmed session, read only the needed rows locally and reconstruct the chronology from schema-confirmed timestamps/order fields. Then apply the shared [audit protocol](../codex-session-audit/references/audit-protocol.md).
-5. Audit relevant repository sources selectively: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, `.kilo/rules/`, `kilo.json` if present, and `.codex/` if present. Cite each source and distinguish fact from hypothesis.
+5. Audit KiloCode-relevant sources selectively: `.kilo/rules/`, `kilo.json` when present, and project-wide `AGENTS.md`/`.agents` rules that apply to all agents. Inspect `.codex/` only when a session event or applicable project-wide rule shows that Codex policy governed the KiloCode session. Cite that cross-tool relevance or exclude it from findings.
 
 ## Evidence and recommendations
 

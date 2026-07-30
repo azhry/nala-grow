@@ -21,7 +21,7 @@ List ordered, relevant events only: user instruction, instruction-file read, age
 
 ## 4. Instruction and workflow findings
 
-For each relevant source, cite its path and heading/rule. State whether it was correct, harmful, incomplete, ambiguous, or not demonstrated to have influenced the session.
+For each relevant source, cite its path, heading/rule, and evidence that it governed the audited session. State whether it was correct, harmful, incomplete, ambiguous, or not demonstrated to have influenced the session. Exclude source-specific rules for another agent platform unless an event or project-wide rule establishes cross-tool relevance.
 
 ## 5. Actionable improvements
 

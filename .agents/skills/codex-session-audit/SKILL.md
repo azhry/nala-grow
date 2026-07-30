@@ -18,7 +18,7 @@ Audit one requested local Codex session at a time. Treat the session log as sens
 
    On Windows, try `py` or `python` only when either resolves to an installed interpreter. Otherwise resolve the workspace-bundled Python before running it. It searches `%USERPROFILE%/.codex/sessions` for `rollout-*-<session_id>.jsonl`, parses every valid JSONL event, and emits a redacted chronological index. If no single file is found, report that evidence and stop; do not guess another path.
 3. Read the matching log locally in bounded chunks when the index identifies an event requiring context. Redact sensitive values in notes and never copy full transcripts into Git, Linear, or chat.
-4. Inspect only relevant project sources: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, `.kilo/rules/`, `kilo.json` when present, and `.codex/` when present. Cite file paths and rule text/heading; distinguish a confirmed influence from a hypothesis.
+4. Inspect Codex-relevant project sources only: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, and `.codex/` when present. Inspect `.kilo/rules/` or `kilo.json` only when a session event or a Codex-relevant project rule explicitly shows that KiloCode policy governed this session. Cite the evidence for cross-tool relevance; otherwise exclude it from findings.
 5. Produce the report format in [audit protocol](references/audit-protocol.md). Trace every root-cause claim to a session event or project source.
 
 ## Access diagnosis
