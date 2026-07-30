@@ -3,15 +3,18 @@
 interface DailySummaryProps {
   bottleTotalMl: number
   breastTotalMins: number
-  barData: { label: string; heightPct: number; title: string }[]
+  barData: {
+    label: string
+    bottleHeightPct: number
+    bottleTitle: string
+    breastHeightPct: number
+    breastTitle: string
+  }[]
   range?: "today" | "yesterday"
   onRangeChange?: (range: "today" | "yesterday") => void
 }
 
 function DailySummary({ bottleTotalMl, breastTotalMins, barData, range = "today", onRangeChange }: DailySummaryProps) {
-  const chartData = barData.length >= 6
-    ? barData
-    : [...barData, ...["12 PM", "3 PM", "6 PM", "9 PM", "12 AM", "3 AM"].slice(0, 6 - barData.length).map((label) => ({ label, heightPct: 10, title: `${label}: no feeds recorded` }))]
 
   return (
     <section className="lg:col-span-8 bg-white rounded-2xl p-stack-md soft-shadow relative overflow-hidden">
@@ -68,13 +71,13 @@ function DailySummary({ bottleTotalMl, breastTotalMins, barData, range = "today"
           <div className="border-t border-primary w-full" />
           <div className="border-t border-primary w-full" />
         </div>
-        {chartData.flatMap((bar) => [
-          <div key={`${bar.label}-bottle`} className="flex-1 bg-primary rounded-t-lg transition-all hover:scale-y-105 cursor-help" style={{ height: `${bar.heightPct}%` }} title={bar.title} />,
-          <div key={`${bar.label}-breast`} className="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 cursor-help" style={{ height: `${Math.max(10, bar.heightPct * 0.6)}%` }} title={`${bar.label}: breastfeed`} />,
+        {barData.flatMap((bar) => [
+          <div key={`${bar.label}-bottle`} data-testid={`bottle-bar-${bar.label}`} className="flex-1 bg-primary rounded-t-lg transition-all hover:scale-y-105 cursor-help" style={{ height: `${bar.bottleHeightPct}%` }} title={bar.bottleTitle} />,
+          <div key={`${bar.label}-breast`} data-testid={`breast-bar-${bar.label}`} className="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 cursor-help" style={{ height: `${bar.breastHeightPct}%` }} title={bar.breastTitle} />,
         ])}
       </div>
       <div className="flex justify-between mt-2 px-1 text-[10px] text-on-surface-variant opacity-60">
-        {chartData.map((bar) => <span key={bar.label}>{bar.label}</span>)}
+        {barData.map((bar) => <span key={bar.label}>{bar.label}</span>)}
       </div>
     </section>
   )

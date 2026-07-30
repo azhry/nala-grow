@@ -130,25 +130,34 @@ export default function FeedingPage() {
 
   const barData = useMemo(() => {
     const slots = ["6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
-    const emptyStateHeights = [40, 70, 55, 90, 60, 20]
     const maxMl = Math.max(
       ...rangeSessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
       1,
     )
+    const maxBreastMinutes = Math.max(
+      ...rangeSessions
+        .filter((s) => s.feed_type === "breast")
+        .map((s) => ((s.left_duration_sec ?? 0) + (s.right_duration_sec ?? 0)) / 60),
+      1,
+    )
     return slots.map((label, i) => {
       const hour = (i * 3 + 6) % 24
-      const total = rangeSessions
+      const sessionsInSlot = rangeSessions.filter((s) => {
+        const h = new Date(s.started_at).getHours()
+        return h >= hour && h < hour + 3
+      })
+      const bottleTotal = sessionsInSlot
         .filter((s) => s.feed_type === "bottle")
-        .filter((s) => {
-          const h = new Date(s.started_at).getHours()
-          return h >= hour && h < hour + 3
-        })
         .reduce((acc, s) => acc + (s.amount_ml ?? 0), 0)
-      const isEmptyDay = rangeSessions.length === 0
+      const breastMinutes = sessionsInSlot
+        .filter((s) => s.feed_type === "breast")
+        .reduce((acc, s) => acc + ((s.left_duration_sec ?? 0) + (s.right_duration_sec ?? 0)) / 60, 0)
       return {
         label,
-        heightPct: isEmptyDay ? emptyStateHeights[i] : Math.max(5, (total / maxMl) * 100),
-        title: isEmptyDay ? `${label}: no feeds recorded` : `${label}: ${total}ml`,
+        bottleHeightPct: bottleTotal ? Math.max(5, (bottleTotal / maxMl) * 100) : 0,
+        bottleTitle: `${label}: ${bottleTotal}ml`,
+        breastHeightPct: breastMinutes ? Math.max(5, (breastMinutes / maxBreastMinutes) * 100) : 0,
+        breastTitle: `${label}: ${Math.round(breastMinutes)} min breastfeed`,
       }
     })
   }, [rangeSessions])

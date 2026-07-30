@@ -343,6 +343,35 @@ describe("FeedingPage", () => {
 
       expect(screen.getByText("15 mins")).toBeInTheDocument()
     })
+
+    it("plots breast duration independently of bottle volume and keeps empty bottle slots flat", () => {
+      const today = new Date()
+      today.setHours(7, 0, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "breast-plot",
+          baby_id: "baby-1",
+          feed_type: "breast",
+          started_at: today.toISOString(),
+          left_duration_sec: 600,
+          right_duration_sec: 300,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("breast-bar-6 AM")).toHaveStyle({ height: "100%" })
+      expect(screen.getByTestId("bottle-bar-6 AM")).toHaveStyle({ height: "0%" })
+      expect(screen.getByTestId("breast-bar-9 AM")).toHaveStyle({ height: "0%" })
+    })
+
+    it("keeps every chart series flat when there are no feeds", () => {
+      renderPage()
+
+      expect(screen.getAllByTestId(/^(bottle|breast)-bar-/)).toHaveLength(12)
+      for (const bar of screen.getAllByTestId(/^(bottle|breast)-bar-/)) {
+        expect(bar).toHaveStyle({ height: "0%" })
+      }
+    })
   })
 
   describe("Today filtering", () => {

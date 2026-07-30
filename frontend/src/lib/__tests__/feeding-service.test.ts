@@ -236,6 +236,33 @@ describe("feeding-service", () => {
   })
 
   describe("createFeedSession", () => {
+    it("preserves left and right breast durations from the GraphQL response in the store", async () => {
+      mockCreateFeedingSession.mockResolvedValue(
+        makeGqlSession({ id: "breast-durations", leftDurationSec: 900, rightDurationSec: 420 }),
+      )
+
+      const result = await createFeedSession({
+        baby_id: "baby-1",
+        feed_type: "breast",
+        started_at: "2026-07-20T12:00:00Z",
+        left_duration_sec: 900,
+        right_duration_sec: 420,
+      })
+
+      expect(mockCreateFeedingSession).toHaveBeenCalledWith(expect.objectContaining({
+        leftDurationSec: 900,
+        rightDurationSec: 420,
+      }))
+      expect(result).toEqual(expect.objectContaining({
+        left_duration_sec: 900,
+        right_duration_sec: 420,
+      }))
+      expect(mockStore.addFeedSession).toHaveBeenCalledWith(expect.objectContaining({
+        left_duration_sec: 900,
+        right_duration_sec: 420,
+      }))
+    })
+
     it("calls gqlCreateFeedingSession and adds to store", async () => {
       const gqlResult = makeGqlSession({
         id: "gql-new",
