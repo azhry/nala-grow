@@ -9,17 +9,20 @@ Audit one requested local Codex session at a time. Treat the session log as sens
 
 ## Workflow
 
-1. Confirm the exact `session_id`, audit question, and project root. Do not substitute a similarly named session.
-2. Run the included extractor from the project root:
+1. Confirm the exact `session_id`, audit question, and project root. Do not substitute a similarly named session. Treat a targeted question as one required focus inside the whole-session audit, never as permission to ignore the rest of the session.
+2. Run the included extractor once from the project root to locate the exact live rollout:
 
    ```powershell
    <python-executable> .agents/skills/codex-session-audit/scripts/fetch_codex_session.py --session-id <session_id>
    ```
 
-   On Windows, try `py` or `python` only when either resolves to an installed interpreter. Otherwise resolve the workspace-bundled Python before running it. It searches `%USERPROFILE%/.codex/sessions` for `rollout-*-<session_id>.jsonl`, parses every valid JSONL event, and emits a redacted chronological index. If no single file is found, report that evidence and stop; do not guess another path.
-3. Read the matching log locally in bounded chunks when the index identifies an event requiring context. Redact sensitive values in notes and never copy full transcripts into Git, Linear, or chat.
-4. Inspect Codex-relevant project sources only: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, and `.codex/` when present. Inspect `.kilo/rules/` or `kilo.json` only when a session event or a Codex-relevant project rule explicitly shows that KiloCode policy governed this session. Cite the evidence for cross-tool relevance; otherwise exclude it from findings.
-5. Produce the report format in [audit protocol](references/audit-protocol.md). Trace every root-cause claim to a session event or project source.
+   On Windows, try `py` or `python` only when either resolves to an installed interpreter. Otherwise resolve the workspace-bundled Python.
+3. Copy the exact rollout to a unique temporary file outside the repository, then run every summary/page command with both `--session-id <id>` and `--session-file <snapshot>`. Record the reported `snapshot_sha256`, last timestamp, and `page_count`. Never page through a live rollout: it may append during the audit.
+4. Read **every snapshot transcript page**, in order, with `--page 1`, `--page 2`, and so on through `page_count`. Do not start findings before all pages are reviewed. The transcript covers the full human conversation plus bounded audit metadata for tool operations; encrypted reasoning and token-count noise are excluded.
+5. Follow every local attachment or pasted-request file referenced by a user message and read it fully when accessible. For a `[TRUNCATED ...]` tool record that affects a finding, read the referenced raw event/file locally before deciding. Do not silently treat an excerpt as complete evidence.
+6. Build a coverage ledger before analysis: snapshot hash/cutoff, pages read, referenced attachments read, user requests, agent decisions, tool failures, verification claims, instruction reads, and unresolved work. If any page or required attachment cannot be read, label the audit incomplete.
+7. Inspect Codex-relevant project sources only when the transcript shows they were loaded or applicable: `AGENTS.md`, `.agents/workflows/`, `.agents/skills/`, and `.codex/`. Inspect KiloCode sources only with explicit cross-tool evidence.
+8. Produce every section in [audit protocol](references/audit-protocol.md). The requested focus must appear in the report, but it must not replace whole-session findings.
 
 ## Access diagnosis
 

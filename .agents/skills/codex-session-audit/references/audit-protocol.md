@@ -2,11 +2,14 @@
 
 Use this report structure for both session sources.
 
+Before writing it, state coverage as `complete` only after every extractor page was read. A targeted question may shape emphasis but cannot narrow collection or omit unrelated major failures.
+
 ## 1. Session summary
 
 - Requested question and source/session ID.
 - What the user asked, what the agent attempted, and the first point where the outcome diverged.
 - Evidence coverage and limitations (missing/truncated/inaccessible events).
+- Coverage ledger: immutable snapshot SHA-256/cutoff, page range, session time range, referenced attachments, requests, decisions, failures, verification, and unresolved work.
 
 ## 2. Timeline of key events
 
