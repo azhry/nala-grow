@@ -141,7 +141,7 @@ func loadConfig() Config {
 	return Config{
 		Port:           getEnv("PORT", "8080"),
 		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
-		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3001"),
+		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
 		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
 	}
