@@ -378,8 +378,25 @@ describe("FeedingPage", () => {
       })
       renderPage()
 
-      expect(screen.getByTestId("bottle-bar-3 AM")).toHaveStyle({ height: "100%" })
+      expect(screen.getByTestId("bottle-bar-3 AM")).toHaveStyle({ height: "48%" })
       expect(screen.getByTestId("breast-bar-3 AM")).toHaveStyle({ height: "0%" })
+    })
+
+    it("uses the displayed 250ml chart scale instead of normalizing a 140ml feed to full height", () => {
+      const morning = new Date()
+      morning.setHours(9, 30, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "fixed-scale-bottle",
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: morning.toISOString(),
+          amount_ml: 140,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("bottle-bar-9 AM")).toHaveStyle({ height: "56%" })
     })
 
     it("keeps every chart series flat when there are no feeds", () => {

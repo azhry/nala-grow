@@ -130,10 +130,7 @@ export default function FeedingPage() {
 
   const barData = useMemo(() => {
     const slots = ["12 AM", "3 AM", "6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
-    const maxMl = Math.max(
-      ...rangeSessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
-      1,
-    )
+    const bottleChartMaximumMl = 250
     const maxBreastMinutes = Math.max(
       ...rangeSessions
         .filter((s) => s.feed_type === "breast")
@@ -154,7 +151,7 @@ export default function FeedingPage() {
         .reduce((acc, s) => acc + ((s.left_duration_sec ?? 0) + (s.right_duration_sec ?? 0)) / 60, 0)
       return {
         label,
-        bottleHeightPct: bottleTotal ? Math.max(5, (bottleTotal / maxMl) * 100) : 0,
+        bottleHeightPct: bottleTotal ? Math.min(100, Math.round((bottleTotal / bottleChartMaximumMl) * 100)) : 0,
         bottleTitle: `${label}: ${bottleTotal}ml`,
         breastHeightPct: breastMinutes ? Math.max(5, (breastMinutes / maxBreastMinutes) * 100) : 0,
         breastTitle: `${label}: ${Math.round(breastMinutes)} min breastfeed`,
