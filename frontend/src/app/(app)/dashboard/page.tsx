@@ -58,7 +58,7 @@ function getFeedStatus(hours: number | null) {
 }
 
 function toFeedSession(feed: GraphQLFeedingSession): FeedSession {
-  return { id: feed.id, baby_id: feed.babyId, feed_type: feed.feedType as FeedSession["feed_type"], started_at: feed.startedAt, ended_at: feed.endedAt || undefined, left_duration_sec: feed.leftDurationSec || undefined, right_duration_sec: feed.rightDurationSec || undefined, amount_ml: feed.amountMl || undefined, milk_type: feed.milkType ? feed.milkType as FeedSession["milk_type"] : undefined, food_name: feed.foodName || undefined, reaction: feed.reaction || undefined, notes: feed.notes || undefined }
+  return { id: feed.id, baby_id: feed.babyId, feed_type: feed.feedType as FeedSession["feed_type"], started_at: feed.startedAt, ended_at: feed.endedAt || undefined, left_duration_sec: feed.leftDurationSec || undefined, right_duration_sec: feed.rightDurationSec || undefined, amount_ml: feed.amountMl || undefined, milk_type: (feed.milkType as FeedSession["milk_type"]) || undefined, food_name: feed.foodName || undefined, reaction: feed.reaction || undefined, notes: feed.notes || undefined }
 }
 
 function toSleepSession(session: GraphQLSleepSession): SleepSession {
