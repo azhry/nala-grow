@@ -17,11 +17,21 @@ Linear manages issues (individual work items), projects (grouped outcomes), cycl
 ## Workflow
 
 1. Confirm Linear tools exist; if absent, ask the user to connect Linear.
-2. Read the target first and derive its team, project, valid states, and conventions from actual workspace data—never hard-code a project.
-3. Search/list to resolve ambiguous names, then mutate with an exact ID.
-4. Report changed fields, created links, and any remaining blocker.
+2. If the Linear MCP connector is unavailable, use the HTTP API fallback scripts at `.agents/skills/linear/scripts/linear_tooling.py`. Run each operation as a subcommand: `py linear_tooling.py <command> --help`. See TOOLING.md for the full operation mapping.
+3. Read the target first and derive its team, project, valid states, and conventions from actual workspace data—never hard-code a project.
+4. Search/list to resolve ambiguous names, then mutate with an exact ID.
+5. Report changed fields, created links, and any remaining blocker.
 
 Read [TOOLING.md](TOOLING.md) before making calls; it maps Linear operations to connector tools and API equivalents.
+
+## HTTP API fallback
+
+When the Linear MCP connector is not available, use the scripts in `.agents/skills/linear/scripts/linear_tooling.py`. These scripts read the API key from the `LINEAR_API_KEY` environment variable and never log or emit it. Set the environment variable before running:
+
+```powershell
+$env:LINEAR_API_KEY = "<your-api-key>"
+py .agents/skills/linear/scripts/linear_tooling.py read-issue --id AZH-417
+```
 
 ## Delivery handoff
 
