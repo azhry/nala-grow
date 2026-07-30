@@ -14,10 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationDashboardQueriesReadPersistedActiveBabyData is the intentionally
-// red contract for AZH-395. The care records are inserted only in PostgreSQL,
-// then read through a new GraphQL handler. It must not be made green by adding
-// records to the handler's process-local maps.
+// TestIntegrationDashboardQueriesReadPersistedActiveBabyData verifies that care
+// records inserted only in PostgreSQL are visible through a fresh handler.
 func TestIntegrationDashboardQueriesReadPersistedActiveBabyData(t *testing.T) {
 	harness := testutil.StartPostgres(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -35,8 +33,8 @@ func TestIntegrationDashboardQueriesReadPersistedActiveBabyData(t *testing.T) {
 	ownerCtx := context.WithValue(ctx, "raw_token", ownerToken)
 	otherCtx := context.WithValue(ctx, "raw_token", otherToken)
 
-	// The current handler needs its own baby map for authorization. These calls
-	// establish that prerequisite only; every care record below is PostgreSQL-only.
+	// These profiles establish the owner-scoped database prerequisites; every
+	// care record below is inserted only in PostgreSQL.
 	activeBabyID := createContractBaby(t, ownerCtx, client, "Dashboard Baby")
 	emptyBabyID := createContractBaby(t, ownerCtx, client, "Empty Dashboard Baby")
 	otherBabyID := createContractBaby(t, otherCtx, client, "Other Dashboard Baby")
@@ -117,10 +115,10 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 		('00000000-0000-4000-8000-000000000952', $1, '2026-07-28T12:00:00Z', '2026-07-28T13:30:00Z', 'bed'),
 		('00000000-0000-4000-8000-000000000953', $2, '2026-07-28T14:00:00Z', '2026-07-28T15:00:00Z', 'carrier')`, activeBabyID, otherBabyID)
 	require.NoError(t, err)
-	_, err = harness.Pool.Exec(ctx, `INSERT INTO measurements (id, baby_id, type, value, unit, date) VALUES
-		('00000000-0000-4000-8000-000000000961', $1, 'weight', 7.10, 'metric', '2026-07-01'),
-		('00000000-0000-4000-8000-000000000962', $1, 'weight', 7.35, 'metric', '2026-07-28'),
-		('00000000-0000-4000-8000-000000000963', $2, 'weight', 9.99, 'metric', '2026-07-29')`, activeBabyID, otherBabyID)
+	_, err = harness.Pool.Exec(ctx, `INSERT INTO measurements (id, group_id, baby_id, type, value, unit, date) VALUES
+		('00000000-0000-4000-8000-000000000961', '00000000-0000-4000-8000-000000000961', $1, 'weight', 7.10, 'metric', '2026-07-01'),
+		('00000000-0000-4000-8000-000000000962', '00000000-0000-4000-8000-000000000962', $1, 'weight', 7.35, 'metric', '2026-07-28'),
+		('00000000-0000-4000-8000-000000000963', '00000000-0000-4000-8000-000000000963', $2, 'weight', 9.99, 'metric', '2026-07-29')`, activeBabyID, otherBabyID)
 	require.NoError(t, err)
 }
 

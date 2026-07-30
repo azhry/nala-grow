@@ -1,15 +1,41 @@
 package testutil
 
 import (
+	"context"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/graph"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var smokePool *pgxpool.Pool
+
+func TestMain(m *testing.M) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"
+	}
+	if err := db.RunMigrations(databaseURL); err != nil {
+		os.Exit(1)
+	}
+	pool, err := db.Connect(ctx, databaseURL)
+	if err != nil {
+		os.Exit(1)
+	}
+	smokePool = pool
+	defer pool.Close()
+	os.Exit(m.Run())
+}
+
 func TestGraphQLSmoke(t *testing.T) {
-	handler := NewTestHandler()
+	handler := NewTestHandler(smokePool)
 	require.NotNil(t, handler, "NewTestHandler should return a non-nil handler")
 
 	result := ExecuteQuery(handler, "query { health }", nil)
@@ -24,15 +50,15 @@ func TestGraphQLSmoke(t *testing.T) {
 }
 
 func TestGraphQLUnknownQuery(t *testing.T) {
-	handler := NewTestHandler()
+	handler := NewTestHandler(smokePool)
 	result := ExecuteQuery(handler, "query { unknownField }", nil)
 	require.NotEmpty(t, result.Errors, "unknown query should return errors")
 	assert.True(t, HasError(result.Errors, "unknown query"), "should mention unknown query")
 }
 
 func TestNewTestHandler(t *testing.T) {
-	h1 := NewTestHandler()
-	h2 := NewTestHandler()
+	h1 := NewTestHandler(smokePool)
+	h2 := NewTestHandler(smokePool)
 	assert.NotNil(t, h1)
 	assert.NotNil(t, h2)
 	// Each call should return a fresh handler with independent auth state

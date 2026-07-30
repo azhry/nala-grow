@@ -51,6 +51,7 @@ function setStoreState(state: Partial<typeof storeState>) {
 beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers()
+	jest.setSystemTime(new Date("2026-07-31T12:00:00Z"))
   setStoreState({})
   mockFetchFeedSessions.mockResolvedValue([])
   mockCreateFeedSession.mockResolvedValue({
@@ -255,39 +256,20 @@ describe("FeedingPage", () => {
     })
   })
 
-  describe("Error fallback", () => {
-    it("falls back to addFeedSession on createFeedSession failure", async () => {
+  describe("Save failure", () => {
+    it("shows a retryable error without adding a local-only session or clearing the form", async () => {
       mockCreateFeedSession.mockRejectedValue(new Error("Network error"))
       renderPage()
 
-      // Must set manual duration > 0, otherwise breast save bails out early
       const input = screen.getByPlaceholderText("0") as HTMLInputElement
       fireEvent.change(input, { target: { value: "5" } })
       fireEvent.click(screen.getByText("Save Entry"))
       await act(async () => {})
 
-      // Should call local addFeedSession as fallback
-      expect(storeState.addFeedSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feed_type: "breast",
-        }),
-      )
-    })
-
-    it("falls back to addFeedSession for bottle save on failure", async () => {
-      mockCreateFeedSession.mockRejectedValue(new Error("Backend down"))
-      renderPage()
-      fireEvent.click(screen.getByText("Bottle"))
-      fireEvent.click(screen.getByText("Save Entry"))
-      await act(async () => {})
-
-      expect(storeState.addFeedSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feed_type: "bottle",
-          amount_ml: 120,
-          milk_type: "breast_milk",
-        }),
-      )
+      expect(screen.getByRole("alert")).toHaveTextContent("Unable to save this feeding entry")
+      expect(screen.getByRole("alert")).toHaveTextContent("try again")
+      expect(storeState.addFeedSession).not.toHaveBeenCalled()
+      expect(input).toHaveValue(5)
     })
   })
 

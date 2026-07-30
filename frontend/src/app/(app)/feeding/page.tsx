@@ -16,10 +16,6 @@ import { BottleForm } from "@/components/feeding"
 import { SolidsForm } from "@/components/feeding"
 import { AppHeader } from "@/components/layout/app-header"
 
-function generateId(): string {
-  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-}
-
 function getDateRange(daysAgo = 0): [Date, Date] {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo)
@@ -30,16 +26,11 @@ function getDateRange(daysAgo = 0): [Date, Date] {
 export default function FeedingPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const feedSessions = useAppStore((s) => s.feedSessions)
-  const addFeedSession = useAppStore((s) => s.addFeedSession)
-  const setFeedSessions = useAppStore((s) => s.setFeedSessions)
-  const updateStoredFeedSession = useAppStore((s) => s.updateFeedSession)
-  const deleteStoredFeedSession = useAppStore((s) => s.deleteFeedSession)
-
   useEffect(() => {
     if (activeBaby?.id) {
       fetchFeedSessions(activeBaby.id).catch(() => {})
     }
-  }, [activeBaby?.id, setFeedSessions])
+  }, [activeBaby?.id])
 
   const babyId = activeBaby?.id ?? "sample"
   const babyName = activeBaby?.name ?? "Lily"
@@ -54,6 +45,7 @@ export default function FeedingPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [feedPanelOpen, setFeedPanelOpen] = useState(true)
   const [statusMessage, setStatusMessage] = useState("")
+  const [saveError, setSaveError] = useState("")
 
   const [runningSide, setRunningSide] = useState<"left" | "right" | null>(null)
   const [leftSeconds, setLeftSeconds] = useState(0)
@@ -178,6 +170,7 @@ export default function FeedingPage() {
     const totalSec = leftSeconds + rightSeconds
     if (totalSec === 0 && manualDuration === 0) return
 
+    setSaveError("")
     try {
       await createFeedSession({
         baby_id: babyId,
@@ -189,17 +182,8 @@ export default function FeedingPage() {
         notes: breastNotes || undefined,
       })
     } catch {
-      // Fall back to local-only save if backend unavailable
-      addFeedSession({
-        id: generateId(),
-        baby_id: babyId,
-        feed_type: "breast",
-        started_at: new Date().toISOString(),
-        ended_at: new Date().toISOString(),
-        left_duration_sec: manualDuration > 0 ? manualDuration * 60 : leftSeconds,
-        right_duration_sec: manualDuration > 0 ? 0 : rightSeconds,
-        notes: breastNotes || undefined,
-      })
+      setSaveError("Unable to save this feeding entry. Your details are still here; check your connection and try again.")
+      return
     }
 
     setRunningSide(null)
@@ -210,6 +194,7 @@ export default function FeedingPage() {
   }
 
   const handleSaveBottle = async () => {
+    setSaveError("")
     try {
       await createFeedSession({
         baby_id: babyId,
@@ -222,17 +207,8 @@ export default function FeedingPage() {
         notes: bottleNotes || undefined,
       })
     } catch {
-      addFeedSession({
-        id: generateId(),
-        baby_id: babyId,
-        feed_type: "bottle",
-        started_at: new Date().toISOString(),
-        ended_at: new Date().toISOString(),
-        amount_ml: bottleAmount,
-        milk_type: milkType,
-        temperature,
-        notes: bottleNotes || undefined,
-      })
+      setSaveError("Unable to save this feeding entry. Your details are still here; check your connection and try again.")
+      return
     }
 
     setBottleAmount(120)
@@ -244,6 +220,7 @@ export default function FeedingPage() {
   const handleSaveSolids = async () => {
     if (!foodName.trim()) return
 
+    setSaveError("")
     try {
       await createFeedSession({
         baby_id: babyId,
@@ -257,18 +234,8 @@ export default function FeedingPage() {
         notes: solidsNotes || undefined,
       })
     } catch {
-      addFeedSession({
-        id: generateId(),
-        baby_id: babyId,
-        feed_type: "solids",
-        started_at: new Date().toISOString(),
-        ended_at: new Date().toISOString(),
-        food_name: foodName,
-        quantity: quantity || undefined,
-        quantity_unit: quantityUnit,
-        reaction: (reaction as FeedSession["reaction"]) || undefined,
-        notes: solidsNotes || undefined,
-      })
+      setSaveError("Unable to save this feeding entry. Your details are still here; check your connection and try again.")
+      return
     }
 
     setFoodName("")
@@ -287,20 +254,24 @@ export default function FeedingPage() {
 
   const saveEdit = async () => {
     if (!editingSession) return
+    setSaveError("")
     try {
       await updateFeedSession(editingSession.id, { notes: editNotes })
     } catch {
-      updateStoredFeedSession(editingSession.id, { notes: editNotes })
+      setSaveError("Unable to update this feeding entry. Your changes are still here; try again.")
+      return
     }
     setEditingSession(null)
   }
 
   const confirmDelete = async () => {
     if (!deletingSession) return
+    setSaveError("")
     try {
       await deleteFeedSession(deletingSession.id)
     } catch {
-      deleteStoredFeedSession(deletingSession.id)
+      setSaveError("Unable to delete this feeding entry. It has not been removed; try again.")
+      return
     }
     setDeletingSession(null)
   }
@@ -458,6 +429,11 @@ export default function FeedingPage() {
           </aside>
         </div>
       </div>
+      {saveError && (
+        <div role="alert" className="fixed top-6 left-1/2 z-[70] w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-error-container bg-error-container p-3 font-body-sm text-body-sm text-on-error-container shadow-soft">
+          {saveError}
+        </div>
+      )}
       {editingSession && <div className="fixed inset-0 z-50 flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="edit-heading"><div className="w-full max-w-lg bg-white rounded-[24px] soft-shadow overflow-hidden"><div className="p-6 bg-surface-container-low flex items-center justify-between"><div><h2 id="edit-heading" className="font-headline-md text-headline-md">Edit Feed Entry</h2><p className="font-body-sm text-body-sm text-on-surface-variant">{new Date(editingSession.started_at).toLocaleString()}</p></div><button type="button" onClick={() => setEditingSession(null)} aria-label="Close edit dialog" className="p-2 rounded-full hover:bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><div className="p-6 space-y-4"><div className="rounded-xl bg-surface-container-low p-4"><p className="font-label-md text-label-md text-primary uppercase">{editingSession.feed_type} entry</p><p className="font-body-md text-body-md">Update your observation below.</p></div><label className="block font-label-md text-label-md text-primary uppercase">Notes<textarea value={editNotes} onChange={(event) => setEditNotes(event.target.value)} className="mt-2 w-full h-24 p-gutter rounded-xl bg-surface-container-high border-none outline-none focus:ring-2 focus:ring-primary/20 font-body-md text-body-md resize-none" /></label><div className="flex gap-3 pt-2"><button type="button" onClick={() => setEditingSession(null)} className="flex-1 py-3 rounded-full border-2 border-primary-container text-primary font-headline-sm">Cancel</button><button type="button" onClick={saveEdit} className="flex-1 py-3 rounded-full bg-primary-container text-on-primary-container font-headline-sm">Save Changes</button></div></div></div></div>}
       {deletingSession && <div className="fixed inset-0 z-[60] flex items-center justify-center p-container-margin bg-primary/20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-heading"><div className="w-full max-w-sm bg-white rounded-[24px] p-stack-md soft-shadow text-center"><div className="w-16 h-16 mx-auto mb-4 rounded-full bg-error-container/40 text-error flex items-center justify-center"><span className="material-symbols-outlined text-[32px]">delete_forever</span></div><h2 id="delete-heading" className="font-headline-sm text-headline-sm mb-2">Delete this record?</h2><p className="font-body-md text-body-md text-on-surface-variant mb-stack-md">This feeding record will be permanently removed.</p><button type="button" onClick={confirmDelete} className="w-full py-3 rounded-full bg-error text-white font-headline-sm mb-2">Delete</button><button type="button" onClick={() => setDeletingSession(null)} className="w-full py-3 rounded-full text-primary font-label-md text-label-md">Cancel</button></div></div>}
       {statusMessage && <div role="status" className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-inverse-surface px-5 py-3 text-body-sm text-inverse-on-surface shadow-soft">{statusMessage}</div>}

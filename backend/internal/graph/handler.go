@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
@@ -19,21 +18,6 @@ type storedUser struct {
 	PasswordHash string
 	DisplayName  string
 }
-
-var (
-	usersMu           sync.RWMutex
-	users             = map[string]storedUser{}
-	babiesMu          sync.RWMutex
-	babies            = map[string]BabyProfile{}
-	measurementsMu    sync.RWMutex
-	measurements      = map[string]Measurement{}
-	feedingSessionsMu sync.RWMutex
-	feedingSessions   = map[string]FeedingSession{}
-	sleepSessionsMu   sync.RWMutex
-	sleepSessions     = map[string]SleepSession{}
-	milestonesMu      sync.RWMutex
-	milestones        = map[string]Milestone{}
-)
 
 type BabyProfile struct {
 	ID        string `json:"id"`
@@ -98,25 +82,22 @@ type FeedingSession struct {
 }
 
 type Handler struct {
-	db             interface{ Close() }
+	db             *pgxpool.Pool
 	auth           *auth.Service
 	googleVerifier *auth.GoogleTokenVerifier
 	resetTokens    *auth.ResetTokenStore
 	googleClientID string
 }
 
-func NewHandler(db interface{ Close() }, authSvc *auth.Service) *Handler {
+// NewHandler requires PostgreSQL. GraphQL operations never use process-local
+// state as a persistence substitute.
+func NewHandler(db *pgxpool.Pool, authSvc *auth.Service) *Handler {
 	return &Handler{
 		db:             db,
 		auth:           authSvc,
 		googleVerifier: auth.NewGoogleTokenVerifier(),
 		resetTokens:    auth.NewResetTokenStore(),
 	}
-}
-
-func (h *Handler) feedingPool() *pgxpool.Pool {
-	pool, _ := h.db.(*pgxpool.Pool)
-	return pool
 }
 
 // SetGoogleClientID configures the expected Google OAuth client ID for token verification.
@@ -192,14 +173,14 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 			return errResult
 		}
 		if strings.Contains(body, "babies") {
-			babiesMu.RLock()
-			var list []map[string]interface{}
-			for _, b := range babies {
-				if b.UserID == userID {
-					list = append(list, babyToMap(b))
-				}
+			profiles, err := loadBabies(ctx, h.db, userID)
+			if err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not load babies"}}}
 			}
-			babiesMu.RUnlock()
+			list := make([]map[string]interface{}, 0, len(profiles))
+			for _, b := range profiles {
+				list = append(list, babyToMap(b))
+			}
 			if list == nil {
 				list = []map[string]interface{}{}
 			}
@@ -212,10 +193,8 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[id]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		b, err := loadBaby(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
@@ -232,10 +211,8 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		b, err := loadBaby(ctx, h.db, babyID, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		dateFrom := getVar(variables, "dateFrom")
@@ -247,14 +224,14 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		csv += "Sex," + csvEscape(b.Sex) + "\n\n"
 
 		// Feeding sessions
-		feedingSessionsMu.RLock()
+		feeds, err := loadFeedingSessions(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		csv += "Feeding Sessions\n"
 		csv += "Feed Type,Started,Ended,Left (sec),Right (sec),Amount (ml),Milk Type,Food,Reaction,Notes\n"
 		feedCount := 0
-		for _, s := range feedingSessions {
-			if s.BabyID != babyID {
-				continue
-			}
+		for _, s := range feeds {
 			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
 				continue
 			}
@@ -269,21 +246,20 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 			csv += csvEscape(s.Notes) + "\n"
 			feedCount++
 		}
-		feedingSessionsMu.RUnlock()
 		if feedCount == 0 {
 			csv += "No records found\n"
 		}
 		csv += "\n"
 
 		// Sleep sessions
-		sleepSessionsMu.RLock()
+		sleeps, err := loadSleepSessions(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		csv += "Sleep Sessions\n"
 		csv += "Sleep Location,Started,Ended,Notes\n"
 		sleepCount := 0
-		for _, s := range sleepSessions {
-			if s.BabyID != babyID {
-				continue
-			}
+		for _, s := range sleeps {
 			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
 				continue
 			}
@@ -293,21 +269,20 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 			csv += csvEscape(s.Notes) + "\n"
 			sleepCount++
 		}
-		sleepSessionsMu.RUnlock()
 		if sleepCount == 0 {
 			csv += "No records found\n"
 		}
 		csv += "\n"
 
 		// Measurements
-		measurementsMu.RLock()
+		measurementRecords, err := loadMeasurements(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		csv += "Growth Measurements\n"
 		csv += "Date,Weight (kg),Height (cm),Head Circumference (cm)\n"
 		measCount := 0
-		for _, m := range measurements {
-			if m.BabyID != babyID {
-				continue
-			}
+		for _, m := range measurementRecords {
 			if !inDateRange(m.Date, dateFrom, dateTo) {
 				continue
 			}
@@ -317,21 +292,20 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 			csv += fmt.Sprintf("%.2f\n", m.HeadCircumference)
 			measCount++
 		}
-		measurementsMu.RUnlock()
 		if measCount == 0 {
 			csv += "No records found\n"
 		}
 		csv += "\n"
 
 		// Milestones
-		milestonesMu.RLock()
+		milestoneRecords, err := loadMilestones(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		csv += "Milestones\n"
 		csv += "Title,Category,Achieved At,Notes\n"
 		msCount := 0
-		for _, m := range milestones {
-			if m.BabyID != babyID {
-				continue
-			}
+		for _, m := range milestoneRecords {
 			if !inDateRange(m.AchievedAt, dateFrom, dateTo) {
 				continue
 			}
@@ -341,7 +315,6 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 			csv += csvEscape(m.Note) + "\n"
 			msCount++
 		}
-		milestonesMu.RUnlock()
 		if msCount == 0 {
 			csv += "No records found\n"
 		}
@@ -360,70 +333,64 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		b, err := loadBaby(ctx, h.db, babyID, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		dateFrom := getVar(variables, "dateFrom")
 		dateTo := getVar(variables, "dateTo")
 
 		// Feeding sessions
-		feedingSessionsMu.RLock()
+		feeds, err := loadFeedingSessions(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		var feedList []map[string]interface{}
-		for _, s := range feedingSessions {
-			if s.BabyID != babyID {
-				continue
-			}
+		for _, s := range feeds {
 			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
 				continue
 			}
 			feedList = append(feedList, feedingSessionToMap(s))
 		}
-		feedingSessionsMu.RUnlock()
 
 		// Sleep sessions
-		sleepSessionsMu.RLock()
+		sleeps, err := loadSleepSessions(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		var sleepList []map[string]interface{}
-		for _, s := range sleepSessions {
-			if s.BabyID != babyID {
-				continue
-			}
+		for _, s := range sleeps {
 			if !inDateRange(s.StartedAt, dateFrom, dateTo) {
 				continue
 			}
 			sleepList = append(sleepList, sleepSessionToMap(s))
 		}
-		sleepSessionsMu.RUnlock()
 
 		// Measurements
-		measurementsMu.RLock()
+		measurementRecords, err := loadMeasurements(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		var measList []map[string]interface{}
-		for _, m := range measurements {
-			if m.BabyID != babyID {
-				continue
-			}
+		for _, m := range measurementRecords {
 			if !inDateRange(m.Date, dateFrom, dateTo) {
 				continue
 			}
 			measList = append(measList, measurementToMap(m))
 		}
-		measurementsMu.RUnlock()
 
 		// Milestones
-		milestonesMu.RLock()
+		milestoneRecords, err := loadMilestones(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not export data"}}}
+		}
 		var msList []map[string]interface{}
-		for _, m := range milestones {
-			if m.BabyID != babyID {
-				continue
-			}
+		for _, m := range milestoneRecords {
 			if !inDateRange(m.AchievedAt, dateFrom, dateTo) {
 				continue
 			}
 			msList = append(msList, milestoneToMap(m))
 		}
-		milestonesMu.RUnlock()
 
 		return ExecResult{Data: map[string]interface{}{
 			"exportData": map[string]interface{}{
@@ -449,20 +416,17 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
-		milestonesMu.RLock()
-		var list []map[string]interface{}
-		for _, m := range milestones {
-			if m.BabyID == babyID {
-				list = append(list, milestoneToMap(m))
-			}
+		records, err := loadMilestones(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load milestones"}}}
 		}
-		milestonesMu.RUnlock()
+		var list []map[string]interface{}
+		for _, m := range records {
+			list = append(list, milestoneToMap(m))
+		}
 		if list == nil {
 			list = []map[string]interface{}{}
 		}
@@ -480,16 +444,8 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		milestonesMu.RLock()
-		m, ok := milestones[id]
-		milestonesMu.RUnlock()
-		if !ok {
-			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
-		}
-		babiesMu.RLock()
-		b, babyOk := babies[m.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
+		m, err := loadMilestone(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
@@ -506,29 +462,16 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		var list []map[string]interface{}
-		if pool := h.feedingPool(); pool != nil {
-			sessions, err := loadSleepSessions(ctx, pool, babyID, userID)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not load sleep sessions"}}}
-			}
-			for _, s := range sessions {
-				list = append(list, sleepSessionToMap(s))
-			}
-		} else {
-			sleepSessionsMu.RLock()
-			for _, s := range sleepSessions {
-				if s.BabyID == babyID {
-					list = append(list, sleepSessionToMap(s))
-				}
-			}
-			sleepSessionsMu.RUnlock()
+		sessions, err := loadSleepSessions(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load sleep sessions"}}}
+		}
+		for _, s := range sessions {
+			list = append(list, sleepSessionToMap(s))
 		}
 		if list == nil {
 			list = []map[string]interface{}{}
@@ -547,16 +490,11 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		sleepSessionsMu.RLock()
-		s, ok := sleepSessions[id]
-		sleepSessionsMu.RUnlock()
-		if !ok {
+		s, err := loadSleepSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
 		}
-		babiesMu.RLock()
-		b, babyOk := babies[s.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, s.BabyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
@@ -573,29 +511,16 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		var list []map[string]interface{}
-		if pool := h.feedingPool(); pool != nil {
-			sessions, err := loadFeedingSessions(ctx, pool, babyID)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not load feeding sessions"}}}
-			}
-			for _, s := range sessions {
-				list = append(list, feedingSessionToMap(s))
-			}
-		} else {
-			feedingSessionsMu.RLock()
-			for _, s := range feedingSessions {
-				if s.BabyID == babyID {
-					list = append(list, feedingSessionToMap(s))
-				}
-			}
-			feedingSessionsMu.RUnlock()
+		sessions, err := loadFeedingSessions(ctx, h.db, babyID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load feeding sessions"}}}
+		}
+		for _, s := range sessions {
+			list = append(list, feedingSessionToMap(s))
 		}
 		if list == nil {
 			list = []map[string]interface{}{}
@@ -614,24 +539,11 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		var s FeedingSession
-		var ok bool
-		if pool := h.feedingPool(); pool != nil {
-			var err error
-			s, err = loadFeedingSession(ctx, pool, id)
-			ok = err == nil
-		} else {
-			feedingSessionsMu.RLock()
-			s, ok = feedingSessions[id]
-			feedingSessionsMu.RUnlock()
-		}
-		if !ok {
+		s, err := loadFeedingSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
-		babiesMu.RLock()
-		b, babyOk := babies[s.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, s.BabyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
@@ -648,29 +560,16 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		var list []map[string]interface{}
-		if pool := h.feedingPool(); pool != nil {
-			records, err := loadMeasurements(ctx, pool, babyID, userID)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not load measurements"}}}
-			}
-			for _, m := range records {
-				list = append(list, measurementToMap(m))
-			}
-		} else {
-			measurementsMu.RLock()
-			for _, m := range measurements {
-				if m.BabyID == babyID {
-					list = append(list, measurementToMap(m))
-				}
-			}
-			measurementsMu.RUnlock()
+		records, err := loadMeasurements(ctx, h.db, babyID, userID)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load measurements"}}}
+		}
+		for _, m := range records {
+			list = append(list, measurementToMap(m))
 		}
 		if list == nil {
 			list = []map[string]interface{}{}
@@ -689,17 +588,8 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		measurementsMu.RLock()
-		m, ok := measurements[id]
-		measurementsMu.RUnlock()
-		if !ok {
-			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
-		}
-		// Verify the baby belongs to the user
-		babiesMu.RLock()
-		b, babyOk := babies[m.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
+		m, err := loadMeasurement(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
@@ -715,13 +605,8 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		if h.auth != nil {
 			claims, err := h.auth.JWT.ValidateToken(token)
 			if err == nil && claims != nil {
-				u, ok := func() (storedUser, bool) {
-					usersMu.RLock()
-					defer usersMu.RUnlock()
-					u, ok := users[claims.UserID]
-					return u, ok
-				}()
-				if !ok {
+				u, err := loadUserByID(ctx, h.db, claims.UserID)
+				if err != nil {
 					return ExecResult{Errors: []GraphQLError{{Message: "user not found"}}}
 				}
 				return ExecResult{Data: map[string]interface{}{
@@ -755,108 +640,31 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			displayName = email[:strings.Index(email, "@")]
 		}
 
-		// Check if user already exists — if so, return a new token for them
-		// instead of creating a duplicate. This makes login deterministic
-		// (one entry per email) and prevents Go map iteration order bugs.
-		usersMu.RLock()
-		var existingID string
-		for id, u := range users {
-			if u.Email == email {
-				existingID = id
-				break
-			}
+		if h.auth == nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
 		}
-		usersMu.RUnlock()
-		if existingID != "" {
-			// Update password to the provided one (makes tests deterministic)
-			if h.auth != nil {
-				hash, err := h.auth.Password.Hash(password)
-				if err != nil {
-					return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
-				}
-				usersMu.Lock()
-				u := users[existingID]
-				u.PasswordHash = hash
-				users[existingID] = u
-				usersMu.Unlock()
-
-				token, err := h.auth.JWT.GenerateToken(existingID, email)
-				if err != nil {
-					return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
-				}
-				return ExecResult{Data: map[string]interface{}{
-					"signup": map[string]interface{}{
-						"token": token,
-						"user": map[string]interface{}{
-							"id":          existingID,
-							"email":       u.Email,
-							"displayName": u.DisplayName,
-							"photoUrl":    "",
-							"createdAt":   time.Now().UTC().Format(time.RFC3339),
-						},
-					},
-				}}
-			}
-			return ExecResult{Data: map[string]interface{}{
-				"signup": map[string]interface{}{
-					"token": "jwt-placeholder-" + email,
-					"user": map[string]interface{}{
-						"id":          existingID,
-						"email":       email,
-						"displayName": displayName,
-						"photoUrl":    "",
-						"createdAt":   time.Now().UTC().Format(time.RFC3339),
-					},
-				},
-			}}
+		hash, err := h.auth.Password.Hash(password)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
 		}
-
-		userID := uuid()
-		if h.auth != nil {
-			hash, err := h.auth.Password.Hash(password)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
-			}
-			usersMu.Lock()
-			users[userID] = storedUser{Email: email, PasswordHash: hash, DisplayName: displayName}
-			usersMu.Unlock()
-			if pool := h.feedingPool(); pool != nil {
-				if _, err := pool.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING", userID, email, hash, displayName); err != nil {
-					usersMu.Lock()
-					delete(users, userID)
-					usersMu.Unlock()
-					return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
-				}
-			}
-			token, err := h.auth.JWT.GenerateToken(userID, email)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
-			}
-			return ExecResult{Data: map[string]interface{}{
-				"signup": map[string]interface{}{
-					"token": token,
-					"user": map[string]interface{}{
-						"id":          userID,
-						"email":       email,
-						"displayName": displayName,
-						"photoUrl":    "",
-						"createdAt":   time.Now().UTC().Format(time.RFC3339),
-					},
-				},
-			}}
+		userID, existing, err := loadUserByEmail(ctx, h.db, email)
+		if err != nil && err != pgx.ErrNoRows {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load user"}}}
 		}
-		return ExecResult{Data: map[string]interface{}{
-			"signup": map[string]interface{}{
-				"token": "jwt-placeholder-" + email,
-				"user": map[string]interface{}{
-					"id":          userID,
-					"email":       email,
-					"displayName": displayName,
-					"photoUrl":    "",
-					"createdAt":   time.Now().UTC().Format(time.RFC3339),
-				},
-			},
-		}}
+		if err == pgx.ErrNoRows {
+			userID = uuid()
+			if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)", userID, email, hash, displayName); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
+			}
+			existing = storedUser{Email: email, PasswordHash: hash, DisplayName: displayName}
+		} else if _, err := h.db.Exec(ctx, "UPDATE users SET password_hash = $2 WHERE id = $1", userID, hash); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update user"}}}
+		}
+		token, err := h.auth.JWT.GenerateToken(userID, email)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
+		}
+		return authResult("signup", token, userID, existing)
 	}
 
 	if strings.Contains(body, "loginwithgoogle") || strings.Contains(body, "login_with_google") {
@@ -871,19 +679,11 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "invalid Google token: " + err.Error()}}}
 		}
-		// Look up existing user by email
-		var foundID string
-		var found storedUser
-		usersMu.RLock()
-		for id, u := range users {
-			if u.Email == googleUser.Email {
-				foundID = id
-				found = u
-				break
-			}
+		foundID, found, err := loadUserByEmail(ctx, h.db, googleUser.Email)
+		if err != nil && err != pgx.ErrNoRows {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load user"}}}
 		}
-		usersMu.RUnlock()
-		if foundID == "" {
+		if err == pgx.ErrNoRows {
 			// Create new user
 			foundID = uuid()
 			displayName := googleUser.Name
@@ -897,26 +697,15 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 				PasswordHash: placeholderHash,
 				DisplayName:  displayName,
 			}
-			usersMu.Lock()
-			users[foundID] = found
-			usersMu.Unlock()
+			if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)", foundID, found.Email, found.PasswordHash, found.DisplayName); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
+			}
 		}
 		token, err := h.auth.JWT.GenerateToken(foundID, found.Email)
 		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
 		}
-		return ExecResult{Data: map[string]interface{}{
-			"loginWithGoogle": map[string]interface{}{
-				"token": token,
-				"user": map[string]interface{}{
-					"id":          foundID,
-					"email":       found.Email,
-					"displayName": found.DisplayName,
-					"photoUrl":    "",
-					"createdAt":   time.Now().UTC().Format(time.RFC3339),
-				},
-			},
-		}}
+		return authResult("loginWithGoogle", token, foundID, found)
 	}
 
 	if strings.Contains(body, "login") {
@@ -925,18 +714,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if email == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
 		}
-		var foundID string
-		var found storedUser
-		usersMu.RLock()
-		for id, u := range users {
-			if u.Email == email {
-				foundID = id
-				found = u
-				break
-			}
-		}
-		usersMu.RUnlock()
-		if foundID == "" {
+		foundID, found, err := loadUserByEmail(ctx, h.db, email)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "invalid email or password"}}}
 		}
 		if h.auth != nil {
@@ -947,18 +726,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			if err != nil {
 				return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
 			}
-			return ExecResult{Data: map[string]interface{}{
-				"login": map[string]interface{}{
-					"token": token,
-					"user": map[string]interface{}{
-						"id":          foundID,
-						"email":       found.Email,
-						"displayName": found.DisplayName,
-						"photoUrl":    "",
-						"createdAt":   time.Now().UTC().Format(time.RFC3339),
-					},
-				},
-			}}
+			return authResult("login", token, foundID, found)
 		}
 		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
 	}
@@ -969,16 +737,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
 		}
 		// Check if user exists (but don't reveal to prevent email enumeration)
-		userExists := func() bool {
-			usersMu.RLock()
-			defer usersMu.RUnlock()
-			for _, u := range users {
-				if u.Email == email {
-					return true
-				}
-			}
-			return false
-		}()
+		_, _, lookupErr := loadUserByEmail(ctx, h.db, email)
+		userExists := lookupErr == nil
 		if !userExists {
 			// Return success anyway to prevent email enumeration
 			return ExecResult{Data: map[string]interface{}{
@@ -1005,17 +765,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "invalid or expired reset token"}}}
 		}
-		// Find the user by email
-		var foundID string
-		usersMu.RLock()
-		for id, u := range users {
-			if u.Email == email {
-				foundID = id
-				break
-			}
-		}
-		usersMu.RUnlock()
-		if foundID == "" {
+		foundID, _, err := loadUserByEmail(ctx, h.db, email)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "user not found"}}}
 		}
 		// Hash the new password
@@ -1026,13 +777,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "failed to hash password"}}}
 		}
-		// Update the user's password
-		usersMu.Lock()
-		if u, ok := users[foundID]; ok {
-			u.PasswordHash = hash
-			users[foundID] = u
+		if _, err := h.db.Exec(ctx, "UPDATE users SET password_hash = $2 WHERE id = $1", foundID, hash); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update password"}}}
 		}
-		usersMu.Unlock()
 		// Invalidate the token
 		h.resetTokens.InvalidateToken(tokenStr)
 		return ExecResult{Data: map[string]interface{}{
@@ -1058,14 +805,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			UserID:    userID,
 		}
-		if pool := h.feedingPool(); pool != nil {
-			if _, err := pool.Exec(ctx, "INSERT INTO babies (id, user_id, name, dob, sex, photo_url) VALUES ($1, $2, $3, $4::date, $5, $6) ON CONFLICT (id) DO NOTHING", baby.ID, baby.UserID, baby.Name, baby.DOB, baby.Sex, baby.PhotoURL); err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not create baby"}}}
-			}
+		if _, err := h.db.Exec(ctx, "INSERT INTO babies (id, user_id, name, dob, sex, photo_url) VALUES ($1, $2, $3, $4::date, $5, $6)", baby.ID, baby.UserID, baby.Name, baby.DOB, baby.Sex, baby.PhotoURL); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not create baby"}}}
 		}
-		babiesMu.Lock()
-		babies[baby.ID] = baby
-		babiesMu.Unlock()
 		return ExecResult{Data: map[string]interface{}{
 			"createBaby": babyToMap(baby),
 		}}
@@ -1080,10 +822,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		babiesMu.Lock()
-		b, ok := babies[id]
-		if !ok || b.UserID != userID {
-			babiesMu.Unlock()
+		b, err := loadBaby(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		if name := getVar(variables, "name"); name != "" {
@@ -1098,8 +838,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if photoURL := getVar(variables, "photoUrl"); photoURL != "" {
 			b.PhotoURL = photoURL
 		}
-		babies[id] = b
-		babiesMu.Unlock()
+		if _, err := h.db.Exec(ctx, `UPDATE babies SET name = $2, dob = $3::date, sex = $4, photo_url = $5 WHERE id = $1 AND user_id = $6`, id, b.Name, b.DOB, b.Sex, b.PhotoURL, userID); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update baby"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"updateBaby": babyToMap(b),
 		}}
@@ -1114,18 +855,15 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		var deleted *BabyProfile
-		babiesMu.Lock()
-		if b, exists := babies[id]; exists && b.UserID == userID {
-			deleted = &b
-			delete(babies, id)
-		}
-		babiesMu.Unlock()
-		if deleted == nil {
+		deleted, err := loadBaby(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
+		if _, err := h.db.Exec(ctx, "DELETE FROM babies WHERE id = $1 AND user_id = $2", id, userID); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not delete baby"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
-			"deleteBaby": babyToMap(*deleted),
+			"deleteBaby": babyToMap(deleted),
 		}}
 	}
 
@@ -1138,10 +876,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		title := getVar(variables, "title")
@@ -1164,9 +899,10 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			IsCustom:    getVarBool(variables, "isCustom"),
 			CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 		}
-		milestonesMu.Lock()
-		milestones[m.ID] = m
-		milestonesMu.Unlock()
+		if _, err := h.db.Exec(ctx, `INSERT INTO milestones (id, baby_id, title, description, category, achieved_at, note, photo_url, is_custom, created_at)
+			VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::timestamptz, $7, $8, $9, $10::timestamptz)`, m.ID, m.BabyID, m.Title, m.Description, m.Category, m.AchievedAt, m.Note, m.PhotoURL, m.IsCustom, m.CreatedAt); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not save milestone"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"createMilestone": milestoneToMap(m),
 		}}
@@ -1181,17 +917,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		milestonesMu.Lock()
-		m, exists := milestones[id]
-		if !exists {
-			milestonesMu.Unlock()
-			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
-		}
-		babiesMu.RLock()
-		b, babyOk := babies[m.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
-			milestonesMu.Unlock()
+		m, err := loadMilestone(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
 		}
 		if title := getVar(variables, "title"); title != "" {
@@ -1215,8 +942,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if isCustom := getVarBool(variables, "isCustom"); isCustom {
 			m.IsCustom = isCustom
 		}
-		milestones[m.ID] = m
-		milestonesMu.Unlock()
+		if _, err := h.db.Exec(ctx, `UPDATE milestones SET title=$2, description=$3, category=$4, achieved_at=NULLIF($5, '')::timestamptz, note=$6, photo_url=$7, is_custom=$8 WHERE id=$1`, m.ID, m.Title, m.Description, m.Category, m.AchievedAt, m.Note, m.PhotoURL, m.IsCustom); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update milestone"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"updateMilestone": milestoneToMap(m),
 		}}
@@ -1231,23 +959,15 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		var deleted *Milestone
-		milestonesMu.Lock()
-		if m, exists := milestones[id]; exists {
-			babiesMu.RLock()
-			b, babyOk := babies[m.BabyID]
-			babiesMu.RUnlock()
-			if babyOk && b.UserID == userID {
-				deleted = &m
-				delete(milestones, id)
-			}
-		}
-		milestonesMu.Unlock()
-		if deleted == nil {
+		deleted, err := loadMilestone(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "milestone not found"}}}
 		}
+		if _, err := h.db.Exec(ctx, "DELETE FROM milestones WHERE id = $1", id); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not delete milestone"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
-			"deleteMilestone": milestoneToMap(*deleted),
+			"deleteMilestone": milestoneToMap(deleted),
 		}}
 	}
 
@@ -1260,10 +980,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		location := getVar(variables, "location")
@@ -1279,9 +996,10 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			Notes:     getVar(variables, "notes"),
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		}
-		sleepSessionsMu.Lock()
-		sleepSessions[s.ID] = s
-		sleepSessionsMu.Unlock()
+		if _, err := h.db.Exec(ctx, `INSERT INTO sleep_sessions (id, baby_id, started_at, ended_at, location, notes, created_at)
+			VALUES ($1, $2, $3::timestamptz, NULLIF($4, '')::timestamptz, $5, $6, $7::timestamptz)`, s.ID, s.BabyID, s.StartedAt, s.EndedAt, s.Location, s.Notes, s.CreatedAt); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not save sleep session"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"createSleepSession": sleepSessionToMap(s),
 		}}
@@ -1296,17 +1014,11 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		sleepSessionsMu.Lock()
-		s, exists := sleepSessions[id]
-		if !exists {
-			sleepSessionsMu.Unlock()
+		s, err := loadSleepSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
 		}
-		babiesMu.RLock()
-		b, babyOk := babies[s.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
-			sleepSessionsMu.Unlock()
+		if _, err := loadBaby(ctx, h.db, s.BabyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
 		}
 		if startedAt := getVar(variables, "startedAt"); startedAt != "" {
@@ -1321,8 +1033,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if notes := getVar(variables, "notes"); notes != "" {
 			s.Notes = notes
 		}
-		sleepSessions[id] = s
-		sleepSessionsMu.Unlock()
+		if _, err := h.db.Exec(ctx, `UPDATE sleep_sessions SET started_at = $2::timestamptz, ended_at = NULLIF($3, '')::timestamptz, location = $4, notes = $5 WHERE id = $1`, id, s.StartedAt, s.EndedAt, s.Location, s.Notes); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update sleep session"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"updateSleepSession": sleepSessionToMap(s),
 		}}
@@ -1337,23 +1050,18 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		var deleted *SleepSession
-		sleepSessionsMu.Lock()
-		if s, exists := sleepSessions[id]; exists {
-			babiesMu.RLock()
-			b, babyOk := babies[s.BabyID]
-			babiesMu.RUnlock()
-			if babyOk && b.UserID == userID {
-				deleted = &s
-				delete(sleepSessions, id)
-			}
-		}
-		sleepSessionsMu.Unlock()
-		if deleted == nil {
+		deleted, err := loadSleepSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
 		}
+		if _, err := loadBaby(ctx, h.db, deleted.BabyID, userID); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "sleep session not found"}}}
+		}
+		if _, err := h.db.Exec(ctx, "DELETE FROM sleep_sessions WHERE id = $1", id); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not delete sleep session"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
-			"deleteSleepSession": sleepSessionToMap(*deleted),
+			"deleteSleepSession": sleepSessionToMap(deleted),
 		}}
 	}
 
@@ -1366,10 +1074,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		if _, err := loadBaby(ctx, h.db, babyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		feedType := getVar(variables, "feedType")
@@ -1394,14 +1099,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			Notes:            getVar(variables, "notes"),
 			CreatedAt:        time.Now().UTC().Format(time.RFC3339),
 		}
-		if pool := h.feedingPool(); pool != nil {
-			if err := insertFeedingSession(ctx, pool, s); err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not save feeding session"}}}
-			}
-		} else {
-			feedingSessionsMu.Lock()
-			feedingSessions[s.ID] = s
-			feedingSessionsMu.Unlock()
+		if err := insertFeedingSession(ctx, h.db, s); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not save feeding session"}}}
 		}
 		return ExecResult{Data: map[string]interface{}{
 			"createFeedingSession": feedingSessionToMap(s),
@@ -1417,41 +1116,17 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		if pool := h.feedingPool(); pool != nil {
-			s, err := loadFeedingSession(ctx, pool, id)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
-			}
-			babiesMu.RLock()
-			b, babyOk := babies[s.BabyID]
-			babiesMu.RUnlock()
-			if !babyOk || b.UserID != userID {
-				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
-			}
-			applyFeedingSessionUpdates(&s, variables)
-			if err := updateFeedingSession(ctx, pool, s); err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not update feeding session"}}}
-			}
-			return ExecResult{Data: map[string]interface{}{
-				"updateFeedingSession": feedingSessionToMap(s),
-			}}
-		}
-		feedingSessionsMu.Lock()
-		s, exists := feedingSessions[id]
-		if !exists {
-			feedingSessionsMu.Unlock()
+		s, err := loadFeedingSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
-		babiesMu.RLock()
-		b, babyOk := babies[s.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
-			feedingSessionsMu.Unlock()
+		if _, err := loadBaby(ctx, h.db, s.BabyID, userID); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
 		applyFeedingSessionUpdates(&s, variables)
-		feedingSessions[id] = s
-		feedingSessionsMu.Unlock()
+		if err := updateFeedingSession(ctx, h.db, s); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update feeding session"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"updateFeedingSession": feedingSessionToMap(s),
 		}}
@@ -1466,41 +1141,18 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		if pool := h.feedingPool(); pool != nil {
-			s, err := loadFeedingSession(ctx, pool, id)
-			if err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
-			}
-			babiesMu.RLock()
-			b, babyOk := babies[s.BabyID]
-			babiesMu.RUnlock()
-			if !babyOk || b.UserID != userID {
-				return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
-			}
-			if _, err := pool.Exec(ctx, "DELETE FROM feeding_sessions WHERE id = $1", id); err != nil {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not delete feeding session"}}}
-			}
-			return ExecResult{Data: map[string]interface{}{
-				"deleteFeedingSession": feedingSessionToMap(s),
-			}}
-		}
-		var deleted *FeedingSession
-		feedingSessionsMu.Lock()
-		if s, exists := feedingSessions[id]; exists {
-			babiesMu.RLock()
-			b, babyOk := babies[s.BabyID]
-			babiesMu.RUnlock()
-			if babyOk && b.UserID == userID {
-				deleted = &s
-				delete(feedingSessions, id)
-			}
-		}
-		feedingSessionsMu.Unlock()
-		if deleted == nil {
+		s, err := loadFeedingSession(ctx, h.db, id)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
 		}
+		if _, err := loadBaby(ctx, h.db, s.BabyID, userID); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "feeding session not found"}}}
+		}
+		if _, err := h.db.Exec(ctx, "DELETE FROM feeding_sessions WHERE id = $1", id); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not delete feeding session"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
-			"deleteFeedingSession": feedingSessionToMap(*deleted),
+			"deleteFeedingSession": feedingSessionToMap(s),
 		}}
 	}
 
@@ -1513,10 +1165,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if babyID == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "babyId required"}}}
 		}
-		babiesMu.RLock()
-		b, ok := babies[babyID]
-		babiesMu.RUnlock()
-		if !ok || b.UserID != userID {
+		b, err := loadBaby(ctx, h.db, babyID, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "baby not found"}}}
 		}
 		m := Measurement{
@@ -1528,9 +1178,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			HeadCircumference: getVarFloat(variables, "headCircumference"),
 			CreatedAt:         time.Now().UTC().Format(time.RFC3339),
 		}
-		measurementsMu.Lock()
-		measurements[m.ID] = m
-		measurementsMu.Unlock()
+		if err := saveMeasurement(ctx, h.db, m); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not save measurement"}}}
+		}
 		result := measurementToMap(m)
 		// Compute and attach percentiles
 		ageMonths := AgeInMonths(b.DOB, m.Date)
@@ -1569,18 +1219,8 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		measurementsMu.Lock()
-		m, exists := measurements[id]
-		if !exists {
-			measurementsMu.Unlock()
-			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
-		}
-		// Verify baby ownership
-		babiesMu.RLock()
-		b, babyOk := babies[m.BabyID]
-		babiesMu.RUnlock()
-		if !babyOk || b.UserID != userID {
-			measurementsMu.Unlock()
+		m, err := loadMeasurement(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
 		}
 		if date := getVar(variables, "date"); date != "" {
@@ -1595,8 +1235,9 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if hc := getVarFloat(variables, "headCircumference"); hc != 0 {
 			m.HeadCircumference = hc
 		}
-		measurements[id] = m
-		measurementsMu.Unlock()
+		if err := saveMeasurement(ctx, h.db, m); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not update measurement"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
 			"updateMeasurement": measurementToMap(m),
 		}}
@@ -1611,24 +1252,15 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		if id == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "id required"}}}
 		}
-		var deleted *Measurement
-		measurementsMu.Lock()
-		if m, exists := measurements[id]; exists {
-			// Verify baby ownership
-			babiesMu.RLock()
-			b, babyOk := babies[m.BabyID]
-			babiesMu.RUnlock()
-			if babyOk && b.UserID == userID {
-				deleted = &m
-				delete(measurements, id)
-			}
-		}
-		measurementsMu.Unlock()
-		if deleted == nil {
+		deleted, err := loadMeasurement(ctx, h.db, id, userID)
+		if err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "measurement not found"}}}
 		}
+		if _, err := h.db.Exec(ctx, "DELETE FROM measurements WHERE group_id = $1", id); err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not delete measurement"}}}
+		}
 		return ExecResult{Data: map[string]interface{}{
-			"deleteMeasurement": measurementToMap(*deleted),
+			"deleteMeasurement": measurementToMap(deleted),
 		}}
 	}
 
@@ -1839,6 +1471,58 @@ func loadFeedingSession(ctx context.Context, pool *pgxpool.Pool, id string) (Fee
 	return scanFeedingSession(pool.QueryRow(ctx, `SELECT `+feedingSessionColumns+` FROM feeding_sessions WHERE id = $1`, id))
 }
 
+func loadBaby(ctx context.Context, pool *pgxpool.Pool, id, userID string) (BabyProfile, error) {
+	var baby BabyProfile
+	err := pool.QueryRow(ctx, `SELECT id::text, name, to_char(dob, 'YYYY-MM-DD'), sex, photo_url,
+		to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), user_id::text
+		FROM babies WHERE id = $1 AND user_id = $2`, id, userID).Scan(
+		&baby.ID, &baby.Name, &baby.DOB, &baby.Sex, &baby.PhotoURL, &baby.CreatedAt, &baby.UserID,
+	)
+	return baby, err
+}
+
+func loadUserByID(ctx context.Context, pool *pgxpool.Pool, id string) (storedUser, error) {
+	var user storedUser
+	err := pool.QueryRow(ctx, "SELECT email, password_hash, display_name FROM users WHERE id = $1", id).Scan(&user.Email, &user.PasswordHash, &user.DisplayName)
+	return user, err
+}
+
+func loadUserByEmail(ctx context.Context, pool *pgxpool.Pool, email string) (string, storedUser, error) {
+	var id string
+	var user storedUser
+	err := pool.QueryRow(ctx, "SELECT id::text, email, password_hash, display_name FROM users WHERE email = $1", email).Scan(&id, &user.Email, &user.PasswordHash, &user.DisplayName)
+	return id, user, err
+}
+
+func authResult(operation, token, userID string, user storedUser) ExecResult {
+	return ExecResult{Data: map[string]interface{}{operation: map[string]interface{}{
+		"token": token,
+		"user": map[string]interface{}{
+			"id": userID, "email": user.Email, "displayName": user.DisplayName,
+			"photoUrl": "", "createdAt": time.Now().UTC().Format(time.RFC3339),
+		},
+	}}}
+}
+
+func loadBabies(ctx context.Context, pool *pgxpool.Pool, userID string) ([]BabyProfile, error) {
+	rows, err := pool.Query(ctx, `SELECT id::text, name, to_char(dob, 'YYYY-MM-DD'), sex, photo_url,
+		to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), user_id::text
+		FROM babies WHERE user_id = $1 ORDER BY created_at`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	profiles := make([]BabyProfile, 0)
+	for rows.Next() {
+		var baby BabyProfile
+		if err := rows.Scan(&baby.ID, &baby.Name, &baby.DOB, &baby.Sex, &baby.PhotoURL, &baby.CreatedAt, &baby.UserID); err != nil {
+			return nil, err
+		}
+		profiles = append(profiles, baby)
+	}
+	return profiles, rows.Err()
+}
+
 func loadFeedingSessions(ctx context.Context, pool *pgxpool.Pool, babyID string) ([]FeedingSession, error) {
 	rows, err := pool.Query(ctx, `SELECT `+feedingSessionColumns+` FROM feeding_sessions WHERE baby_id = $1 ORDER BY started_at DESC, created_at DESC`, babyID)
 	if err != nil {
@@ -1885,10 +1569,59 @@ func loadSleepSessions(ctx context.Context, pool *pgxpool.Pool, babyID, userID s
 	return sessions, rows.Err()
 }
 
+func loadSleepSession(ctx context.Context, pool *pgxpool.Pool, id string) (SleepSession, error) {
+	var session SleepSession
+	err := pool.QueryRow(ctx, `SELECT id::text, baby_id::text,
+		to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		COALESCE(to_char(ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		location, notes, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM sleep_sessions WHERE id = $1`, id).Scan(&session.ID, &session.BabyID, &session.StartedAt, &session.EndedAt, &session.Location, &session.Notes, &session.CreatedAt)
+	return session, err
+}
+
+func scanMilestone(row pgx.Row) (Milestone, error) {
+	var milestone Milestone
+	err := row.Scan(&milestone.ID, &milestone.BabyID, &milestone.Title, &milestone.Description, &milestone.Category,
+		&milestone.AchievedAt, &milestone.Note, &milestone.PhotoURL, &milestone.IsCustom, &milestone.CreatedAt)
+	return milestone, err
+}
+
+const milestoneColumns = `id::text, baby_id::text, title, description, category,
+	COALESCE(to_char(achieved_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''), note, photo_url, is_custom,
+	to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+
+func loadMilestones(ctx context.Context, pool *pgxpool.Pool, babyID string) ([]Milestone, error) {
+	rows, err := pool.Query(ctx, "SELECT "+milestoneColumns+" FROM milestones WHERE baby_id = $1 ORDER BY achieved_at DESC NULLS LAST, created_at DESC", babyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]Milestone, 0)
+	for rows.Next() {
+		milestone, err := scanMilestone(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, milestone)
+	}
+	return result, rows.Err()
+}
+
+func loadMilestone(ctx context.Context, pool *pgxpool.Pool, id, userID string) (Milestone, error) {
+	milestone, err := scanMilestone(pool.QueryRow(ctx, "SELECT "+milestoneColumns+" FROM milestones WHERE id = $1", id))
+	if err != nil {
+		return Milestone{}, err
+	}
+	if _, err := loadBaby(ctx, pool, milestone.BabyID, userID); err != nil {
+		return Milestone{}, err
+	}
+	return milestone, nil
+}
+
 // loadMeasurements maps the normalized measurement row to the API's
 // combined measurement shape while maintaining PostgreSQL ownership isolation.
 func loadMeasurements(ctx context.Context, pool *pgxpool.Pool, babyID, userID string) ([]Measurement, error) {
-	rows, err := pool.Query(ctx, `SELECT m.id::text, m.baby_id::text, m.type, m.value::float8,
+	rows, err := pool.Query(ctx, `SELECT m.group_id::text, m.baby_id::text, m.type, m.value::float8,
 		to_char(m.date, 'YYYY-MM-DD'),
 		to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		FROM measurements m
@@ -1900,13 +1633,22 @@ func loadMeasurements(ctx context.Context, pool *pgxpool.Pool, babyID, userID st
 	}
 	defer rows.Close()
 
-	records := make([]Measurement, 0)
+	byGroup := make(map[string]*Measurement)
+	order := make([]string, 0)
 	for rows.Next() {
-		var record Measurement
+		var groupID string
+		var baby string
 		var measurementType string
 		var value float64
-		if err := rows.Scan(&record.ID, &record.BabyID, &measurementType, &value, &record.Date, &record.CreatedAt); err != nil {
+		var date, createdAt string
+		if err := rows.Scan(&groupID, &baby, &measurementType, &value, &date, &createdAt); err != nil {
 			return nil, err
+		}
+		record := byGroup[groupID]
+		if record == nil {
+			record = &Measurement{ID: groupID, BabyID: baby, Date: date, CreatedAt: createdAt}
+			byGroup[groupID] = record
+			order = append(order, groupID)
 		}
 		switch measurementType {
 		case "weight":
@@ -1916,9 +1658,68 @@ func loadMeasurements(ctx context.Context, pool *pgxpool.Pool, babyID, userID st
 		case "head_circumference":
 			record.HeadCircumference = value
 		}
-		records = append(records, record)
 	}
-	return records, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	records := make([]Measurement, 0, len(order))
+	for _, id := range order {
+		records = append(records, *byGroup[id])
+	}
+	return records, nil
+}
+
+func loadMeasurement(ctx context.Context, pool *pgxpool.Pool, id, userID string) (Measurement, error) {
+	rows, err := pool.Query(ctx, `SELECT DISTINCT baby_id::text FROM measurements WHERE group_id = $1`, id)
+	if err != nil {
+		return Measurement{}, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return Measurement{}, pgx.ErrNoRows
+	}
+	var babyID string
+	if err := rows.Scan(&babyID); err != nil {
+		return Measurement{}, err
+	}
+	if _, err := loadBaby(ctx, pool, babyID, userID); err != nil {
+		return Measurement{}, err
+	}
+	records, err := loadMeasurements(ctx, pool, babyID, userID)
+	if err != nil {
+		return Measurement{}, err
+	}
+	for _, record := range records {
+		if record.ID == id {
+			return record, nil
+		}
+	}
+	return Measurement{}, pgx.ErrNoRows
+}
+
+func saveMeasurement(ctx context.Context, pool *pgxpool.Pool, record Measurement) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "DELETE FROM measurements WHERE group_id = $1", record.ID); err != nil {
+		return err
+	}
+	metrics := []struct {
+		kind  string
+		value float64
+	}{{"weight", record.Weight}, {"height", record.Height}, {"head_circumference", record.HeadCircumference}}
+	for _, metric := range metrics {
+		if metric.value == 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO measurements (id, group_id, baby_id, type, value, date, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6::date, $7::timestamptz)`, uuid(), record.ID, record.BabyID, metric.kind, metric.value, record.Date, record.CreatedAt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func insertFeedingSession(ctx context.Context, pool *pgxpool.Pool, session FeedingSession) error {
