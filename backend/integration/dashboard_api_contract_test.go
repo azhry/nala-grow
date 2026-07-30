@@ -99,12 +99,12 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 	t.Helper()
 	_, err := harness.Pool.Exec(ctx, `INSERT INTO users (id, email, password_hash, display_name) VALUES
 		($1, 'dashboard-owner@example.com', 'not-used-by-graphql', 'Dashboard Owner'),
-		($2, 'dashboard-other@example.com', 'not-used-by-graphql', 'Dashboard Other')`, ownerID, otherID)
+		($2, 'dashboard-other@example.com', 'not-used-by-graphql', 'Dashboard Other') ON CONFLICT (id) DO NOTHING`, ownerID, otherID)
 	require.NoError(t, err)
 	_, err = harness.Pool.Exec(ctx, `INSERT INTO babies (id, user_id, name, dob, sex) VALUES
 		($1, $2, 'Dashboard Baby', '2026-01-01', 'female'),
 		($3, $2, 'Empty Dashboard Baby', '2026-01-01', 'female'),
-		($4, $5, 'Other Dashboard Baby', '2026-01-01', 'female')`, activeBabyID, ownerID, emptyBabyID, otherBabyID, otherID)
+		($4, $5, 'Other Dashboard Baby', '2026-01-01', 'female') ON CONFLICT (id) DO NOTHING`, activeBabyID, ownerID, emptyBabyID, otherBabyID, otherID)
 	require.NoError(t, err)
 
 	_, err = harness.Pool.Exec(ctx, `INSERT INTO feeding_sessions (id, baby_id, feed_type, started_at, amount_ml) VALUES

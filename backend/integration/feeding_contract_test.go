@@ -47,11 +47,11 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	// The current handler keeps authentication and baby data in memory. Seed only
 	// these prerequisites directly; the feeding record itself must be GraphQL-created.
 	_, err := harness.Pool.Exec(ctx,
-		"INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
 		userID, "feeding-contract@example.com", "not-used-by-graphql", "Feeding Contract")
 	require.NoError(t, err)
 	_, err = harness.Pool.Exec(ctx,
-		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5)",
+		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
 		babyID, userID, "Contract Baby", "2026-01-01", "female")
 	require.NoError(t, err)
 	legacyID := "00000000-0000-4000-8000-000000000392"
@@ -126,7 +126,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	require.Empty(t, otherBabyResult.Errors)
 	otherBabyID := otherBabyResult.Data.(map[string]interface{})["createBaby"].(map[string]interface{})["id"].(string)
 	_, err = harness.Pool.Exec(ctx,
-		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5)",
+		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
 		otherBabyID, userID, "Other Baby", "2026-01-02", "male")
 	require.NoError(t, err)
 	otherFeedID := "00000000-0000-4000-8000-000000000393"

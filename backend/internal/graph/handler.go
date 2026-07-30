@@ -820,6 +820,14 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			usersMu.Lock()
 			users[userID] = storedUser{Email: email, PasswordHash: hash, DisplayName: displayName}
 			usersMu.Unlock()
+			if pool := h.feedingPool(); pool != nil {
+				if _, err := pool.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING", userID, email, hash, displayName); err != nil {
+					usersMu.Lock()
+					delete(users, userID)
+					usersMu.Unlock()
+					return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
+				}
+			}
 			token, err := h.auth.JWT.GenerateToken(userID, email)
 			if err != nil {
 				return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
@@ -1049,6 +1057,11 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 			PhotoURL:  getVar(variables, "photoUrl"),
 			CreatedAt: time.Now().UTC().Format(time.RFC3339),
 			UserID:    userID,
+		}
+		if pool := h.feedingPool(); pool != nil {
+			if _, err := pool.Exec(ctx, "INSERT INTO babies (id, user_id, name, dob, sex, photo_url) VALUES ($1, $2, $3, $4::date, $5, $6) ON CONFLICT (id) DO NOTHING", baby.ID, baby.UserID, baby.Name, baby.DOB, baby.Sex, baby.PhotoURL); err != nil {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not create baby"}}}
+			}
 		}
 		babiesMu.Lock()
 		babies[baby.ID] = baby
