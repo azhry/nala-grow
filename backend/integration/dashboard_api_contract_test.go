@@ -126,7 +126,7 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 
 func executeDashboardList(t *testing.T, ctx context.Context, client *graph.Handler, operation, babyID string) []map[string]interface{} {
 	t.Helper()
-	result := client.Execute(ctx, "query { "+operation+" }", map[string]interface{}{"babyId": babyID})
+	result := client.Execute(ctx, "query "+operation+"($babyId: ID!) { "+operation+"(babyId: $babyId) }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, result.Errors)
 	return result.Data.(map[string]interface{})[operation].([]map[string]interface{})
 }

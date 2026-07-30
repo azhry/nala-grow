@@ -184,7 +184,9 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "baby") || strings.Contains(body, "babies") {
+	// Match the baby fields themselves, rather than every query that contains a
+	// `babyId` variable. Dashboard list queries carry that variable too.
+	if strings.Contains(body, "babies") || strings.Contains(body, "query baby") || strings.Contains(body, "{ baby ") || strings.Contains(body, "{baby ") {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
