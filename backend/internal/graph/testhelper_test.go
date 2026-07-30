@@ -5,40 +5,38 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
-	"github.com/azhry/nala-grow/backend/internal/db"
+	"github.com/azhry/nala-grow/backend/internal/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbtest.DefaultTimeout)
 	defer cancel()
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"
-	}
-	if err := db.RunMigrations(databaseURL); err != nil {
-		fmt.Fprintln(os.Stderr, "PostgreSQL is required for graph tests:", err)
-		os.Exit(1)
-	}
-	pool, err := db.Connect(ctx, databaseURL)
+	harness, err := dbtest.Start(ctx)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "PostgreSQL is required for graph tests:", err)
+		fmt.Fprintln(os.Stderr, "Testcontainers PostgreSQL is required for graph tests:", err)
 		os.Exit(1)
 	}
-	testPool = pool
-	defer pool.Close()
+	testPool = harness.Pool
 
-	if _, err := pool.Exec(ctx, "TRUNCATE TABLE milestones, measurements, sleep_sessions, feeding_sessions, babies, users CASCADE"); err != nil {
+	if _, err := testPool.Exec(ctx, "TRUNCATE TABLE milestones, measurements, sleep_sessions, feeding_sessions, babies, users CASCADE"); err != nil {
 		fmt.Fprintln(os.Stderr, "could not reset graph test database:", err)
+		_ = harness.Close(ctx)
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	if err := harness.Close(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "could not stop graph test PostgreSQL container:", err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
 }
 
 func newTestHandler() *Handler {

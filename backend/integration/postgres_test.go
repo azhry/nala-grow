@@ -23,7 +23,9 @@ func TestPostgresIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, usersBeforeSeed, "a new integration database must start without fixture rows")
 
-	harness.SeedFile(t, filepath.Join("testdata", "seed.sql"))
+	seedCtx, seedCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer seedCancel()
+	require.NoError(t, harness.SeedFile(seedCtx, filepath.Join("testdata", "seed.sql")))
 
 	var (
 		email    string

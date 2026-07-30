@@ -2,11 +2,11 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/azhry/nala-grow/backend/internal/db"
+	"github.com/azhry/nala-grow/backend/internal/dbtest"
 	"github.com/azhry/nala-grow/backend/internal/graph"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -16,22 +16,22 @@ import (
 var smokePool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbtest.DefaultTimeout)
 	defer cancel()
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"
-	}
-	if err := db.RunMigrations(databaseURL); err != nil {
-		os.Exit(1)
-	}
-	pool, err := db.Connect(ctx, databaseURL)
+	harness, err := dbtest.Start(ctx)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "Testcontainers PostgreSQL is required for testutil tests:", err)
 		os.Exit(1)
 	}
-	smokePool = pool
-	defer pool.Close()
-	os.Exit(m.Run())
+	smokePool = harness.Pool
+	code := m.Run()
+	if err := harness.Close(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "could not stop testutil PostgreSQL container:", err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
 }
 
 func TestGraphQLSmoke(t *testing.T) {
