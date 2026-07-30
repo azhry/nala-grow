@@ -17,6 +17,16 @@ const fetchMeasurements = getMeasurements as jest.MockedFunction<typeof getMeasu
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -60,6 +70,69 @@ describe("DashboardPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
     await user.click(screen.getByRole("button", { name: "Retry" }))
     await waitFor(() => expect(fetchFeeds).toHaveBeenCalledTimes(2))
+  })
+
+  it("recovers from one failed dashboard query without retaining the error after retry", async () => {
+    const user = userEvent.setup()
+    fetchSleeps.mockRejectedValueOnce(new Error("service unavailable"))
+    fetchFeeds.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "feed-retry", babyId: "baby-1", feedType: "bottle", startedAt: `${today}T10:00:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 120, milkType: "breast_milk", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:00:00` }])
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findByText("120 ml bottle")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(fetchFeeds).toHaveBeenCalledTimes(2)
+    expect(fetchSleeps).toHaveBeenCalledTimes(2)
+    expect(fetchMeasurements).toHaveBeenCalledTimes(2)
+  })
+
+  it("ignores a late response for a previously selected baby", async () => {
+    const firstFeeds = deferred<Awaited<ReturnType<typeof getFeedingSessions>>>()
+    const firstSleeps = deferred<Awaited<ReturnType<typeof getSleepSessions>>>()
+    const firstMeasurements = deferred<Awaited<ReturnType<typeof getMeasurements>>>()
+    fetchFeeds.mockImplementationOnce(() => firstFeeds.promise).mockResolvedValueOnce([{ id: "feed-new", babyId: "baby-2", feedType: "bottle", startedAt: `${today}T10:00:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 90, milkType: "formula", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:00:00` }])
+    fetchSleeps.mockImplementationOnce(() => firstSleeps.promise).mockResolvedValueOnce([])
+    fetchMeasurements.mockImplementationOnce(() => firstMeasurements.promise).mockResolvedValueOnce([])
+
+    const { rerender } = render(<DashboardPage />)
+    await waitFor(() => expect(fetchFeeds).toHaveBeenCalledWith("baby-1"))
+    storeState.activeBaby = { id: "baby-2", name: "Ira", dob: "2024-02-10", sex: "female" }
+    rerender(<DashboardPage />)
+
+    expect(await screen.findByText("90 ml bottle")).toBeInTheDocument()
+    firstFeeds.resolve([{ id: "feed-stale", babyId: "baby-1", feedType: "bottle", startedAt: `${today}T10:30:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 240, milkType: "formula", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:30:00` }])
+    firstSleeps.resolve([])
+    firstMeasurements.resolve([])
+
+    await waitFor(() => expect(screen.queryByText("240 ml bottle")).not.toBeInTheDocument())
+    expect(screen.getByText("90 ml bottle")).toBeInTheDocument()
+  })
+
+  it("does not render records returned for a different baby", async () => {
+    fetchFeeds.mockResolvedValue([{ id: "foreign-feed", babyId: "baby-2", feedType: "bottle", startedAt: `${today}T10:00:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 500, milkType: "formula", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:00:00` }])
+    fetchSleeps.mockResolvedValue([{ id: "foreign-sleep", babyId: "baby-2", startedAt: `${today}T08:00:00`, endedAt: `${today}T09:00:00`, location: "crib", notes: "", createdAt: `${today}T09:00:00` }])
+    fetchMeasurements.mockResolvedValue([{ id: "foreign-growth", babyId: "baby-2", date: today, weight: 9.9, height: 70, headCircumference: 44, createdAt: `${today}T10:00:00` }])
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText(/No events logged today yet/i)).toBeInTheDocument()
+    expect(screen.getByText("No feeds yet")).toBeInTheDocument()
+    expect(screen.queryByText("500 ml bottle")).not.toBeInTheDocument()
+    expect(screen.queryByText("9.9 kg")).not.toBeInTheDocument()
+  })
+
+  it("treats a malformed query payload as a retryable request failure", async () => {
+    const user = userEvent.setup()
+    fetchFeeds.mockResolvedValueOnce(undefined as never)
+    render(<DashboardPage />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+    expect(await screen.findByText("No feeds yet")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 
   it("shows truthful empty summaries after all queries return no records", async () => {
