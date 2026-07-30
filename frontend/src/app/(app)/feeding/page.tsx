@@ -129,7 +129,7 @@ export default function FeedingPage() {
   )
 
   const barData = useMemo(() => {
-    const slots = ["6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
+    const slots = ["12 AM", "3 AM", "6 AM", "9 AM", "12 PM", "3 PM", "6 PM", "9 PM"]
     const maxMl = Math.max(
       ...rangeSessions.filter((s) => s.feed_type === "bottle").map((s) => s.amount_ml ?? 0),
       1,
@@ -141,7 +141,7 @@ export default function FeedingPage() {
       1,
     )
     return slots.map((label, i) => {
-      const hour = (i * 3 + 6) % 24
+      const hour = i * 3
       const sessionsInSlot = rangeSessions.filter((s) => {
         const h = new Date(s.started_at).getHours()
         return h >= hour && h < hour + 3

@@ -364,10 +364,28 @@ describe("FeedingPage", () => {
       expect(screen.getByTestId("breast-bar-9 AM")).toHaveStyle({ height: "0%" })
     })
 
+    it("plots overnight feeds in their 3 AM slot", () => {
+      const overnight = new Date()
+      overnight.setHours(3, 30, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "overnight-bottle",
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: overnight.toISOString(),
+          amount_ml: 120,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("bottle-bar-3 AM")).toHaveStyle({ height: "100%" })
+      expect(screen.getByTestId("breast-bar-3 AM")).toHaveStyle({ height: "0%" })
+    })
+
     it("keeps every chart series flat when there are no feeds", () => {
       renderPage()
 
-      expect(screen.getAllByTestId(/^(bottle|breast)-bar-/)).toHaveLength(12)
+      expect(screen.getAllByTestId(/^(bottle|breast)-bar-/)).toHaveLength(16)
       for (const bar of screen.getAllByTestId(/^(bottle|breast)-bar-/)) {
         expect(bar).toHaveStyle({ height: "0%" })
       }
