@@ -58,7 +58,7 @@ function getFeedStatus(hours: number | null) {
 }
 
 function toFeedSession(feed: GraphQLFeedingSession): FeedSession {
-  return { id: feed.id, baby_id: feed.babyId, feed_type: feed.feedType as FeedSession["feed_type"], started_at: feed.startedAt, ended_at: feed.endedAt || undefined, left_duration_sec: feed.leftDurationSec || undefined, right_duration_sec: feed.rightDurationSec || undefined, amount_ml: feed.amountMl || undefined, milk_type: feed.milkType as FeedSession["milk_type"], food_name: feed.foodName || undefined, reaction: feed.reaction || undefined, notes: feed.notes || undefined }
+  return { id: feed.id, baby_id: feed.babyId, feed_type: feed.feedType as FeedSession["feed_type"], started_at: feed.startedAt, ended_at: feed.endedAt || undefined, left_duration_sec: feed.leftDurationSec || undefined, right_duration_sec: feed.rightDurationSec || undefined, amount_ml: feed.amountMl || undefined, milk_type: feed.milkType ? feed.milkType as FeedSession["milk_type"] : undefined, food_name: feed.foodName || undefined, reaction: feed.reaction || undefined, notes: feed.notes || undefined }
 }
 
 function toSleepSession(session: GraphQLSleepSession): SleepSession {
@@ -66,7 +66,7 @@ function toSleepSession(session: GraphQLSleepSession): SleepSession {
 }
 
 function toMeasurement(measurement: GraphQLMeasurement): Measurement {
-  return { id: measurement.id, baby_id: measurement.babyId, date: measurement.date, weight_kg: measurement.weight ?? undefined, height_cm: measurement.height ?? undefined, head_cm: measurement.headCircumference ?? undefined }
+  return { id: measurement.id, baby_id: measurement.babyId, date: measurement.date, weight_kg: measurement.weight || undefined, height_cm: measurement.height || undefined, head_cm: measurement.headCircumference || undefined }
 }
 
 export default function DashboardPage() {

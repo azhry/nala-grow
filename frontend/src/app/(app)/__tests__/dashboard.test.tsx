@@ -54,10 +54,10 @@ describe("DashboardPage", () => {
   })
 
   it("reloads the dashboard when the active baby changes", async () => {
-    render(<DashboardPage />)
+    const { rerender } = render(<DashboardPage />)
     await waitFor(() => expect(fetchFeeds).toHaveBeenCalledWith("baby-1"))
     storeState.activeBaby = { id: "baby-2", name: "Ira", dob: "2024-02-10", sex: "female" }
-    render(<DashboardPage />)
+    rerender(<DashboardPage />)
     await waitFor(() => expect(fetchFeeds).toHaveBeenCalledWith("baby-2"))
     expect(fetchSleeps).toHaveBeenCalledWith("baby-2")
     expect(fetchMeasurements).toHaveBeenCalledWith("baby-2")
@@ -122,6 +122,17 @@ describe("DashboardPage", () => {
     expect(screen.getByText("No feeds yet")).toBeInTheDocument()
     expect(screen.queryByText("500 ml bottle")).not.toBeInTheDocument()
     expect(screen.queryByText("9.9 kg")).not.toBeInTheDocument()
+  })
+
+  it("treats zero-valued GraphQL measurements as absent optional values", async () => {
+    fetchMeasurements.mockResolvedValue([{ id: "measurement-zero", babyId: "baby-1", date: today, weight: 0, height: 0, headCircumference: 0, createdAt: `${today}T10:00:00` }])
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText("Growth recorded")).toBeInTheDocument()
+    expect(screen.getByText("Measurement logged")).toBeInTheDocument()
+    expect(screen.queryByText("0.0 kg")).not.toBeInTheDocument()
+    expect(screen.queryByText("0.0 cm")).not.toBeInTheDocument()
   })
 
   it("treats a malformed query payload as a retryable request failure", async () => {
