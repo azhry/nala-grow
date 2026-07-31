@@ -23,6 +23,25 @@ function getDateRange(daysAgo = 0): [Date, Date] {
   return [start, end]
 }
 
+const reactions = [
+  { value: "loved", icon: "favorite", label: "Loved it", tone: "primary" },
+  { value: "interested", icon: "sentiment_satisfied", label: "Interested", tone: "neutral" },
+  { value: "disliked", icon: "sentiment_dissatisfied", label: "Disliked", tone: "neutral" },
+  { value: "reaction", icon: "warning", label: "Reaction", tone: "error" },
+]
+
+const toneClasses: Record<string, string> = {
+  primary: "bg-primary-container/20 border-primary text-primary",
+  neutral: "bg-surface border-transparent hover:border-primary-container text-on-surface-variant",
+  error: "bg-surface border-transparent hover:border-error-container hover:bg-error-container/10 text-error",
+}
+
+const selectedClasses: Record<string, string> = {
+  primary: "bg-primary-container/20 border-primary",
+  neutral: "bg-primary-container/20 border-primary",
+  error: "bg-error-container/20 border-error",
+}
+
 export default function FeedingPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const feedSessions = useAppStore((s) => s.feedSessions)
@@ -542,15 +561,33 @@ export default function FeedingPage() {
                         <select value={editQuantityUnit} onChange={(e) => setEditQuantityUnit(e.target.value)} className="absolute right-2 h-10 bg-transparent border-none text-primary font-bold font-label-md text-label-md focus:ring-0 outline-none cursor-pointer"><option value="tbsp">tbsp</option><option value="oz">oz</option><option value="g">g</option></select>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="font-label-md text-label-md text-on-surface-variant">Reaction</label>
-                      <div className="flex gap-2">
-                        {(["loved", "interested", "disliked", "reaction"] as const).map((r) => {
-                          const selected = editReaction === r
-                          return <button key={r} type="button" onClick={() => setEditReaction(r)} className={["flex-1 flex flex-col items-center gap-1 py-3 rounded-xl font-label-md transition-all border-2", selected ? "border-primary bg-primary-container/10 text-primary" : "border-transparent text-on-surface-variant hover:bg-surface-container"].join(" ")}>{r === "loved" ? "Loved" : r === "interested" ? "Interested" : r === "disliked" ? "Disliked" : "Reaction"}</button>
-                        })}
+                      <div className="space-y-2">
+                        <label className="font-label-md text-label-md text-on-surface-variant">Reaction</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {reactions.map((r) => {
+                            const selected = editReaction === r.value
+                            return (
+                              <button
+                                key={r.value}
+                                type="button"
+                                onClick={() => setEditReaction(r.value)}
+                                className={[
+                                  "flex items-center justify-center gap-2 py-3 px-2 rounded-xl border-2 transition-all active:scale-95",
+                                  selected ? selectedClasses[r.tone] : toneClasses[r.tone],
+                                ].join(" ")}
+                              >
+                                <span
+                                  className="material-symbols-outlined text-sm"
+                                  style={{ fontVariationSettings: "'FILL' 1" }}
+                                >
+                                  {r.icon}
+                                </span>
+                                <span className="font-label-md text-label-md">{r.label}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
                   </div>
                 </div>
               )}
