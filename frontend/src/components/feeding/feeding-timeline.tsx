@@ -28,6 +28,12 @@ const reactionIcons: Record<string, string> = {
   reaction: "warning",
 }
 
+function formatDuration(sec: number): string {
+  const mins = Math.round(sec / 60)
+  if (mins > 0) return `${mins}m`
+  return `${sec}s`
+}
+
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso)
@@ -89,13 +95,13 @@ function FeedingTimeline({ sessions, onViewHistory, rangeLabel = "Last 24h" }: F
             durationStr = `${totalMin}m total`
             if (session.left_duration_sec) {
               tags.push({
-                label: `Left (${Math.round(session.left_duration_sec / 60)}m)`,
+                label: `Left (${formatDuration(session.left_duration_sec)})`,
                 bgClass: "bg-primary-container/20 text-on-primary-container",
               })
             }
             if (session.right_duration_sec) {
               tags.push({
-                label: `Right (${Math.round(session.right_duration_sec / 60)}m)`,
+                label: `Right (${formatDuration(session.right_duration_sec)})`,
                 bgClass: "bg-primary-container/20 text-on-primary-container",
               })
             }
