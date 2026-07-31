@@ -7,6 +7,7 @@ import (
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/azhry/nala-grow/backend/internal/graph"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // GQLResult wraps graph.ExecResult for easier test assertions.
@@ -15,10 +16,10 @@ type GQLResult struct {
 	Errors []graph.GraphQLError   `json:"errors,omitempty"`
 }
 
-// NewTestHandler creates a graph.Handler with an in-memory auth service suitable for tests.
-func NewTestHandler() *graph.Handler {
+// NewTestHandler creates a GraphQL handler backed by the caller's PostgreSQL pool.
+func NewTestHandler(pool *pgxpool.Pool) *graph.Handler {
 	authSvc := auth.NewService("test-secret-change-in-test")
-	return graph.NewHandler(nil, authSvc)
+	return graph.NewHandler(pool, authSvc)
 }
 
 // ExecuteQuery is a convenience wrapper around handler.Execute for tests.

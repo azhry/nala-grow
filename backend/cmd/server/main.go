@@ -25,24 +25,19 @@ func main() {
 
 	cfg := loadConfig()
 
-	var pool interface{ Close() }
-	if cfg.DatabaseURL != "" {
-		var err error
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-
-		p, err := db.Connect(ctx, cfg.DatabaseURL)
-		if err != nil {
-			slog.Warn("database connection failed, running without db", "error", err)
-		} else {
-			pool = p
-			if err := db.RunMigrations(cfg.DatabaseURL); err != nil {
-				slog.Warn("migration skipped", "error", err)
-			} else {
-				slog.Info("database migrations applied")
-			}
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("database connection failed", "error", err)
+		return
 	}
+	defer pool.Close()
+	if err := db.RunMigrations(cfg.DatabaseURL); err != nil {
+		slog.Error("database migrations failed", "error", err)
+		return
+	}
+	slog.Info("database migrations applied")
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger)
@@ -141,7 +136,7 @@ func loadConfig() Config {
 	return Config{
 		Port:           getEnv("PORT", "8080"),
 		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
-		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3001"),
+		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
 		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
 	}

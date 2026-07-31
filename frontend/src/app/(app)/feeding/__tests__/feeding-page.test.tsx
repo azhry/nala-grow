@@ -51,6 +51,7 @@ function setStoreState(state: Partial<typeof storeState>) {
 beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers()
+	jest.setSystemTime(new Date("2026-07-31T12:00:00Z"))
   setStoreState({})
   mockFetchFeedSessions.mockResolvedValue([])
   mockCreateFeedSession.mockResolvedValue({
@@ -255,39 +256,20 @@ describe("FeedingPage", () => {
     })
   })
 
-  describe("Error fallback", () => {
-    it("falls back to addFeedSession on createFeedSession failure", async () => {
+  describe("Save failure", () => {
+    it("shows a retryable error without adding a local-only session or clearing the form", async () => {
       mockCreateFeedSession.mockRejectedValue(new Error("Network error"))
       renderPage()
 
-      // Must set manual duration > 0, otherwise breast save bails out early
       const input = screen.getByPlaceholderText("0") as HTMLInputElement
       fireEvent.change(input, { target: { value: "5" } })
       fireEvent.click(screen.getByText("Save Entry"))
       await act(async () => {})
 
-      // Should call local addFeedSession as fallback
-      expect(storeState.addFeedSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feed_type: "breast",
-        }),
-      )
-    })
-
-    it("falls back to addFeedSession for bottle save on failure", async () => {
-      mockCreateFeedSession.mockRejectedValue(new Error("Backend down"))
-      renderPage()
-      fireEvent.click(screen.getByText("Bottle"))
-      fireEvent.click(screen.getByText("Save Entry"))
-      await act(async () => {})
-
-      expect(storeState.addFeedSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feed_type: "bottle",
-          amount_ml: 120,
-          milk_type: "breast_milk",
-        }),
-      )
+      expect(screen.getByRole("alert")).toHaveTextContent("Unable to save this feeding entry")
+      expect(screen.getByRole("alert")).toHaveTextContent("try again")
+      expect(storeState.addFeedSession).not.toHaveBeenCalled()
+      expect(input).toHaveValue(5)
     })
   })
 
@@ -360,6 +342,70 @@ describe("FeedingPage", () => {
       renderPage()
 
       expect(screen.getByText("15 mins")).toBeInTheDocument()
+    })
+
+    it("plots breast duration independently of bottle volume and keeps empty bottle slots flat", () => {
+      const today = new Date()
+      today.setHours(7, 0, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "breast-plot",
+          baby_id: "baby-1",
+          feed_type: "breast",
+          started_at: today.toISOString(),
+          left_duration_sec: 600,
+          right_duration_sec: 300,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("breast-bar-6 AM")).toHaveStyle({ height: "100%" })
+      expect(screen.getByTestId("bottle-bar-6 AM")).toHaveStyle({ height: "0%" })
+      expect(screen.getByTestId("breast-bar-9 AM")).toHaveStyle({ height: "0%" })
+    })
+
+    it("plots overnight feeds in their 3 AM slot", () => {
+      const overnight = new Date()
+      overnight.setHours(3, 30, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "overnight-bottle",
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: overnight.toISOString(),
+          amount_ml: 120,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("bottle-bar-3 AM")).toHaveStyle({ height: "48%" })
+      expect(screen.getByTestId("breast-bar-3 AM")).toHaveStyle({ height: "0%" })
+    })
+
+    it("uses the displayed 250ml chart scale instead of normalizing a 140ml feed to full height", () => {
+      const morning = new Date()
+      morning.setHours(9, 30, 0, 0)
+      setStoreState({
+        feedSessions: [{
+          id: "fixed-scale-bottle",
+          baby_id: "baby-1",
+          feed_type: "bottle",
+          started_at: morning.toISOString(),
+          amount_ml: 140,
+        }],
+      })
+      renderPage()
+
+      expect(screen.getByTestId("bottle-bar-9 AM")).toHaveStyle({ height: "56%" })
+    })
+
+    it("keeps every chart series flat when there are no feeds", () => {
+      renderPage()
+
+      expect(screen.getAllByTestId(/^(bottle|breast)-bar-/)).toHaveLength(16)
+      for (const bar of screen.getAllByTestId(/^(bottle|breast)-bar-/)) {
+        expect(bar).toHaveStyle({ height: "0%" })
+      }
     })
   })
 

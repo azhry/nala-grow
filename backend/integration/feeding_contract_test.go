@@ -33,7 +33,6 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	require.Empty(t, signup.Errors)
 	signupData := signup.Data.(map[string]interface{})["signup"].(map[string]interface{})
 	token := signupData["token"].(string)
-	userID := signupData["user"].(map[string]interface{})["id"].(string)
 	authCtx := context.WithValue(ctx, "raw_token", token)
 
 	babyResult := firstClient.Execute(authCtx, "mutation { createBaby }", map[string]interface{}{
@@ -44,16 +43,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	require.Empty(t, babyResult.Errors)
 	babyID := babyResult.Data.(map[string]interface{})["createBaby"].(map[string]interface{})["id"].(string)
 
-	// The current handler keeps authentication and baby data in memory. Seed only
-	// these prerequisites directly; the feeding record itself must be GraphQL-created.
-	_, err := harness.Pool.Exec(ctx,
-		"INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)",
-		userID, "feeding-contract@example.com", "not-used-by-graphql", "Feeding Contract")
-	require.NoError(t, err)
-	_, err = harness.Pool.Exec(ctx,
-		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5)",
-		babyID, userID, "Contract Baby", "2026-01-01", "female")
-	require.NoError(t, err)
+	var err error
 	legacyID := "00000000-0000-4000-8000-000000000392"
 	_, err = harness.Pool.Exec(ctx, `
 		INSERT INTO feeding_sessions (id, baby_id, feed_type, started_at, notes)
@@ -125,10 +115,6 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	})
 	require.Empty(t, otherBabyResult.Errors)
 	otherBabyID := otherBabyResult.Data.(map[string]interface{})["createBaby"].(map[string]interface{})["id"].(string)
-	_, err = harness.Pool.Exec(ctx,
-		"INSERT INTO babies (id, user_id, name, dob, sex) VALUES ($1, $2, $3, $4, $5)",
-		otherBabyID, userID, "Other Baby", "2026-01-02", "male")
-	require.NoError(t, err)
 	otherFeedID := "00000000-0000-4000-8000-000000000393"
 	_, err = harness.Pool.Exec(ctx, `
 		INSERT INTO feeding_sessions (id, baby_id, feed_type, started_at, notes)
@@ -136,10 +122,16 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 		otherFeedID, otherBabyID)
 	require.NoError(t, err)
 
-	// A fresh handler represents a reload boundary and must read from PostgreSQL,
-	// not a process-local map populated by the create request.
+	// A fresh handler/login establishes both the process-reload and authentication
+	// boundaries: the user, baby, and feeds must all be read from PostgreSQL.
 	reloadedClient := graph.NewHandler(harness.Pool, authService)
-	reloaded := reloadedClient.Execute(authCtx, "query { feedingSessions }", map[string]interface{}{"babyId": babyID})
+	login := reloadedClient.Execute(ctx, "mutation { login }", map[string]interface{}{
+		"email": "feeding-contract@example.com", "password": "pass123!",
+	})
+	require.Empty(t, login.Errors)
+	reloadedToken := login.Data.(map[string]interface{})["login"].(map[string]interface{})["token"].(string)
+	reloadedCtx := context.WithValue(ctx, "raw_token", reloadedToken)
+	reloaded := reloadedClient.Execute(reloadedCtx, "query { feedingSessions }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, reloaded.Errors)
 	feeds := reloaded.Data.(map[string]interface{})["feedingSessions"].([]map[string]interface{})
 	require.Len(t, feeds, 8)

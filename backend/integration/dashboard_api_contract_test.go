@@ -14,10 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationDashboardQueriesReadPersistedActiveBabyData is the intentionally
-// red contract for AZH-395. The care records are inserted only in PostgreSQL,
-// then read through a new GraphQL handler. It must not be made green by adding
-// records to the handler's process-local maps.
+// TestIntegrationDashboardQueriesReadPersistedActiveBabyData verifies that care
+// records inserted only in PostgreSQL are visible through a fresh handler.
 func TestIntegrationDashboardQueriesReadPersistedActiveBabyData(t *testing.T) {
 	harness := testutil.StartPostgres(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -35,8 +33,8 @@ func TestIntegrationDashboardQueriesReadPersistedActiveBabyData(t *testing.T) {
 	ownerCtx := context.WithValue(ctx, "raw_token", ownerToken)
 	otherCtx := context.WithValue(ctx, "raw_token", otherToken)
 
-	// The current handler needs its own baby map for authorization. These calls
-	// establish that prerequisite only; every care record below is PostgreSQL-only.
+	// These profiles establish the owner-scoped database prerequisites; every
+	// care record below is inserted only in PostgreSQL.
 	activeBabyID := createContractBaby(t, ownerCtx, client, "Dashboard Baby")
 	emptyBabyID := createContractBaby(t, ownerCtx, client, "Empty Dashboard Baby")
 	otherBabyID := createContractBaby(t, otherCtx, client, "Other Dashboard Baby")
@@ -99,12 +97,12 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 	t.Helper()
 	_, err := harness.Pool.Exec(ctx, `INSERT INTO users (id, email, password_hash, display_name) VALUES
 		($1, 'dashboard-owner@example.com', 'not-used-by-graphql', 'Dashboard Owner'),
-		($2, 'dashboard-other@example.com', 'not-used-by-graphql', 'Dashboard Other')`, ownerID, otherID)
+		($2, 'dashboard-other@example.com', 'not-used-by-graphql', 'Dashboard Other') ON CONFLICT (id) DO NOTHING`, ownerID, otherID)
 	require.NoError(t, err)
 	_, err = harness.Pool.Exec(ctx, `INSERT INTO babies (id, user_id, name, dob, sex) VALUES
 		($1, $2, 'Dashboard Baby', '2026-01-01', 'female'),
 		($3, $2, 'Empty Dashboard Baby', '2026-01-01', 'female'),
-		($4, $5, 'Other Dashboard Baby', '2026-01-01', 'female')`, activeBabyID, ownerID, emptyBabyID, otherBabyID, otherID)
+		($4, $5, 'Other Dashboard Baby', '2026-01-01', 'female') ON CONFLICT (id) DO NOTHING`, activeBabyID, ownerID, emptyBabyID, otherBabyID, otherID)
 	require.NoError(t, err)
 
 	_, err = harness.Pool.Exec(ctx, `INSERT INTO feeding_sessions (id, baby_id, feed_type, started_at, amount_ml) VALUES
@@ -117,16 +115,16 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 		('00000000-0000-4000-8000-000000000952', $1, '2026-07-28T12:00:00Z', '2026-07-28T13:30:00Z', 'bed'),
 		('00000000-0000-4000-8000-000000000953', $2, '2026-07-28T14:00:00Z', '2026-07-28T15:00:00Z', 'carrier')`, activeBabyID, otherBabyID)
 	require.NoError(t, err)
-	_, err = harness.Pool.Exec(ctx, `INSERT INTO measurements (id, baby_id, type, value, unit, date) VALUES
-		('00000000-0000-4000-8000-000000000961', $1, 'weight', 7.10, 'metric', '2026-07-01'),
-		('00000000-0000-4000-8000-000000000962', $1, 'weight', 7.35, 'metric', '2026-07-28'),
-		('00000000-0000-4000-8000-000000000963', $2, 'weight', 9.99, 'metric', '2026-07-29')`, activeBabyID, otherBabyID)
+	_, err = harness.Pool.Exec(ctx, `INSERT INTO measurements (id, group_id, baby_id, type, value, unit, date) VALUES
+		('00000000-0000-4000-8000-000000000961', '00000000-0000-4000-8000-000000000961', $1, 'weight', 7.10, 'metric', '2026-07-01'),
+		('00000000-0000-4000-8000-000000000962', '00000000-0000-4000-8000-000000000962', $1, 'weight', 7.35, 'metric', '2026-07-28'),
+		('00000000-0000-4000-8000-000000000963', '00000000-0000-4000-8000-000000000963', $2, 'weight', 9.99, 'metric', '2026-07-29')`, activeBabyID, otherBabyID)
 	require.NoError(t, err)
 }
 
 func executeDashboardList(t *testing.T, ctx context.Context, client *graph.Handler, operation, babyID string) []map[string]interface{} {
 	t.Helper()
-	result := client.Execute(ctx, "query { "+operation+" }", map[string]interface{}{"babyId": babyID})
+	result := client.Execute(ctx, "query "+operation+"($babyId: ID!) { "+operation+"(babyId: $babyId) }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, result.Errors)
 	return result.Data.(map[string]interface{})[operation].([]map[string]interface{})
 }

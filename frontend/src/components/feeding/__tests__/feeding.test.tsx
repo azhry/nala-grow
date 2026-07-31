@@ -175,8 +175,8 @@ describe("SolidsForm", () => {
 
 describe("DailySummary", () => {
   const barData = [
-    { label: "6 AM", heightPct: 50, title: "6 AM: 50ml" },
-    { label: "9 AM", heightPct: 5, title: "9 AM: 0ml" },
+    { label: "6 AM", bottleHeightPct: 50, bottleTitle: "6 AM: 50ml", breastHeightPct: 75, breastTitle: "6 AM: 15 min breastfeed" },
+    { label: "9 AM", bottleHeightPct: 0, bottleTitle: "9 AM: 0ml", breastHeightPct: 0, breastTitle: "9 AM: 0 min breastfeed" },
   ]
 
   it("shows bottle and breast totals", () => {
@@ -185,16 +185,17 @@ describe("DailySummary", () => {
     expect(screen.getByText("35 mins")).toBeInTheDocument()
   })
 
-  it("renders the Stitch paired-bar reference chart when no feeds are recorded", () => {
+  it("renders zero-height bars rather than fabricated chart values when no feeds are recorded", () => {
     const { container } = render(
       <DailySummary bottleTotalMl={0} breastTotalMins={0} barData={barData} />,
     )
-    const bars = container.querySelectorAll(".rounded-t-lg")
-    expect(bars.length).toBe(12)
+    expect(container.querySelectorAll(".rounded-t-lg").length).toBe(4)
     expect(screen.getByText("Bottle (ml)")).toBeInTheDocument()
     expect(screen.getByText("Breast (min)")).toBeInTheDocument()
     expect(screen.getByText("250ml")).toBeInTheDocument()
     expect(screen.getByText("125ml")).toBeInTheDocument()
+    expect(screen.getByTestId("bottle-bar-9 AM")).toHaveStyle({ height: "0%" })
+    expect(screen.getByTestId("breast-bar-9 AM")).toHaveStyle({ height: "0%" })
   })
 })
 
@@ -404,7 +405,7 @@ describe("DailySummary zero totals", () => {
       <DailySummary
         bottleTotalMl={0}
         breastTotalMins={0}
-        barData={[{ label: "6 AM", heightPct: 5, title: "6 AM: 0ml" }]}
+        barData={[{ label: "6 AM", bottleHeightPct: 0, bottleTitle: "6 AM: 0ml", breastHeightPct: 0, breastTitle: "6 AM: 0 min breastfeed" }]}
       />,
     )
     expect(screen.getByText("0ml")).toBeInTheDocument()

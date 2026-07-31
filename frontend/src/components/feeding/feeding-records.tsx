@@ -23,11 +23,17 @@ function time(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
 }
 
+function formatDuration(sec: number): string {
+  const mins = Math.round(sec / 60)
+  if (mins > 0) return `${mins}m`
+  return `${sec}s`
+}
+
 function details(session: FeedSession) {
   if (session.feed_type === "breast") {
-    const left = Math.round((session.left_duration_sec ?? 0) / 60)
-    const right = Math.round((session.right_duration_sec ?? 0) / 60)
-    return `${left + right}m (L:${left}, R:${right})`
+    const left = session.left_duration_sec ?? 0
+    const right = session.right_duration_sec ?? 0
+    return `${formatDuration(left + right)} (L:${formatDuration(left)}, R:${formatDuration(right)})`
   }
   if (session.feed_type === "bottle") return `${session.amount_ml ?? 0}ml ${session.milk_type === "formula" ? "Formula" : "Breastmilk"}`
   return [session.food_name ?? "Solids", session.quantity ? `${session.quantity}${session.quantity_unit ?? ""}` : ""].filter(Boolean).join(" · ")
