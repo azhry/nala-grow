@@ -1,6 +1,30 @@
 import { DEMO_BABY, DEMO_FEED_SESSIONS, DEMO_MEASUREMENTS, DEMO_MILESTONES, DEMO_SLEEP_SESSIONS, recordsForProfile } from "@/lib/demo-data"
 
 describe("demo data policy", () => {
+  it("keeps timed fixtures on today's local calendar date with an explicit parseable offset", () => {
+    const now = new Date()
+    const localToday = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-")
+    const timestamps = [
+      ...DEMO_FEED_SESSIONS.flatMap((session) => [session.started_at, session.ended_at]),
+      ...DEMO_SLEEP_SESSIONS.flatMap((session) => [session.started_at, session.ended_at]),
+    ].filter((value): value is string => Boolean(value))
+
+    for (const timestamp of timestamps) {
+      expect(timestamp.startsWith(localToday)).toBe(true)
+      expect(timestamp).toMatch(/[+-]\d{2}:\d{2}$/)
+      expect(Number.isNaN(new Date(timestamp).getTime())).toBe(false)
+    }
+  })
+
+  it("keeps date-only fixtures as local YYYY-MM-DD values", () => {
+    const dateOnlyValues = [DEMO_BABY.dob, ...DEMO_MEASUREMENTS.map((record) => record.date), ...DEMO_MILESTONES.map((record) => record.achieved_date).filter(Boolean)]
+    expect(dateOnlyValues.every((value) => /^\d{4}-\d{2}-\d{2}$/.test(value!))).toBe(true)
+  })
+
   it("keeps every demo record attached to the centralized demo baby", () => {
     const allRecords = [...DEMO_FEED_SESSIONS, ...DEMO_SLEEP_SESSIONS, ...DEMO_MEASUREMENTS, ...DEMO_MILESTONES]
     expect(allRecords.every((record) => record.baby_id === DEMO_BABY.id)).toBe(true)

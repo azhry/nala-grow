@@ -1,22 +1,34 @@
 import type { BabyProfile, FeedSession, Measurement, Milestone, SleepSession } from "@/lib/store"
 
-function daysAgo(days: number): string {
+function pad(value: number): string {
+  return String(value).padStart(2, "0")
+}
+
+function localDate(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function localDateDaysAgo(days: number): string {
   const date = new Date()
   date.setDate(date.getDate() - days)
-  return date.toISOString()
+  return localDate(date)
 }
 
 export const DEMO_BABY: BabyProfile = {
   id: "demo-baby",
   name: "Lily",
-  dob: daysAgo(130).slice(0, 10),
+  dob: localDateDaysAgo(130),
   sex: "female",
 }
 
 function todayAt(hour: number, minute = 0): string {
   const date = new Date()
   date.setHours(hour, minute, 0, 0)
-  return date.toISOString()
+  const offsetMinutes = -date.getTimezoneOffset()
+  const sign = offsetMinutes >= 0 ? "+" : "-"
+  const absoluteOffset = Math.abs(offsetMinutes)
+  const offset = `${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(absoluteOffset % 60)}`
+  return `${localDate(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}:00${offset}`
 }
 
 export const DEMO_FEED_SESSIONS: FeedSession[] = [
@@ -31,14 +43,14 @@ export const DEMO_SLEEP_SESSIONS: SleepSession[] = [
 ]
 
 export const DEMO_MEASUREMENTS: Measurement[] = [
-  { id: "demo-growth-1", baby_id: DEMO_BABY.id, date: daysAgo(130).slice(0, 10), weight_kg: 3.4, height_cm: 50, head_cm: 35, notes: "Birth measurements." },
-  { id: "demo-growth-2", baby_id: DEMO_BABY.id, date: daysAgo(70).slice(0, 10), weight_kg: 5.1, height_cm: 58.2, head_cm: 39.5, notes: "Steady growth." },
-  { id: "demo-growth-3", baby_id: DEMO_BABY.id, date: daysAgo(5).slice(0, 10), weight_kg: 6.4, height_cm: 63.5, head_cm: 41.2, notes: "Four-month checkup." },
+  { id: "demo-growth-1", baby_id: DEMO_BABY.id, date: localDateDaysAgo(130), weight_kg: 3.4, height_cm: 50, head_cm: 35, notes: "Birth measurements." },
+  { id: "demo-growth-2", baby_id: DEMO_BABY.id, date: localDateDaysAgo(70), weight_kg: 5.1, height_cm: 58.2, head_cm: 39.5, notes: "Steady growth." },
+  { id: "demo-growth-3", baby_id: DEMO_BABY.id, date: localDateDaysAgo(5), weight_kg: 6.4, height_cm: 63.5, head_cm: 41.2, notes: "Four-month checkup." },
 ]
 
 export const DEMO_MILESTONES: Milestone[] = [
-  { id: "demo-milestone-1", baby_id: DEMO_BABY.id, definition_id: "m-0-3-5", title: "First smile", category: "social", age_range: "0-3", achieved: true, achieved_date: daysAgo(80).slice(0, 10), notes: "A bright morning smile.", is_custom: false },
-  { id: "demo-milestone-2", baby_id: DEMO_BABY.id, definition_id: "m-3-6-1", title: "Rolls over from tummy to back", category: "physical", age_range: "3-6", achieved: true, achieved_date: daysAgo(25).slice(0, 10), notes: "Rolled over during tummy time.", is_custom: false },
+  { id: "demo-milestone-1", baby_id: DEMO_BABY.id, definition_id: "m-0-3-5", title: "First smile", category: "social", age_range: "0-3", achieved: true, achieved_date: localDateDaysAgo(80), notes: "A bright morning smile.", is_custom: false },
+  { id: "demo-milestone-2", baby_id: DEMO_BABY.id, definition_id: "m-3-6-1", title: "Rolls over from tummy to back", category: "physical", age_range: "3-6", achieved: true, achieved_date: localDateDaysAgo(25), notes: "Rolled over during tummy time.", is_custom: false },
   { id: "demo-milestone-3", baby_id: DEMO_BABY.id, definition_id: "m-3-6-2", title: "Reaches for objects", category: "physical", age_range: "3-6", achieved: false, is_custom: false },
   { id: "demo-milestone-4", baby_id: DEMO_BABY.id, definition_id: "m-3-6-3", title: "Babbles and makes sounds", category: "language", age_range: "3-6", achieved: false, is_custom: false },
 ]
