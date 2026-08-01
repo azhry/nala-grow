@@ -28,6 +28,15 @@ test.describe("app route identity", () => {
     await expect(page).toHaveURL(/\/profile(?:\/(?:create|manage))?$/)
   })
 
+  test("Growth export action navigates to the Export route", async ({ page }) => {
+    await page.goto("/growth")
+    const exportLink = page.getByRole("link", { name: "Export growth records" })
+    await expect(exportLink).toHaveAttribute("href", "/export")
+    await exportLink.click()
+    await expect(page).toHaveURL(/\/export$/)
+    await expect(page.getByRole("heading", { name: "Export Data" })).toBeVisible()
+  })
+
   test("normal sidebar navigation preserves route identity", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === "mobile", "Desktop sidebar is hidden on mobile")
     await page.goto("/dashboard")

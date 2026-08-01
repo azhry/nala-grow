@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
 import { AppHeader } from "@/components/layout/app-header"
@@ -262,22 +263,15 @@ export default function GrowthPage() {
                 Measurement History
               </h3>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Link
+                  href="/export"
                   className="p-2 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors"
-                  aria-label="Filter"
-                >
-                  <span className="material-symbols-outlined">filter_list</span>
-                </button>
-                <button
-                  type="button"
-                  className="p-2 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors"
-                  aria-label="Export"
+                  aria-label="Export growth records"
                 >
                   <span className="material-symbols-outlined">
                     file_download
                   </span>
-                </button>
+                </Link>
               </div>
             </div>
             <MeasurementTable
