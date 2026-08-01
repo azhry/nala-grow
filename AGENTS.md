@@ -2,7 +2,7 @@
 
 ## Required first steps
 
-- Read `./.agents/config.md` before taking task actions. Never print, commit, or transmit credentials found there.
+- Before any task action, load only the immediately required allowlisted key from `.agents/config.md` through a non-printing loader. Never call a generic read tool on this file or render, print, commit, or transmit its contents.
 - Make sure all the necessary tools and credentials work before taking task actions.
 - Do one task at a time. A task is complete only after implementation, verification, commit, push, PR handoff, and relevant tracker update are complete.
 - Preserve unrelated dirty files. Never stage, modify, discard, or overwrite another person's work.
@@ -25,7 +25,7 @@
 For a request containing a Linear issue ID such as `AZH-385`:
 
 1. Read `./.agents/config.md` without printing it.
-2. Read [the delivery workflow](.agents/workflows/delivery.md) in full before any task-specific repository search, shell command, or implementation.
+2. Read [the delivery workflow](.agents/workflows/delivery.md) in full before any task-specific repository search, shell command, connector/API call, or implementation. Before implementation, also read every routing workflow applicable to the target path; changes under `.agents/skills/` require `.agents/workflows/skills.md`.
 3. Use the connected Linear tool such as Linear MCP. If it is not immediately visible, discover the available tools first.
 4. If the connected Linear tool is genuinely unavailable after discovery, immediately use the documented Linear API fallback. Use the official schema or documentation, load only the required credential without output, and never guess requests or bypass an authorization failure.
 5. Read the issue, relations, comments, project, and valid team statuses.

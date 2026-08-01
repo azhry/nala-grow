@@ -18,3 +18,7 @@ Prefer a connected Linear app. Discover the exact callable names from the active
 ## HTTP API fallback
 
 When no connector exists, use Linear's GraphQL API at `POST https://api.linear.app/graphql` with an authenticated `Authorization` header supplied by the runtime's secret store. Do not put tokens in source, logs, URLs, or issue text. Use the official schema/docs to construct the requested query or mutation; do not guess field names.
+
+Invoke the bundled [`linear_tooling.py`](scripts/linear_tooling.py) operation before writing custom GraphQL. If an operation is missing, consult the official schema; GraphQL validation errors must not be used as schema discovery.
+
+On Windows, resolve Python with `Get-Command py, python -ErrorAction SilentlyContinue`. When neither command resolves to an installed interpreter, use the workspace-bundled runtime.

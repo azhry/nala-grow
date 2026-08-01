@@ -4,3 +4,5 @@
 - If the resolved executable is an npm wrapper (`node_modules/gh/...`), remove the npm package and install the official release via `winget install GitHub.cli`.
 - After installing or repairing `gh`, run `gh auth status` and confirm token presence. If authentication is missing, configure it non-interactively only when a valid stored credential is not already present.
 - GitHub delivery should use the authenticated `gh` CLI. If `gh` is unavailable or fails, record the blocker in Linear with the exact failing command and affected path.
+- Run `.agents/skills/github/scripts/gh_preflight.ps1 -Repository OWNER/REPO` before implementation. The helper must confirm CLI identity, authentication, and repository access.
+- Before `gh pr create`, list pull requests using the exact repository and head branch, and update an existing match. After create or update, run `gh pr view` and verify the URL, draft state, base/head refs, mergeability, and checks before tracker handoff.
