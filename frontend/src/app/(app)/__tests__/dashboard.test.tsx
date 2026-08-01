@@ -164,10 +164,11 @@ describe("DashboardPage", () => {
     }
   })
 
-  it("renders a neutral profile prompt without fetching when no baby is active", () => {
+  it("renders coherent demo records without fetching when no baby is active", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
-    expect(screen.getByText(/Choose a baby profile/i)).toBeInTheDocument()
+    expect(screen.getByText(/Lily!/i)).toBeInTheDocument()
+    expect(screen.getByText(/You’ve logged \d+ events? today/i)).toBeInTheDocument()
     expect(fetchFeeds).not.toHaveBeenCalled()
   })
 })

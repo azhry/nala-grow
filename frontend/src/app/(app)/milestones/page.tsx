@@ -17,6 +17,7 @@ import {
 } from "@/components/milestones"
 import { FAB } from "@/components/ui"
 import { AppHeader } from "@/components/layout/app-header"
+import { DEMO_BABY, DEMO_MILESTONES } from "@/lib/demo-data"
 
 const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "0-3": "0–3 Months",
@@ -24,79 +25,6 @@ const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "6-12": "6–12 Months",
   "12-24": "12–24 Months",
 }
-
-const JOURNEY_CARDS: Milestone[] = [
-  {
-    id: "journey-1",
-    baby_id: "sample",
-    definition_id: "journey-1",
-    title: "The Very First Smile",
-    category: "social",
-    age_range: "0-3",
-    achieved: true,
-    achieved_date: "2023-10-12",
-    notes: "We were singing the morning song and Lily gave us the biggest, brightest gummy smile! It melted our hearts completely.",
-    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDkMVqCflDXBExLNx0tJyW__uPJ2XAFC-lSu16AjbteC0QIQ-BHurfuv7QuWGg_0vl6P66qN2SU33a1hAiqgO5UIDapp5dWtPpSQqPREP2BejhDcCCGHs00KuJsZKMdw-h-cohvhkSf-80bMzDYJdZjaSbApEgHUNc5mDlmR7ZW2_8JBIpCmgEoU4D0t4nlHXak0t6rv7Pk1J6yQSuzYuomN8XWbJtxFUh4pLDzDGBHrL7264bz7BfXs24Y4rpW6cpbEI32l4pPWfU",
-    is_custom: false,
-  },
-  {
-    id: "journey-2",
-    baby_id: "sample",
-    definition_id: "journey-2",
-    title: "Rolling Like a Pro",
-    category: "physical",
-    age_range: "3-6",
-    achieved: true,
-    achieved_date: "2023-11-28",
-    notes: "Finally did it! Tummy time turned into a full rotation. She looked so surprised herself!",
-    photo_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxYfFlw2qma4MN0_Hy6KleKOP5040YNL67i_4g2ZhNMKa18kDiTdYr2hpalsuQqZYCWRuTlC2QCZUxfmOGG4L0lK9nGTuYMkgGIa8kDipRL3ndDuGg6ocJgmeAHKf-YG-5wg8L11Myfj1_gw0-XiIsahAS4OTr5v-wGETaJtvdWY1nuDSSAVL5eB2jg8NJ3pQjmOLtSUhkAjJDaSSqv31u8xf3NqoRP4s3IJLOjGhP8oMU5IQvSfWwlzitwjaYK1qgb7vx7L4Af6A",
-    is_custom: false,
-  },
-]
-
-const CURRENT_GOALS: Milestone[] = [
-  {
-    id: "goal-achieved",
-    baby_id: "sample",
-    definition_id: "goal-achieved",
-    title: "First Smile",
-    category: "social",
-    age_range: "3-6",
-    achieved: true,
-    achieved_date: "2023-10-12",
-    is_custom: false,
-  },
-  {
-    id: "goal-upcoming-1",
-    baby_id: "sample",
-    definition_id: "goal-upcoming-1",
-    title: "Sitting Up (Supported)",
-    category: "physical",
-    age_range: "3-6",
-    achieved: false,
-    is_custom: false,
-  },
-  {
-    id: "goal-upcoming-2",
-    baby_id: "sample",
-    definition_id: "goal-upcoming-2",
-    title: "Grasping Objects",
-    category: "physical",
-    age_range: "3-6",
-    achieved: false,
-    is_custom: false,
-  },
-  {
-    id: "goal-upcoming-3",
-    baby_id: "sample",
-    definition_id: "goal-upcoming-3",
-    title: "Babbles Back",
-    category: "language",
-    age_range: "3-6",
-    achieved: false,
-    is_custom: false,
-  },
-]
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -116,8 +44,8 @@ export default function MilestonesPage() {
     }
   }, [activeBaby?.id, setMilestones])
 
-  const babyId = activeBaby?.id ?? "sample"
-  const babyName = activeBaby?.name ?? "Lily"
+  const babyId = activeBaby?.id ?? DEMO_BABY.id
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
 
   const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
@@ -128,12 +56,15 @@ export default function MilestonesPage() {
     [milestones, babyId],
   )
 
-  const isDemo = babyMilestones.length === 0
+  const isDemo = !activeBaby
 
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
-  const [demoGoals, setDemoGoals] = useState<Milestone[]>(CURRENT_GOALS)
-  const [demoJourneyCards, setDemoJourneyCards] = useState<Milestone[]>(JOURNEY_CARDS)
+  const [demoGoals, setDemoGoals] = useState<Milestone[]>(DEMO_MILESTONES)
+  const demoJourneyCards = useMemo(
+    () => demoGoals.filter((milestone) => milestone.achieved),
+    [demoGoals],
+  )
 
   const filteredDemoJourneyCards = useMemo(
     () =>
@@ -144,7 +75,7 @@ export default function MilestonesPage() {
   )
 
   const seededMilestones = useMemo(() => {
-    if (isDemo) return JOURNEY_CARDS
+    if (isDemo) return DEMO_MILESTONES
 
     const existing = new Map(babyMilestones.map((m) => [m.definition_id, m]))
     const result: Milestone[] = []
@@ -186,17 +117,6 @@ export default function MilestonesPage() {
       const now = new Date().toISOString()
       if (isDemo) {
         setDemoGoals((prev) =>
-          prev.map((m) =>
-            m.id === id || m.definition_id === id
-              ? {
-                  ...m,
-                  achieved,
-                  achieved_date: achieved ? now : undefined,
-                }
-              : m,
-          ),
-        )
-        setDemoJourneyCards((prev) =>
           prev.map((m) =>
             m.id === id || m.definition_id === id
               ? {

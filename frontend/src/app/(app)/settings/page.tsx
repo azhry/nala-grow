@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { AppHeader } from "@/components/layout/app-header"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -18,7 +19,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-dvh bg-surface">
-      <div className="mx-auto max-w-2xl px-container-margin py-stack-lg">
+      <AppHeader />
+      <div className="content-enter mx-auto max-w-2xl px-container-margin py-stack-lg">
         <button
           type="button"
           onClick={handleBack}

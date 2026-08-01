@@ -5,6 +5,7 @@ import { useAppStore } from "@/lib/store"
 import { DateRangePicker, FormatSelector, DataPreview, ExportButton, ExportSuccess } from "@/components/export"
 import { filterByDateRange, generateCsv, downloadCsv, printReport, formatFilename } from "@/lib/export-utils"
 import { Card } from "@/components/ui"
+import { AppHeader } from "@/components/layout/app-header"
 
 function getDefaultFrom(): string {
   const d = new Date()
@@ -96,7 +97,8 @@ export default function ExportPage() {
 
   return (
     <div className="pb-stack-lg">
-      <div className="px-container-margin py-stack-md max-w-lg mx-auto">
+      <AppHeader />
+      <div className="content-enter px-container-margin py-stack-md max-w-lg mx-auto">
         <div className="flex flex-col gap-1 mb-stack-md">
           <h1 className="font-headline-lg text-headline-lg text-on-surface">Export Data</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">

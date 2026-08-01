@@ -9,31 +9,9 @@ import {
   updateSleepSession as updateSleepSessionApi,
 } from "@/lib/sleep-service"
 import { AppHeader } from "@/components/layout/app-header"
+import { DEMO_BABY, DEMO_SLEEP_SESSIONS, recordsForProfile } from "@/lib/demo-data"
 
 const locations: SleepLocation[] = ["crib", "bed", "carrier", "stroller", "contact"]
-
-const demoSessions: SleepSession[] = [
-  {
-    id: "demo-night-sleep",
-    baby_id: "demo",
-    started_at: new Date(new Date().setHours(0, 0, 0, 0) - 210 * 60000).toISOString(),
-    ended_at: new Date(new Date().setHours(6, 15, 0, 0)).toISOString(),
-    location: "crib",
-  },
-  {
-    id: "demo-morning-nap",
-    baby_id: "demo",
-    started_at: new Date(new Date().setHours(9, 15, 0, 0)).toISOString(),
-    ended_at: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(),
-    location: "carrier",
-  },
-  {
-    id: "demo-current-nap",
-    baby_id: "demo",
-    started_at: new Date(new Date().setHours(12, 45, 0, 0)).toISOString(),
-    location: "crib",
-  },
-]
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -71,8 +49,8 @@ export default function SleepPage() {
   const addSleepSession = useAppStore((state) => state.addSleepSession)
   const updateSleepSession = useAppStore((state) => state.updateSleepSession)
   const setSleepSessions = useAppStore((state) => state.setSleepSessions)
-  const babyId = activeBaby?.id ?? "sample"
-  const babyName = activeBaby?.name ?? "Nala"
+  const babyId = activeBaby?.id ?? DEMO_BABY.id
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -80,6 +58,7 @@ export default function SleepPage() {
   const [isManualModalOpen, setManualModalOpen] = useState(false)
   const [timelineView, setTimelineView] = useState<"day" | "week">("day")
   const [demoSessionRunning, setDemoSessionRunning] = useState(true)
+  const [demoSessionEndedAt, setDemoSessionEndedAt] = useState<string | null>(null)
   const [manualStart, setManualStart] = useState(() => timeInputValue(new Date(Date.now() - 3600000)))
   const [manualEnd, setManualEnd] = useState(() => timeInputValue(new Date()))
   const [manualLocation, setManualLocation] = useState<SleepLocation>("crib")
@@ -96,14 +75,18 @@ export default function SleepPage() {
   }, [activeSessionId, isPaused])
 
   const sessions = useMemo(
-    () => sleepSessions.filter((session) => session.baby_id === babyId),
-    [babyId, sleepSessions],
+    () => recordsForProfile(activeBaby, sleepSessions, DEMO_SLEEP_SESSIONS),
+    [activeBaby, sleepSessions],
   )
-  // Newly created profiles can contain zero-length placeholder records. They do not
-  // provide a useful dashboard, so show the supplied design's representative data
-  // until at least one meaningful session has been logged.
-  const isShowingDemo = sessions.length === 0 || sessions.every((session) => sessionMinutes(session) < 1)
-  const displaySessions = isShowingDemo ? demoSessions : sessions
+  const isShowingDemo = !activeBaby
+  const displaySessions = useMemo(() => {
+    if (!isShowingDemo || demoSessionRunning || !demoSessionEndedAt) return sessions
+    return sessions.map((session) =>
+      session.id === "demo-sleep-current" && !session.ended_at
+        ? { ...session, ended_at: demoSessionEndedAt }
+        : session,
+    )
+  }, [demoSessionEndedAt, demoSessionRunning, isShowingDemo, sessions])
 
   const todaySessions = useMemo(() => {
     const today = new Date()
@@ -115,10 +98,10 @@ export default function SleepPage() {
 
   const activeSession = useMemo(
     () => {
-      if (isShowingDemo) return demoSessionRunning ? demoSessions[2] : undefined
+      if (isShowingDemo) return displaySessions.find((session) => !session.ended_at)
       return sessions.find((session) => session.id === activeSessionId) ?? sessions.find((session) => !session.ended_at)
     },
-    [activeSessionId, demoSessionRunning, isShowingDemo, sessions],
+    [activeSessionId, displaySessions, isShowingDemo, sessions],
   )
   const totalMinutes = isShowingDemo ? 870 : todaySessions.reduce((total, session) => total + sessionMinutes(session), 0)
   const longestMinutes = isShowingDemo ? 252 : Math.max(0, ...todaySessions.map(sessionMinutes))
@@ -136,6 +119,7 @@ export default function SleepPage() {
   const handleStop = useCallback(() => {
     if (!activeSession) return
     if (activeSession.id.startsWith("demo-")) {
+      setDemoSessionEndedAt(new Date().toISOString())
       setDemoSessionRunning(false)
       setIsPaused(false)
       setAlert({ title: "Sleep Logged", message: "Well done! A new sleep entry has been added to the history." })
@@ -193,7 +177,7 @@ export default function SleepPage() {
   return (
     <div>
       <AppHeader />
-      <div className="mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
+      <div className="content-enter mx-auto max-w-[1200px] px-container-margin py-stack-md md:px-12 md:py-stack-lg">
       <div className="mb-stack-md flex items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-background md:font-headline-lg md:text-headline-lg">Sleep Dashboard</h1>
@@ -254,7 +238,7 @@ export default function SleepPage() {
               {(["day", "week"] as const).map((view) => <button key={view} type="button" onClick={() => setTimelineView(view)} className={`rounded-full px-4 py-1.5 text-xs font-bold capitalize transition-colors ${timelineView === view ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-highest"}`}>{view}</button>)}
             </div>
           </div>
-          {timelineView === "day" ? <DayTimeline sessions={timelineSessions} onSessionClick={(session) => setAlert({ title: session.ended_at ? "Sleep Session" : "Live Session", message: `${formatClock(session.started_at)}${session.ended_at ? ` – ${formatClock(session.ended_at)}` : " • currently sleeping"} in ${locationLabel(session.location)}.` })} /> : <WeekTimeline values={weeklyMinutes} />}
+          <div key={timelineView} className="content-enter">{timelineView === "day" ? <DayTimeline sessions={timelineSessions} onSessionClick={(session) => setAlert({ title: session.ended_at ? "Sleep Session" : "Live Session", message: `${formatClock(session.started_at)}${session.ended_at ? ` – ${formatClock(session.ended_at)}` : " • currently sleeping"} in ${locationLabel(session.location)}.` })} /> : <WeekTimeline values={weeklyMinutes} />}</div>
           <div className="mt-6 space-y-3">
             {todaySessions.length ? todaySessions.slice(0, 4).map((session) => <SessionRow key={session.id} session={session} onClick={() => setAlert({ title: session.ended_at ? "Sleep Session Details" : "Live Session", message: session.ended_at ? `Sleep lasted ${formatDuration(sessionMinutes(session))} in ${locationLabel(session.location)}.` : `${babyName} is still sleeping. We will notify you when they wake up.` })} />) : <p className="rounded-xl bg-surface-container-low p-6 text-center font-body-md text-on-surface-variant">No sleep logged today. Start a timer or add an entry.</p>}
           </div>
@@ -269,7 +253,7 @@ export default function SleepPage() {
 }
 
 function MetricCard({ icon, label, value, suffix, accent = false }: { icon: string; label: string; value: string; suffix: string; accent?: boolean }) {
-  return <div className="flex flex-col items-center justify-center rounded-xl border border-primary-container/10 bg-surface-container-lowest p-6 text-center soft-shadow"><span className={`material-symbols-outlined mb-2 text-4xl ${accent ? "text-tertiary-container" : "text-primary-container"}`}>{icon}</span><p className="font-label-md uppercase tracking-wider text-on-surface-variant">{label}</p><p className={`mt-1 font-headline-lg text-headline-lg ${accent ? "text-tertiary" : "text-primary"}`}>{value}<span className="ml-1 font-headline-sm text-headline-sm font-normal">{suffix}</span></p></div>
+  return <div className="flex flex-col items-center justify-center rounded-xl border border-primary-container/10 bg-surface-container-lowest p-6 text-center soft-shadow"><span className={`material-symbols-outlined mb-2 text-4xl ${accent ? "text-tertiary-container" : "text-primary-container"}`}>{icon}</span><p className="font-label-md text-on-surface-variant">{label}</p><p className={`mt-1 font-headline-lg text-headline-lg ${accent ? "text-tertiary" : "text-primary"}`}>{value}<span className="ml-1 font-headline-sm text-headline-sm font-normal">{suffix}</span></p></div>
 }
 
 function LastSession({ session }: { session?: SleepSession }) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { fetchBabies } from "@/lib/baby-service"
 import { useAppStore } from "@/lib/store"
+import { AppHeader } from "@/components/layout/app-header"
 
 export default function ProfileIndexPage() {
   const router = useRouter()
@@ -44,10 +45,13 @@ export default function ProfileIndexPage() {
   }, [hasHydrated, profilesLoaded, babies.length, router])
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface">
-      <span className="material-symbols-outlined animate-spin text-primary">
-        progress_activity
-      </span>
+    <div className="min-h-dvh bg-surface">
+      <AppHeader />
+      <div className="content-enter flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 px-container-margin text-center">
+        <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+        <h1 className="font-headline-md text-headline-md text-on-surface">Profiles</h1>
+        <p role="status" className="font-body-sm text-body-sm text-on-surface-variant">Loading your profiles…</p>
+      </div>
     </div>
   )
 }

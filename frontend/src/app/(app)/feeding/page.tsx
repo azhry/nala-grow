@@ -15,6 +15,7 @@ import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
 import { SolidsForm } from "@/components/feeding"
 import { AppHeader } from "@/components/layout/app-header"
+import { DEMO_BABY, DEMO_FEED_SESSIONS, recordsForProfile } from "@/lib/demo-data"
 
 function getDateRange(daysAgo = 0): [Date, Date] {
   const now = new Date()
@@ -51,8 +52,12 @@ export default function FeedingPage() {
     }
   }, [activeBaby?.id])
 
-  const babyId = activeBaby?.id ?? "sample"
-  const babyName = activeBaby?.name ?? "Lily"
+  const babyId = activeBaby?.id ?? DEMO_BABY.id
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const displayFeedSessions = useMemo(
+    () => recordsForProfile(activeBaby, feedSessions, DEMO_FEED_SESSIONS),
+    [activeBaby, feedSessions],
+  )
 
   const [activeTab, setActiveTab] = useState<FeedType>("breast")
   const [summaryRange, setSummaryRange] = useState<"today" | "yesterday">("today")
@@ -127,14 +132,13 @@ export default function FeedingPage() {
 
   const rangeSessions = useMemo(() => {
     const [start, end] = getDateRange(summaryRange === "yesterday" ? 1 : 0)
-    return feedSessions
-      .filter((s) => s.baby_id === babyId)
+    return displayFeedSessions
       .filter((s) => {
         const d = new Date(s.started_at)
         return d >= start && d < end
       })
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  }, [feedSessions, babyId, summaryRange])
+  }, [displayFeedSessions, summaryRange])
 
   const bottleTotalMl = useMemo(
     () =>
@@ -333,10 +337,9 @@ export default function FeedingPage() {
     setDeletingSession(null)
   }
 
-  const recordsForBaby = useMemo(() => feedSessions
-    .filter((session) => session.baby_id === babyId)
+  const recordsForBaby = useMemo(() => displayFeedSessions
     .filter((session) => recordFilter === "all" || session.feed_type === recordFilter)
-    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()), [babyId, feedSessions, recordFilter])
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()), [displayFeedSessions, recordFilter])
 
   const handleFilterChange = (filter: "all" | FeedType) => {
     setRecordFilter(filter)
