@@ -58,6 +58,7 @@ export default function SleepPage() {
   const [isManualModalOpen, setManualModalOpen] = useState(false)
   const [timelineView, setTimelineView] = useState<"day" | "week">("day")
   const [demoSessionRunning, setDemoSessionRunning] = useState(true)
+  const [demoSessionEndedAt, setDemoSessionEndedAt] = useState<string | null>(null)
   const [manualStart, setManualStart] = useState(() => timeInputValue(new Date(Date.now() - 3600000)))
   const [manualEnd, setManualEnd] = useState(() => timeInputValue(new Date()))
   const [manualLocation, setManualLocation] = useState<SleepLocation>("crib")
@@ -78,7 +79,14 @@ export default function SleepPage() {
     [activeBaby, sleepSessions],
   )
   const isShowingDemo = !activeBaby
-  const displaySessions = sessions
+  const displaySessions = useMemo(() => {
+    if (!isShowingDemo || demoSessionRunning || !demoSessionEndedAt) return sessions
+    return sessions.map((session) =>
+      session.id === "demo-sleep-current" && !session.ended_at
+        ? { ...session, ended_at: demoSessionEndedAt }
+        : session,
+    )
+  }, [demoSessionEndedAt, demoSessionRunning, isShowingDemo, sessions])
 
   const todaySessions = useMemo(() => {
     const today = new Date()
@@ -90,10 +98,10 @@ export default function SleepPage() {
 
   const activeSession = useMemo(
     () => {
-      if (isShowingDemo) return demoSessionRunning ? DEMO_SLEEP_SESSIONS[2] : undefined
+      if (isShowingDemo) return displaySessions.find((session) => !session.ended_at)
       return sessions.find((session) => session.id === activeSessionId) ?? sessions.find((session) => !session.ended_at)
     },
-    [activeSessionId, demoSessionRunning, isShowingDemo, sessions],
+    [activeSessionId, displaySessions, isShowingDemo, sessions],
   )
   const totalMinutes = isShowingDemo ? 870 : todaySessions.reduce((total, session) => total + sessionMinutes(session), 0)
   const longestMinutes = isShowingDemo ? 252 : Math.max(0, ...todaySessions.map(sessionMinutes))
@@ -111,6 +119,7 @@ export default function SleepPage() {
   const handleStop = useCallback(() => {
     if (!activeSession) return
     if (activeSession.id.startsWith("demo-")) {
+      setDemoSessionEndedAt(new Date().toISOString())
       setDemoSessionRunning(false)
       setIsPaused(false)
       setAlert({ title: "Sleep Logged", message: "Well done! A new sleep entry has been added to the history." })
