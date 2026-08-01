@@ -58,6 +58,12 @@ gh_bin="$(command -v gh)"
 
 The preflight passes only when all three commands succeed and the repository result identifies the intended repository. Do not continue with a different `gh`, an interactive `gh auth login`, `GH_TOKEN` populated from a project config file, or a direct HTTP request containing a project token. Use a connected GitHub app if available; otherwise record the blocker and stop.
 
+The bundled preflight helper performs those checks atomically:
+
+```powershell
+& .agents/skills/github/scripts/gh_preflight.ps1 -Repository OWNER/REPO
+```
+
 ### Deterministic PR handoff
 
 Always pass the repository, base, and head explicitly. Check for an existing PR before creating one so a retry updates the same PR instead of creating a duplicate:
@@ -75,3 +81,5 @@ If `gh` is not authenticated, report that blocker instead of starting an interac
 ## REST API fallback
 
 Use `POST /repos/{owner}/{repo}/pulls` to create a PR and `GET /repos/{owner}/{repo}/pulls/{number}` to inspect one. Obtain credentials only from the execution environment's secret store; never include a token in source, logs, or PR text.
+
+Invoke the bundled [`gh_tooling.py`](scripts/gh_tooling.py) operation before writing custom scripts. If an operation is missing, consult the official schema; API validation errors must not be used as schema discovery.

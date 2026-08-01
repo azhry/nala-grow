@@ -12,7 +12,10 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-SECRET = re.compile(r"(?i)\b(token|secret|password|api[_-]?key|authorization)\b(\s*[=:]\s*|\s+)([^\s,;]+)")
+SECRET = re.compile(
+    r"(?i)\b((?:[a-z0-9]+[_-])*(?:token|secret|password|api[_-]?key|authorization))\b"
+    r"(\s*[=:]\s*|\s+)([^\s,;]+)"
+)
 SECRET_KEY = re.compile(r"(?i)(token|secret|password|api[_-]?key|authorization)")
 
 
