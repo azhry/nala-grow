@@ -61,7 +61,10 @@ export default function MilestonesPage() {
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
   const [demoGoals, setDemoGoals] = useState<Milestone[]>(DEMO_MILESTONES)
-  const [demoJourneyCards, setDemoJourneyCards] = useState<Milestone[]>(DEMO_MILESTONES.filter((milestone) => milestone.achieved))
+  const demoJourneyCards = useMemo(
+    () => demoGoals.filter((milestone) => milestone.achieved),
+    [demoGoals],
+  )
 
   const filteredDemoJourneyCards = useMemo(
     () =>
@@ -114,17 +117,6 @@ export default function MilestonesPage() {
       const now = new Date().toISOString()
       if (isDemo) {
         setDemoGoals((prev) =>
-          prev.map((m) =>
-            m.id === id || m.definition_id === id
-              ? {
-                  ...m,
-                  achieved,
-                  achieved_date: achieved ? now : undefined,
-                }
-              : m,
-          ),
-        )
-        setDemoJourneyCards((prev) =>
           prev.map((m) =>
             m.id === id || m.definition_id === id
               ? {
