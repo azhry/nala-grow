@@ -8,6 +8,7 @@ import { calculateAge } from "@/lib/age"
 import { type FeedSession, type Measurement, type SleepSession, useAppStore } from "@/lib/store"
 import { getFeedingSessions, getMeasurements, getSleepSessions } from "@/lib/graphql-client"
 import type { FeedingSession as GraphQLFeedingSession, Measurement as GraphQLMeasurement, SleepSession as GraphQLSleepSession } from "@/lib/graphql-types"
+import { DEMO_BABY, DEMO_FEED_SESSIONS, DEMO_MEASUREMENTS, DEMO_SLEEP_SESSIONS } from "@/lib/demo-data"
 
 type DashboardSection = "feed" | "sleep" | "growth" | null
 type Activity = { id: string; icon: string; label: string; detail: string; time: string; color: string; occurredAt: string }
@@ -81,15 +82,15 @@ export default function DashboardPage() {
   const { openLog } = useQuickLog()
   const todayKey = getTodayKey()
   const babyId = activeBaby?.id
-  const babyName = activeBaby?.name
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"
 
   const loadDashboard = useCallback(async () => {
     const request = ++requestNumber.current
     if (!babyId) {
-      setFeedSessions([])
-      setSleepSessions([])
-      setMeasurements([])
+      setFeedSessions(DEMO_FEED_SESSIONS)
+      setSleepSessions(DEMO_SLEEP_SESSIONS)
+      setMeasurements(DEMO_MEASUREMENTS)
       setLoadState("idle")
       return
     }
@@ -112,9 +113,10 @@ export default function DashboardPage() {
   }, [loadDashboard])
 
   const dashboard = useMemo(() => {
-    const feeds = babyId ? feedSessions.filter((feed) => feed.baby_id === babyId) : []
-    const sleeps = babyId ? sleepSessions.filter((sleep) => sleep.baby_id === babyId) : []
-    const growth = babyId ? measurements.filter((measurement) => measurement.baby_id === babyId) : []
+    const profileId = babyId ?? DEMO_BABY.id
+    const feeds = feedSessions.filter((feed) => feed.baby_id === profileId)
+    const sleeps = sleepSessions.filter((sleep) => sleep.baby_id === profileId)
+    const growth = measurements.filter((measurement) => measurement.baby_id === profileId)
     const todayFeeds = feeds.filter((feed) => feed.started_at.startsWith(todayKey))
     const todaySleeps = sleeps.filter((sleep) => sleep.started_at.startsWith(todayKey))
     const completedSleeps = todaySleeps.filter((sleep) => sleep.ended_at)
@@ -130,7 +132,7 @@ export default function DashboardPage() {
   const feedStatus = getFeedStatus(dashboard.lastFeedHours)
   const eventCount = dashboard.activities.length
   const summarySentence = babyName
-    ? `${calculateAge(activeBaby!.dob)}. ${eventCount ? `You’ve logged ${eventCount} event${eventCount === 1 ? "" : "s"} today.` : "No events logged today yet."}`
+    ? `${calculateAge(activeBaby?.dob ?? DEMO_BABY.dob)}. ${eventCount ? `You’ve logged ${eventCount} event${eventCount === 1 ? "" : "s"} today.` : "No events logged today yet."}`
     : "Choose a baby profile to see today’s care summary."
   const visibleActivities = showAllActivities ? dashboard.activities : dashboard.activities.slice(0, 3)
 
@@ -142,7 +144,7 @@ export default function DashboardPage() {
       : activeSection === "sleep"
         ? [["Total sleep today", `${(dashboard.totalMinutes / 60).toFixed(1)}h`, "text-primary"], ["Longest stretch", dashboard.longestMinutes ? `${(dashboard.longestMinutes / 60).toFixed(1)}h` : "—", "text-tertiary"], ["Status", dashboard.sleeps.some((sleep) => !sleep.ended_at) ? "Currently sleeping" : "Awake", "text-on-surface"]]
         : [["Latest weight", dashboard.latestGrowth?.weight_kg != null ? `${dashboard.latestGrowth.weight_kg.toFixed(1)} kg` : "—", "text-primary"], ["Latest height", dashboard.latestGrowth?.height_cm != null ? `${dashboard.latestGrowth.height_cm.toFixed(1)} cm` : "—", "text-secondary"], ["Last recorded", dashboard.latestGrowth?.date ?? "No data", "text-on-surface"]]
-    return <section aria-live="polite" className="motion-safe:animate-[dashboard-expand_220ms_ease-out] rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
+    return <section aria-live="polite" className="content-enter rounded-[24px] border border-primary/5 bg-surface-container-lowest p-stack-md soft-shadow">
       <div className="mb-stack-md flex items-center justify-between"><h3 className="font-headline-sm text-headline-sm text-on-surface">{title}</h3><button type="button" onClick={() => setActiveSection(null)} className="text-body-sm font-bold text-primary hover:underline">Close</button></div>
       <div className="grid grid-cols-1 gap-stack-md md:grid-cols-3">{cards.map(([label, value, color]) => <div key={label} className="rounded-xl bg-surface-container-low p-stack-md text-center"><p className="font-label-md uppercase tracking-wider text-on-surface-variant">{label}</p><p className={`font-headline-lg text-headline-lg ${color}`}>{value}</p></div>)}</div>
     </section>

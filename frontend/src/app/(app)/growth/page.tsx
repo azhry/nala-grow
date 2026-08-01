@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
+import { AppHeader } from "@/components/layout/app-header"
+import { DEMO_BABY, DEMO_MEASUREMENTS, recordsForProfile } from "@/lib/demo-data"
 import {
   createMeasurement,
   updateMeasurement as updateMeasurementApi,
@@ -21,36 +22,6 @@ function approxPercentile(weightKg: number): number {
   if (weightKg >= 18) return 99
   return Math.round(((weightKg - 2.5) / (18 - 2.5)) * 100)
 }
-
-const sampleMeasurements: Measurement[] = [
-  {
-    id: "sample-1",
-    baby_id: "sample",
-    date: "2024-07-20",
-    weight_kg: 3.4,
-    height_cm: 50.0,
-    head_cm: 35.0,
-    notes: "Birth weights.",
-  },
-  {
-    id: "sample-2",
-    baby_id: "sample",
-    date: "2024-09-12",
-    weight_kg: 5.1,
-    height_cm: 58.2,
-    head_cm: 39.5,
-    notes: "Steady growth reported.",
-  },
-  {
-    id: "sample-3",
-    baby_id: "sample",
-    date: "2024-10-24",
-    weight_kg: 6.4,
-    height_cm: 63.5,
-    head_cm: 41.2,
-    notes: "Post 4m vaccinations checkup",
-  },
-]
 
 export default function GrowthPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
@@ -73,17 +44,13 @@ export default function GrowthPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingMeasurement, setEditingMeasurement] = useState<Partial<Measurement> | undefined>(undefined)
 
-  const babyName = activeBaby?.name ?? "Lily"
-  const babyDob = activeBaby?.dob ?? "2024-07-20"
-  const babyId = activeBaby?.id ?? "sample"
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const babyDob = activeBaby?.dob ?? DEMO_BABY.dob
+  const babyId = activeBaby?.id ?? DEMO_BABY.id
 
   const measurements = useMemo(() => {
-    const userM = storeMeasurements.filter((m) => m.baby_id === babyId)
-    if (userM.length === 0) {
-      return sampleMeasurements.map((m) => ({ ...m, baby_id: babyId }))
-    }
-    return userM
-  }, [storeMeasurements, babyId])
+    return recordsForProfile(activeBaby, storeMeasurements, DEMO_MEASUREMENTS)
+  }, [activeBaby, storeMeasurements])
 
   const latest = useMemo(() => {
     const sorted = [...measurements].sort(
@@ -150,30 +117,8 @@ export default function GrowthPage() {
 
   return (
     <div className="pb-stack-lg">
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center gap-1 text-primary transition-colors hover:text-primary/80" aria-label="NalaGrow home">
-            <span className="material-symbols-outlined text-primary">home</span>
-            <span className="font-headline-md text-headline-md text-primary">NalaGrow</span>
-          </Link>
-        </div>
-        <div className="hidden w-full max-w-sm items-center md:flex">
-          <div className="flex w-full items-center gap-2 rounded-full bg-surface-container px-4 py-2">
-            <span className="material-symbols-outlined text-on-surface-variant">search</span>
-            <input type="text" placeholder="Search records..." className="w-full bg-transparent font-body-sm text-body-sm text-on-surface outline-none placeholder:text-on-surface-variant placeholder:opacity-70" />
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button type="button" aria-label="Notifications" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-error" />
-          </button>
-          <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80">
-            {babyName.slice(0, 1)}
-          </Link>
-        </div>
-      </header>
-      <div className="mx-auto max-w-7xl px-container-margin py-stack-md">
+      <AppHeader />
+      <div className="content-enter mx-auto max-w-7xl px-container-margin py-stack-md">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-stack-sm mb-stack-md">
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface">

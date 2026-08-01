@@ -3,11 +3,12 @@
 import { useState } from "react"
 import { useAppStore } from "@/lib/store"
 import Link from "next/link"
+import { DEMO_BABY } from "@/lib/demo-data"
 
 export function AppHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const activeBaby = useAppStore((s) => s.activeBaby)
-  const babyName = activeBaby?.name ?? "Baby"
+  const babyName = activeBaby?.name ?? DEMO_BABY.name
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
@@ -23,18 +24,7 @@ export function AppHeader() {
           </span>
         </Link>
       </div>
-      <div className="hidden w-full max-w-sm items-center md:flex">
-        <div className="flex w-full items-center gap-2 rounded-full bg-surface-container px-4 py-2">
-          <span className="material-symbols-outlined text-on-surface-variant">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search records..."
-            className="w-full bg-transparent font-body-sm text-body-sm text-on-surface outline-none placeholder:text-on-surface-variant placeholder:opacity-70"
-          />
-        </div>
-      </div>
+      <div className="hidden md:block" aria-hidden="true" />
       <div className="flex items-center gap-3">
         <div className="relative">
           <button
@@ -48,7 +38,7 @@ export function AppHeader() {
             <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-error" />
           </button>
           {notificationsOpen && (
-            <div className="absolute right-0 top-12 w-72 rounded-2xl bg-white p-4 shadow-lg border border-outline-variant/20">
+            <div className="content-enter absolute right-0 top-12 w-72 rounded-2xl border border-outline-variant/20 bg-white p-4 shadow-lg">
               <p className="font-headline-sm text-headline-sm text-on-surface">
                 Notifications
               </p>
@@ -60,6 +50,7 @@ export function AppHeader() {
         </div>
         <Link
           href="/profile"
+          aria-label={`Manage ${babyName}'s profile`}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80"
         >
           {babyName.slice(0, 1)}

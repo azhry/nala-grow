@@ -4,6 +4,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
+import { useAppStore } from "@/lib/store"
+import { DEMO_BABY } from "@/lib/demo-data"
+import { calculateAge } from "@/lib/age"
 
 interface NavItem {
   href: string
@@ -31,24 +34,29 @@ interface DesktopSidebarProps {
   babyAvatar?: string
 }
 
-function DesktopSidebar({ babyName = "Lily", babyAge = "4 months", babyAvatar }: DesktopSidebarProps) {
+function DesktopSidebar({ babyName, babyAge, babyAvatar }: DesktopSidebarProps) {
   const pathname = usePathname()
   const { openLog } = useQuickLog()
+  const activeBaby = useAppStore((state) => state.activeBaby)
+  const displayedBaby = activeBaby ?? DEMO_BABY
+  const displayedName = babyName ?? displayedBaby.name
+  const displayedAge = babyAge ? `${babyAge} old` : calculateAge(displayedBaby.dob)
+  const displayedAvatar = babyAvatar ?? displayedBaby.photo_url
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface-container-low md:flex">
       <div className="border-b border-outline-variant/30 px-gutter py-stack-md">
         <div className="flex items-center gap-3">
-          {babyAvatar ? (
+          {displayedAvatar ? (
             <div className="h-12 w-12 rounded-full overflow-hidden">
-              <Image alt={`${babyName}'s profile`} className="object-cover" fill src={babyAvatar} />
+              <Image alt={`${displayedName}'s profile`} className="object-cover" fill src={displayedAvatar} />
             </div>
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-container font-headline-sm text-headline-sm text-primary">
-              {babyName.slice(0, 1)}
+              {displayedName.slice(0, 1)}
             </div>
           )}
-          <div><h3 className="font-headline-sm text-headline-sm text-on-surface">{babyName}</h3><p className="font-body-sm text-body-sm text-on-surface-variant">{babyAge} old</p></div>
+          <div><h3 className="font-headline-sm text-headline-sm text-on-surface">{displayedName}</h3><p className="font-body-sm text-body-sm text-on-surface-variant">{displayedAge}</p></div>
         </div>
       </div>
 

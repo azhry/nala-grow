@@ -9,6 +9,7 @@ import { useAppStore } from "@/lib/store"
 import { deleteBaby } from "@/lib/baby-service"
 import { calculateAge, formatDate } from "@/lib/age"
 import { ApiError } from "@/lib/api-client"
+import { AppHeader } from "@/components/layout/app-header"
 
 export default function ManageProfilesPage() {
   const router = useRouter()
@@ -57,22 +58,11 @@ export default function ManageProfilesPage() {
 
   return (
     <div className="min-h-dvh bg-surface pb-stack-lg">
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-surface px-container-margin shadow-sm shadow-primary/10">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="material-symbols-outlined rounded-full p-2 text-primary transition-colors hover:bg-surface-container-high active:scale-95"
-          >
-            arrow_back
-          </button>
-          <h1 className="font-headline-md text-headline-md text-primary">
-            Manage Profiles
-          </h1>
-        </div>
-      </header>
+      <AppHeader />
 
-      <main className="mx-auto mt-stack-md max-w-[1040px] px-container-margin">
+      <main className="content-enter mx-auto mt-stack-md max-w-[1040px] px-container-margin">
         <div className="mb-stack-md">
+          <button type="button" onClick={() => router.back()} className="mb-stack-sm inline-flex items-center gap-2 rounded-full px-3 py-2 font-label-md text-primary transition-colors hover:bg-surface-container-high"><span className="material-symbols-outlined">arrow_back</span>Back</button>
           <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface md:font-headline-lg md:text-headline-lg">
             Your Little Ones
           </h2>
