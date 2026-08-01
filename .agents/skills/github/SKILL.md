@@ -18,7 +18,7 @@ Git is the local version-control system for branches and commits. GitHub hosts G
 ## Workflow
 
 1. Inspect status, current branch, remote, and repository instructions before editing or staging.
-2. Read [TOOLING.md](TOOLING.md), resolve the official GitHub CLI, and run its non-interactive authentication and repository-access checks before source edits. Do not invoke the `gh` name from PATH until this check rules out npm shims, aliases, and wrappers.
+2. Read TOOLING.md, resolve the official GitHub CLI, and run its non-interactive authentication and repository-access checks with sandbox_permissions: require_escalated before source edits. The sandbox cannot read the host keyring or reach the GitHub API, so a sandboxed gh auth status will falsely report the token invalid and the repo lookup will fail with a network denial.
 3. Derive conventions from the current project; if absent, use a concise topic branch from `main` and a focused conventional commit.
 4. Stage only intended files. Run proportional verification and separate pre-existing failures from regressions.
 5. Push/create a PR only with explicit user authorization for external publication. Never expose credentials or bypass authorization failure.
