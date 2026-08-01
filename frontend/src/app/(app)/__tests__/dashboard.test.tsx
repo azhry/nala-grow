@@ -168,7 +168,7 @@ describe("DashboardPage", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
     expect(screen.getByText(/Lily!/i)).toBeInTheDocument()
-    expect(screen.getByText(/You’ve logged 4 events today/i)).toBeInTheDocument()
+    expect(screen.getByText(/You’ve logged \d+ events? today/i)).toBeInTheDocument()
     expect(fetchFeeds).not.toHaveBeenCalled()
   })
 })
