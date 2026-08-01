@@ -582,10 +582,10 @@ describe("FeedingPage", () => {
   })
 
   describe("Default baby name", () => {
-    it("uses 'Lily' when no activeBaby is set", () => {
+    it("uses a generic prompt when no activeBaby is set", () => {
       setStoreState({ activeBaby: null })
       renderPage()
-      expect(screen.getByText(/Track Lily's nourishment/)).toBeInTheDocument()
+      expect(screen.getByText(/Track your baby's nourishment/)).toBeInTheDocument()
     })
   })
 })

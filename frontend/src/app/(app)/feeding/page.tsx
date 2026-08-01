@@ -45,6 +45,7 @@ const selectedClasses: Record<string, string> = {
 
 export default function FeedingPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
+  const user = useAppStore((s) => s.user)
   const feedSessions = useAppStore((s) => s.feedSessions)
   useEffect(() => {
     if (activeBaby?.id) {
@@ -53,10 +54,10 @@ export default function FeedingPage() {
   }, [activeBaby?.id])
 
   const babyId = activeBaby?.id ?? DEMO_BABY.id
-  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const babyName = activeBaby?.name
   const displayFeedSessions = useMemo(
-    () => recordsForProfile(activeBaby, feedSessions, DEMO_FEED_SESSIONS),
-    [activeBaby, feedSessions],
+    () => recordsForProfile(activeBaby, feedSessions, DEMO_FEED_SESSIONS, !!user),
+    [activeBaby, feedSessions, user],
   )
 
   const [activeTab, setActiveTab] = useState<FeedType>("breast")
@@ -348,7 +349,7 @@ export default function FeedingPage() {
 
   const handleExportRecords = () => {
     const csv = generateCsv({ baby: activeBaby, feedSessions: recordsForBaby, sleepSessions: [], measurements: [], milestones: [], dateRange: { from: "", to: "" } })
-    downloadCsv(csv, `${babyName.toLowerCase().replace(/\s+/g, "-")}-feeding-records.csv`)
+    downloadCsv(csv, `${(babyName ?? "baby").toLowerCase().replace(/\s+/g, "-")}-feeding-records.csv`)
     setStatusMessage("Feeding records exported")
   }
 
@@ -359,7 +360,7 @@ export default function FeedingPage() {
         <div className="mb-stack-md">
           <h1 className="font-headline-lg text-headline-lg text-primary">Feeding Log</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">
-            Track {babyName}&apos;s nourishment and growth journey.
+            {babyName ? `Track ${babyName}'s nourishment and growth journey.` : "Track your baby's nourishment and growth journey."}
           </p>
         </div>
 
@@ -367,8 +368,7 @@ export default function FeedingPage() {
           <div className="mb-stack-md p-gutter bg-error-container/20 border border-error-container/30 rounded-2xl flex items-center gap-3">
             <span className="material-symbols-outlined text-error">schedule</span>
             <p className="font-body-sm text-body-sm text-on-error-container">
-              It&apos;s been over {Math.floor(hoursSinceLastFeed)} hours since {babyName}&apos;s last
-              feed.
+              It&apos;s been over {Math.floor(hoursSinceLastFeed)} hours since{babyName ? ` ${babyName}'s` : " the"} last feed.
             </p>
           </div>
         )}
@@ -380,11 +380,7 @@ export default function FeedingPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-          <div className="lg:col-span-8 space-y-stack-md">
-            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} range={summaryRange} onRangeChange={setSummaryRange} /><FeedingTimeline sessions={timelineSessions} rangeLabel={summaryRange === "today" ? "Today" : "Yesterday"} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={recordsForBaby} onEdit={openEdit} onDelete={setDeletingSession} activeFilter={recordFilter} filterOpen={filterOpen} onToggleFilter={() => setFilterOpen((open) => !open)} onFilterChange={handleFilterChange} onExport={handleExportRecords} />}
-          </div>
-
-          <aside className="lg:col-span-4 lg:sticky lg:top-stack-lg h-fit">
+          <aside className="order-first lg:order-last lg:col-span-4 lg:sticky lg:top-stack-lg h-fit">
           {feedPanelOpen ? <section className="min-h-[460px] bg-white rounded-2xl p-stack-md soft-shadow flex flex-col">
             <div className="flex justify-between items-center mb-stack-md">
               <h3 className="font-headline-md text-headline-md text-primary">Record Feed</h3>
@@ -487,6 +483,9 @@ export default function FeedingPage() {
           </section>
           : <button type="button" onClick={() => setFeedPanelOpen(true)} className="w-full rounded-2xl bg-primary py-4 text-on-primary font-headline-sm text-headline-sm shadow-md"><span className="material-symbols-outlined mr-2">add</span>Log a feed</button>}
           </aside>
+          <div className="order-last lg:order-first lg:col-span-8 space-y-stack-md">
+            {view === "overview" ? <><DailySummary bottleTotalMl={bottleTotalMl} breastTotalMins={breastTotalMins} barData={barData} range={summaryRange} onRangeChange={setSummaryRange} /><FeedingTimeline sessions={timelineSessions} rangeLabel={summaryRange === "today" ? "Today" : "Yesterday"} onViewHistory={() => setView("records")} /></> : <FeedingRecords sessions={recordsForBaby} onEdit={openEdit} onDelete={setDeletingSession} activeFilter={recordFilter} filterOpen={filterOpen} onToggleFilter={() => setFilterOpen((open) => !open)} onFilterChange={handleFilterChange} onExport={handleExportRecords} />}
+          </div>
         </div>
       </div>
       {saveError && (

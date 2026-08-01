@@ -39,6 +39,7 @@ const mockSetUser = jest.fn()
 const mockSetToken = jest.fn()
 const mockSetActiveBaby = jest.fn()
 const mockSetBabies = jest.fn()
+const mockResetState = jest.fn()
 let mockUserValue: { id: string; email: string } | null = null
 
 jest.mock("../store", () => ({
@@ -49,6 +50,7 @@ jest.mock("../store", () => ({
       setToken: mockSetToken,
       setActiveBaby: mockSetActiveBaby,
       setBabies: mockSetBabies,
+      resetState: mockResetState,
     }),
   },
 }))
@@ -169,10 +171,7 @@ describe("auth service", () => {
 
       expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
       expect(mockClearAuthToken).toHaveBeenCalled()
-      expect(mockSetToken).toHaveBeenCalledWith(null)
-      expect(mockSetUser).toHaveBeenCalledWith(null)
-      expect(mockSetActiveBaby).toHaveBeenCalledWith(null)
-      expect(mockSetBabies).toHaveBeenCalledWith([])
+      expect(mockResetState).toHaveBeenCalled()
     })
   })
 

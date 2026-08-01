@@ -30,15 +30,21 @@ describe("demo data policy", () => {
     expect(allRecords.every((record) => record.baby_id === DEMO_BABY.id)).toBe(true)
   })
 
-  it("shows demo records only without an active profile", () => {
+  it("shows demo records only without an active profile when not logged in", () => {
     const realBaby = { id: "real", name: "Nala", dob: "2025-01-01", sex: "female" as const }
-    expect(recordsForProfile(null, [], DEMO_FEED_SESSIONS)).toBe(DEMO_FEED_SESSIONS)
-    expect(recordsForProfile(realBaby, [], DEMO_FEED_SESSIONS)).toEqual([])
+    expect(recordsForProfile(null, [], DEMO_FEED_SESSIONS, false)).toBe(DEMO_FEED_SESSIONS)
+    expect(recordsForProfile(realBaby, [], DEMO_FEED_SESSIONS, false)).toEqual([])
+  })
+
+  it("returns empty records when logged in without an active profile", () => {
+    const realBaby = { id: "real", name: "Nala", dob: "2025-01-01", sex: "female" as const }
+    expect(recordsForProfile(null, [], DEMO_FEED_SESSIONS, true)).toEqual([])
+    expect(recordsForProfile(realBaby, [], DEMO_FEED_SESSIONS, true)).toEqual([])
   })
 
   it("filters real records to the active profile", () => {
     const realBaby = { id: "real", name: "Nala", dob: "2025-01-01", sex: "female" as const }
     const records = DEMO_FEED_SESSIONS.concat({ ...DEMO_FEED_SESSIONS[0], id: "real-feed", baby_id: "real" })
-    expect(recordsForProfile(realBaby, records, DEMO_FEED_SESSIONS).map((record) => record.id)).toEqual(["real-feed"])
+    expect(recordsForProfile(realBaby, records, DEMO_FEED_SESSIONS, false).map((record) => record.id)).toEqual(["real-feed"])
   })
 })

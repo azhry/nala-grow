@@ -1,13 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signUpWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
+import { useAppStore } from "@/lib/store"
 
 export default function SignupPage() {
   const router = useRouter()
+  const user = useAppStore((s) => s.user)
+
+  useEffect(() => {
+    if (user) {
+      router.replace("/dashboard")
+    }
+  }, [user, router])
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

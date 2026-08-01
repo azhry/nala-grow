@@ -17,3 +17,4 @@ backend/nala-grow-backend.exe
 .env.local
 .env.production
 .codex
+.playwright-mcp/

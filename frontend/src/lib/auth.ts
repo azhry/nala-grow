@@ -193,9 +193,7 @@ export async function updatePassword(
 
 export async function signOut(): Promise<void> {
   clearStoredToken()
-  useAppStore.getState().setUser(null)
-  useAppStore.getState().setActiveBaby(null)
-  useAppStore.getState().setBabies([])
+  useAppStore.getState().resetState()
 }
 
 export async function getCurrentSession(): Promise<AuthSession | null> {

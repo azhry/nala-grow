@@ -59,8 +59,10 @@ export function recordsForProfile<T extends { baby_id: string }>(
   activeBaby: BabyProfile | null,
   records: T[],
   demoRecords: T[],
+  isLoggedIn: boolean,
 ): T[] {
-  return activeBaby
-    ? records.filter((record) => record.baby_id === activeBaby.id)
-    : demoRecords
+  if (!activeBaby) {
+    return isLoggedIn ? [] : demoRecords
+  }
+  return records.filter((record) => record.baby_id === activeBaby.id)
 }

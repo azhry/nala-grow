@@ -26,6 +26,7 @@ function approxPercentile(weightKg: number): number {
 
 export default function GrowthPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
+  const user = useAppStore((s) => s.user)
   const storeMeasurements = useAppStore((s) => s.measurements)
   const unitSystem = useAppStore((s) => s.unitSystem)
   const addMeasurement = useAppStore((s) => s.addMeasurement)
@@ -50,8 +51,8 @@ export default function GrowthPage() {
   const babyId = activeBaby?.id ?? DEMO_BABY.id
 
   const measurements = useMemo(() => {
-    return recordsForProfile(activeBaby, storeMeasurements, DEMO_MEASUREMENTS)
-  }, [activeBaby, storeMeasurements])
+    return recordsForProfile(activeBaby, storeMeasurements, DEMO_MEASUREMENTS, !!user)
+  }, [activeBaby, storeMeasurements, user])
 
   const latest = useMemo(() => {
     const sorted = [...measurements].sort(

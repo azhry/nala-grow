@@ -45,6 +45,7 @@ function locationLabel(location?: SleepLocation): string {
 
 export default function SleepPage() {
   const activeBaby = useAppStore((state) => state.activeBaby)
+  const user = useAppStore((state) => state.user)
   const sleepSessions = useAppStore((state) => state.sleepSessions)
   const addSleepSession = useAppStore((state) => state.addSleepSession)
   const updateSleepSession = useAppStore((state) => state.updateSleepSession)
@@ -75,8 +76,8 @@ export default function SleepPage() {
   }, [activeSessionId, isPaused])
 
   const sessions = useMemo(
-    () => recordsForProfile(activeBaby, sleepSessions, DEMO_SLEEP_SESSIONS),
-    [activeBaby, sleepSessions],
+    () => recordsForProfile(activeBaby, sleepSessions, DEMO_SLEEP_SESSIONS, !!user),
+    [activeBaby, sleepSessions, user],
   )
   const isShowingDemo = !activeBaby
   const displaySessions = useMemo(() => {

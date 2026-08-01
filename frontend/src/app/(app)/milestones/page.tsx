@@ -32,6 +32,7 @@ function generateId(): string {
 
 export default function MilestonesPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
+  const user = useAppStore((s) => s.user)
   const milestones = useAppStore((s) => s.milestones)
   const addMilestone = useAppStore((s) => s.addMilestone)
   const updateMilestone = useAppStore((s) => s.updateMilestone)
@@ -56,7 +57,7 @@ export default function MilestonesPage() {
     [milestones, babyId],
   )
 
-  const isDemo = !activeBaby
+  const isDemo = !activeBaby && !user
 
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 

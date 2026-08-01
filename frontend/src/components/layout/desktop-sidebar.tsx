@@ -5,7 +5,6 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 import { useAppStore } from "@/lib/store"
-import { DEMO_BABY } from "@/lib/demo-data"
 import { calculateAge } from "@/lib/age"
 
 interface NavItem {
@@ -28,20 +27,13 @@ const secondaryNav: NavItem[] = [
   { href: "/help", label: "Help & Support", icon: "help" },
 ]
 
-interface DesktopSidebarProps {
-  babyName?: string
-  babyAge?: string
-  babyAvatar?: string
-}
-
-function DesktopSidebar({ babyName, babyAge, babyAvatar }: DesktopSidebarProps) {
+function DesktopSidebar() {
   const pathname = usePathname()
   const { openLog } = useQuickLog()
   const activeBaby = useAppStore((state) => state.activeBaby)
-  const displayedBaby = activeBaby ?? DEMO_BABY
-  const displayedName = babyName ?? displayedBaby.name
-  const displayedAge = babyAge ? `${babyAge} old` : calculateAge(displayedBaby.dob)
-  const displayedAvatar = babyAvatar ?? displayedBaby.photo_url
+  const displayedName = activeBaby?.name ?? "Add a profile"
+  const displayedAge = activeBaby ? calculateAge(activeBaby.dob) : ""
+  const displayedAvatar = activeBaby?.photo_url
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface-container-low md:flex">
@@ -76,4 +68,3 @@ function DesktopSidebar({ babyName, babyAge, babyAvatar }: DesktopSidebarProps) 
 }
 
 export { DesktopSidebar }
-export type { DesktopSidebarProps }

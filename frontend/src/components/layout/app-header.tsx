@@ -1,27 +1,32 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAppStore } from "@/lib/store"
 import Link from "next/link"
-import { DEMO_BABY } from "@/lib/demo-data"
+import { signOut } from "@/lib/auth"
 
 export function AppHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const activeBaby = useAppStore((s) => s.activeBaby)
-  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const router = useRouter()
+
+  const displayName = activeBaby?.name
+
+  const handleLogout = () => {
+    signOut()
+    router.replace("/login")
+  }
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/30 bg-surface px-container-margin">
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"
-          className="flex items-center gap-1 text-primary transition-colors hover:text-primary/80"
+          className="font-headline-md text-headline-md text-primary transition-colors hover:text-primary/80"
           aria-label="NalaGrow home"
         >
-          <span className="material-symbols-outlined text-primary">home</span>
-          <span className="font-headline-md text-headline-md text-primary">
-            NalaGrow
-          </span>
+          NalaGrow
         </Link>
       </div>
       <div className="hidden md:block" aria-hidden="true" />
@@ -48,13 +53,31 @@ export function AppHeader() {
             </div>
           )}
         </div>
-        <Link
-          href="/profile"
-          aria-label={`Manage ${babyName}'s profile`}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80"
+        {displayName ? (
+          <Link
+            href="/profile"
+            aria-label={`Manage ${displayName}'s profile`}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80"
+          >
+            {displayName.slice(0, 1)}
+          </Link>
+        ) : (
+          <Link
+            href="/profile/create"
+            aria-label="Add a profile"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-md text-label-md text-primary transition-colors hover:bg-primary-container/80"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="inline-flex h-9 items-center gap-1 rounded-full px-3 font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
         >
-          {babyName.slice(0, 1)}
-        </Link>
+          <span className="material-symbols-outlined text-[18px]">logout</span>
+          Logout
+        </button>
       </div>
     </header>
   )

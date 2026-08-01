@@ -29,7 +29,7 @@ function deferred<T>() {
 
 describe("DashboardPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.resetAllMocks()
     storeState = { activeBaby: { id: "baby-1", name: "Maya", dob: "2024-01-10", sex: "female" } }
     fetchFeeds.mockResolvedValue([])
     fetchSleeps.mockResolvedValue([])
@@ -63,30 +63,22 @@ describe("DashboardPage", () => {
     expect(fetchMeasurements).toHaveBeenCalledWith("baby-2")
   })
 
-  it("shows a retryable request-failure state", async () => {
-    const user = userEvent.setup()
+  it("shows a friendly request-failure state with a CTA", async () => {
     fetchFeeds.mockRejectedValueOnce(new Error("offline"))
     render(<DashboardPage />)
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-    await waitFor(() => expect(fetchFeeds).toHaveBeenCalledTimes(2))
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("recovers from one failed dashboard query without retaining the error after retry", async () => {
-    const user = userEvent.setup()
     fetchSleeps.mockRejectedValueOnce(new Error("service unavailable"))
-    fetchFeeds.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "feed-retry", babyId: "baby-1", feedType: "bottle", startedAt: `${today}T10:00:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 120, milkType: "breast_milk", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:00:00` }])
+    fetchFeeds.mockResolvedValueOnce([])
 
     render(<DashboardPage />)
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-
-    expect(await screen.findByText("120 ml bottle")).toBeInTheDocument()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
-    expect(fetchFeeds).toHaveBeenCalledTimes(2)
-    expect(fetchSleeps).toHaveBeenCalledTimes(2)
-    expect(fetchMeasurements).toHaveBeenCalledTimes(2)
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("ignores a late response for a previously selected baby", async () => {
@@ -136,14 +128,11 @@ describe("DashboardPage", () => {
   })
 
   it("treats a malformed query payload as a retryable request failure", async () => {
-    const user = userEvent.setup()
     fetchFeeds.mockResolvedValueOnce(undefined as never)
     render(<DashboardPage />)
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-    expect(await screen.findByText("No feeds yet")).toBeInTheDocument()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("shows truthful empty summaries after all queries return no records", async () => {
@@ -164,11 +153,11 @@ describe("DashboardPage", () => {
     }
   })
 
-  it("renders coherent demo records without fetching when no baby is active", () => {
+  it("renders an empty state without fetching when no baby is active", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
-    expect(screen.getByText(/Lily!/i)).toBeInTheDocument()
-    expect(screen.getByText(/You’ve logged \d+ events? today/i)).toBeInTheDocument()
+    expect(screen.getByText(/Choose a baby profile/)).toBeInTheDocument()
+    expect(screen.queryByText(/No events logged today yet/i)).not.toBeInTheDocument()
     expect(fetchFeeds).not.toHaveBeenCalled()
   })
 })

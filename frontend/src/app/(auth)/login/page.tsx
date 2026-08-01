@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signInWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
+import { useAppStore } from "@/lib/store"
 
 const PROTECTED_REDIRECTS = [
   "/dashboard",
@@ -29,6 +30,13 @@ function getSafeRedirect(redirect: string | null) {
 
 function LoginForm() {
   const router = useRouter()
+  const user = useAppStore((s) => s.user)
+
+  useEffect(() => {
+    if (user) {
+      router.replace("/dashboard")
+    }
+  }, [user, router])
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
