@@ -19,6 +19,10 @@ SECRET = re.compile(
 SECRET_KEY = re.compile(r"(?i)(token|secret|password|api[_-]?key|authorization)")
 
 
+class SessionLookupError(Exception):
+    """Report a safe, deterministic session-selector failure."""
+
+
 def quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
@@ -97,9 +101,45 @@ def create_snapshot(source: Path, snapshot: Path) -> None:
         source_connection.close()
 
 
+def resolve_session_id(
+    connection: sqlite3.Connection,
+    session_id: str | None,
+    session_title: str | None,
+) -> str:
+    if session_id is not None:
+        return session_id
+
+    table = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name = 'session'"
+    ).fetchone()
+    if table is None:
+        raise SessionLookupError("session title lookup unsupported by schema")
+
+    columns = {
+        str(row[1]) for row in connection.execute(f"PRAGMA table_info({quote('session')})")
+    }
+    if not {"id", "title"}.issubset(columns):
+        raise SessionLookupError("session title lookup unsupported by schema")
+
+    matches = connection.execute(
+        f"SELECT {quote('id')} FROM {quote('session')} "
+        f"WHERE {quote('title')} COLLATE BINARY = ? LIMIT 2",
+        (session_title,),
+    ).fetchall()
+    if not matches:
+        raise SessionLookupError("session title not found")
+    if len(matches) > 1:
+        raise SessionLookupError("session title is ambiguous")
+    if matches[0][0] is None:
+        raise SessionLookupError("session title lookup returned no session id")
+    return str(matches[0][0])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--session-id", required=True)
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--session-id")
+    selector.add_argument("--session-title")
     parser.add_argument("--database", type=Path, default=Path(os.environ.get("USERPROFILE", "~")) / ".local" / "share" / "kilo" / "kilo.db")
     parser.add_argument("--snapshot-file", type=Path, help="Create once, then reuse this consistent SQLite snapshot")
     parser.add_argument("--page", type=int)
@@ -110,8 +150,13 @@ def main() -> int:
         parser.error("--page-size must be between 1 and 200")
     if args.chunk_chars < 500 or args.chunk_chars > 10000:
         parser.error("--chunk-chars must be between 500 and 10000")
+    selection = (
+        {"session_id": args.session_id}
+        if args.session_id is not None
+        else {"selector": "session-title"}
+    )
     if not args.database.is_file():
-        print(json.dumps({"session_id": args.session_id, "database": str(args.database), "error": "database not found"}, indent=2))
+        print(json.dumps({**selection, "database": str(args.database), "error": "database not found"}, indent=2))
         return 2
 
     database = args.database
@@ -123,6 +168,17 @@ def main() -> int:
 
     connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
+    try:
+        session_id = resolve_session_id(connection, args.session_id, args.session_title)
+    except SessionLookupError as error:
+        connection.close()
+        print(
+            json.dumps(
+                {**selection, "database": str(database), "error": str(error)},
+                indent=2,
+            )
+        )
+        return 2
     tables = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
     records: list[dict[str, Any]] = []
     searched: list[str] = []
@@ -133,10 +189,10 @@ def main() -> int:
         params: list[str] = []
         if "session_id" in names:
             predicates.append(f"{quote('session_id')} = ?")
-            params.append(args.session_id)
+            params.append(session_id)
         if table == "session" and "id" in names:
             predicates.append(f"{quote('id')} = ?")
-            params.append(args.session_id)
+            params.append(session_id)
         if not predicates:
             continue
         searched.append(table)
@@ -155,7 +211,7 @@ def main() -> int:
     chunks = chunk_records(records, args.chunk_chars)
     page_count = (len(chunks) + args.page_size - 1) // args.page_size
     summary: dict[str, Any] = {
-        "session_id": args.session_id,
+        "session_id": session_id,
         "database": str(database),
         "source_database": str(args.database) if args.snapshot_file is not None else None,
         "snapshot_sha256": snapshot_sha256,
