@@ -9,14 +9,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : 1,
   reporter: process.env.CI ? "github" : "list",
-  webServer: {
+  webServer: process.env.E2E_SERVICES_EXTERNAL === "1" ? undefined : {
     command: "node scripts/e2e-setup-playwright.js",
-    url: "http://localhost:3000",
+    url: "http://127.0.0.1:3000/login",
     reuseExistingServer: false,
     timeout: 120000,
   },
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL: process.env.BASE_URL || "http://127.0.0.1:3000",
     trace: "on-first-retry",
   },
   expect: {

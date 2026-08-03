@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test:unit": "jest",
     "test:e2e": "playwright test",
+    "test:e2e:integration": "node scripts/e2e-run-integration.js",
     "test:e2e:ci": "playwright test --reporter=github",
     "test:e2e:update": "playwright test --update-snapshots"
   },
