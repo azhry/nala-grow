@@ -3,10 +3,17 @@ import userEvent from "@testing-library/user-event"
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import DashboardPage from "../dashboard/page"
 import { getFeedingSessions, getMeasurements, getSleepSessions } from "@/lib/graphql-client"
+import * as graphqlClient from "@/lib/graphql-client"
 
 jest.mock("@/components/ui", () => ({ FAB: ({ icon, onClick, ...props }: { icon: string; onClick?: () => void } & ButtonHTMLAttributes<HTMLButtonElement>) => <button data-testid="fab" onClick={onClick} {...props}><span>{icon}</span></button> }))
 jest.mock("@/components/providers/quick-log-provider", () => ({ useQuickLog: () => ({ openLog: jest.fn() }), QuickLogProvider: ({ children }: { children: ReactNode }) => <>{children}</> }))
-jest.mock("@/lib/graphql-client", () => ({ getFeedingSessions: jest.fn(), getSleepSessions: jest.fn(), getMeasurements: jest.fn() }))
+jest.mock("@/lib/graphql-client", () => ({
+  __esModule: true,
+  getFeedingSessions: jest.fn(),
+  getSleepSessions: jest.fn(),
+  getMeasurements: jest.fn(),
+  fetchDemoData: jest.fn(),
+}))
 
 let storeState: Record<string, unknown>
 jest.mock("@/lib/store", () => ({ useAppStore: (selector: (state: Record<string, unknown>) => unknown) => selector(storeState) }))
@@ -14,6 +21,7 @@ jest.mock("@/lib/store", () => ({ useAppStore: (selector: (state: Record<string,
 const fetchFeeds = getFeedingSessions as jest.MockedFunction<typeof getFeedingSessions>
 const fetchSleeps = getSleepSessions as jest.MockedFunction<typeof getSleepSessions>
 const fetchMeasurements = getMeasurements as jest.MockedFunction<typeof getMeasurements>
+
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
@@ -34,6 +42,7 @@ describe("DashboardPage", () => {
     fetchFeeds.mockResolvedValue([])
     fetchSleeps.mockResolvedValue([])
     fetchMeasurements.mockResolvedValue([])
+    graphqlClient.fetchDemoData.mockResolvedValue({ baby: { id: "demo", name: "Demo", dob: "", sex: "", photoUrl: "", createdAt: "", userId: "" }, feedingSessions: [], sleepSessions: [], measurements: [], milestones: [] })
   })
 
   it("loads all dashboard queries for the active baby and maps their results", async () => {

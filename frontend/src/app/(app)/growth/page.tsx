@@ -5,13 +5,14 @@ import Link from "next/link"
 import { useAppStore } from "@/lib/store"
 import type { Measurement } from "@/lib/store"
 import { AppHeader } from "@/components/layout/app-header"
-import { DEMO_BABY, DEMO_MEASUREMENTS, recordsForProfile } from "@/lib/demo-data"
+import { DEMO_BABY_ID, recordsForProfile, setCachedDemoData } from "@/lib/demo-data"
 import {
   createMeasurement,
   updateMeasurement as updateMeasurementApi,
   deleteMeasurement as deleteMeasurementApi,
   fetchMeasurements,
 } from "@/lib/measurement-service"
+import { fetchDemoData, type DemoData } from "@/lib/graphql-client"
 import { WhoChart, MeasurementTable, MeasurementForm } from "@/components/growth"
 
 function generateId(): string {
@@ -35,24 +36,40 @@ export default function GrowthPage() {
   const setUnitSystem = useAppStore((s) => s.setUnitSystem)
 
   const [fetched, setFetched] = useState(false)
+  const [demoData, setDemoData] = useState<DemoData | null>(null)
 
   useEffect(() => {
     if (activeBaby?.id && !fetched) {
       fetchMeasurements(activeBaby.id).catch(() => {})
       setFetched(true)
+    } else if (!activeBaby && !user && !demoData) {
+      fetchDemoData()
+        .then((data) => {
+          setDemoData(data)
+          setCachedDemoData(data)
+        })
+        .catch(() => {})
     }
-  }, [activeBaby?.id, fetched])
+  }, [activeBaby?.id, activeBaby, user, demoData, fetched])
 
   const [showForm, setShowForm] = useState(false)
   const [editingMeasurement, setEditingMeasurement] = useState<Partial<Measurement> | undefined>(undefined)
 
-  const babyName = activeBaby?.name ?? DEMO_BABY.name
-  const babyDob = activeBaby?.dob ?? DEMO_BABY.dob
-  const babyId = activeBaby?.id ?? DEMO_BABY.id
+  const babyName = activeBaby?.name ?? demoData?.baby.name
+  const babyDob = activeBaby?.dob ?? demoData?.baby.dob ?? ""
+  const babyId = activeBaby?.id ?? demoData?.baby.id ?? DEMO_BABY_ID
 
+  const demoMeasurements = useMemo(() => (demoData?.measurements ?? []).map((m) => ({
+    id: m.id,
+    baby_id: m.babyId,
+    date: m.date,
+    weight_kg: m.weight || undefined,
+    height_cm: m.height || undefined,
+    head_cm: m.headCircumference || undefined,
+  })), [demoData])
   const measurements = useMemo(() => {
-    return recordsForProfile(activeBaby, storeMeasurements, DEMO_MEASUREMENTS, !!user)
-  }, [activeBaby, storeMeasurements, user])
+    return recordsForProfile(activeBaby, storeMeasurements, demoMeasurements, !!user)
+  }, [activeBaby, storeMeasurements, demoMeasurements, user])
 
   const latest = useMemo(() => {
     const sorted = [...measurements].sort(

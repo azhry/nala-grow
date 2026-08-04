@@ -57,6 +57,7 @@ import {
   DELETE_MILESTONE_MUTATION,
   EXPORT_DATA_QUERY,
   EXPORT_CSV_QUERY,
+  DEMO_DATA_QUERY,
 } from "./graphql-queries"
 
 export type {
@@ -415,4 +416,68 @@ export async function getExportCSV(
     { babyId, dateFrom: dateFrom ?? undefined, dateTo: dateTo ?? undefined },
     { auth: true }
   )
+}
+
+export interface DemoData {
+  baby: {
+    id: string
+    name: string
+    dob: string
+    sex: string
+    photoUrl: string
+    createdAt: string
+    userId: string
+  }
+  feedingSessions: {
+    id: string
+    babyId: string
+    feedType: string
+    startedAt: string
+    endedAt: string
+    leftDurationSec: number
+    rightDurationSec: number
+    amountMl: number
+    milkType: string
+    foodName: string
+    reaction: string
+    temperature?: string | null
+    quantity?: number | null
+    quantityUnit?: string | null
+    notes: string
+    createdAt: string
+  }[]
+  sleepSessions: {
+    id: string
+    babyId: string
+    startedAt: string
+    endedAt: string
+    location: string
+    notes: string
+    createdAt: string
+  }[]
+  measurements: {
+    id: string
+    babyId: string
+    date: string
+    weight: number
+    height: number
+    headCircumference: number
+    createdAt: string
+  }[]
+  milestones: {
+    id: string
+    babyId: string
+    title: string
+    description: string
+    category: string
+    achievedAt: string
+    note: string
+    photoUrl: string
+    isCustom: boolean
+    createdAt: string
+  }[]
+}
+
+export async function fetchDemoData(): Promise<DemoData> {
+  return execute<DemoData>(DEMO_DATA_QUERY, {}, { auth: false })
 }

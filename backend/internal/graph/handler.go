@@ -165,6 +165,16 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
+	if strings.Contains(body, "demodata") {
+		data, err := loadDemoData(ctx, h.db)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load demo data"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{
+			"demoData": data,
+		}}
+	}
+
 	// Match the baby fields themselves, rather than every query that contains a
 	// `babyId` variable. Dashboard list queries carry that variable too.
 	if strings.Contains(body, "babies") || strings.Contains(body, "query baby") || strings.Contains(body, "{ baby ") || strings.Contains(body, "{baby ") {
@@ -1521,6 +1531,206 @@ func loadBabies(ctx context.Context, pool *pgxpool.Pool, userID string) ([]BabyP
 		profiles = append(profiles, baby)
 	}
 	return profiles, rows.Err()
+}
+
+const demoBabyID = "00000000-0000-0000-0000-000000000001"
+
+func loadDemoBaby(ctx context.Context, pool *pgxpool.Pool) (BabyProfile, error) {
+	var baby BabyProfile
+	err := pool.QueryRow(ctx, `SELECT id::text, name, to_char(dob, 'YYYY-MM-DD'), sex, photo_url,
+		to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), user_id::text
+		FROM babies WHERE id = $1`, demoBabyID).Scan(
+		&baby.ID, &baby.Name, &baby.DOB, &baby.Sex, &baby.PhotoURL, &baby.CreatedAt, &baby.UserID,
+	)
+	return baby, err
+}
+
+func loadDemoFeedingSessions(ctx context.Context, pool *pgxpool.Pool) ([]FeedingSession, error) {
+	rows, err := pool.Query(ctx, `SELECT `+feedingSessionColumns+` FROM feeding_sessions WHERE baby_id = $1 ORDER BY started_at DESC, created_at DESC`, demoBabyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var sessions []FeedingSession
+	for rows.Next() {
+		session, err := scanFeedingSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func loadDemoSleepSessions(ctx context.Context, pool *pgxpool.Pool) ([]SleepSession, error) {
+	rows, err := pool.Query(ctx, `SELECT s.id::text, s.baby_id::text,
+		to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		COALESCE(to_char(s.ended_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		s.location, s.notes,
+		to_char(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM sleep_sessions s
+		WHERE s.baby_id = $1
+		ORDER BY s.started_at DESC, s.created_at DESC`, demoBabyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sessions := make([]SleepSession, 0)
+	for rows.Next() {
+		var session SleepSession
+		if err := rows.Scan(&session.ID, &session.BabyID, &session.StartedAt, &session.EndedAt, &session.Location, &session.Notes, &session.CreatedAt); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func loadDemoMeasurements(ctx context.Context, pool *pgxpool.Pool) ([]Measurement, error) {
+	rows, err := pool.Query(ctx, `SELECT m.group_id::text, m.baby_id::text, m.type, m.value::float8,
+		to_char(m.date, 'YYYY-MM-DD'),
+		to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM measurements m
+		WHERE m.baby_id = $1
+		ORDER BY m.date DESC, m.created_at DESC`, demoBabyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byGroup := make(map[string]*Measurement)
+	order := make([]string, 0)
+	for rows.Next() {
+		var groupID string
+		var baby string
+		var measurementType string
+		var value float64
+		var date, createdAt string
+		if err := rows.Scan(&groupID, &baby, &measurementType, &value, &date, &createdAt); err != nil {
+			return nil, err
+		}
+		record := byGroup[groupID]
+		if record == nil {
+			record = &Measurement{ID: groupID, BabyID: baby, Date: date, CreatedAt: createdAt}
+			byGroup[groupID] = record
+			order = append(order, groupID)
+		}
+		switch measurementType {
+		case "weight":
+			record.Weight = value
+		case "height":
+			record.Height = value
+		case "head_circumference":
+			record.HeadCircumference = value
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	records := make([]Measurement, 0, len(order))
+	for _, id := range order {
+		records = append(records, *byGroup[id])
+	}
+	return records, nil
+}
+
+func loadDemoMilestones(ctx context.Context, pool *pgxpool.Pool) ([]Milestone, error) {
+	rows, err := pool.Query(ctx, "SELECT "+milestoneColumns+" FROM milestones WHERE baby_id = $1 ORDER BY achieved_at DESC NULLS LAST, created_at DESC", demoBabyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]Milestone, 0)
+	for rows.Next() {
+		milestone, err := scanMilestone(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, milestone)
+	}
+	return result, rows.Err()
+}
+
+func loadDemoData(ctx context.Context, pool *pgxpool.Pool) (map[string]interface{}, error) {
+	baby, err := loadDemoBaby(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	feeds, err := loadDemoFeedingSessions(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	sleeps, err := loadDemoSleepSessions(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	measurements, err := loadDemoMeasurements(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	milestones, err := loadDemoMilestones(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	feedingMaps := make([]map[string]interface{}, 0, len(feeds))
+	for _, f := range feeds {
+		feedingMaps = append(feedingMaps, feedingSessionToMap(f))
+	}
+
+	sleepMaps := make([]map[string]interface{}, 0, len(sleeps))
+	for _, s := range sleeps {
+		sleepMaps = append(sleepMaps, map[string]interface{}{
+			"id":        s.ID,
+			"babyId":    s.BabyID,
+			"startedAt": s.StartedAt,
+			"endedAt":   s.EndedAt,
+			"location":  s.Location,
+			"notes":     s.Notes,
+			"createdAt": s.CreatedAt,
+		})
+	}
+
+	measurementMaps := make([]map[string]interface{}, 0, len(measurements))
+	for _, m := range measurements {
+		measurementMaps = append(measurementMaps, map[string]interface{}{
+			"id":                m.ID,
+			"babyId":            m.BabyID,
+			"date":              m.Date,
+			"weight":            m.Weight,
+			"height":            m.Height,
+			"headCircumference": m.HeadCircumference,
+			"createdAt":         m.CreatedAt,
+		})
+	}
+
+	milestoneMaps := make([]map[string]interface{}, 0, len(milestones))
+	for _, m := range milestones {
+		milestoneMaps = append(milestoneMaps, map[string]interface{}{
+			"id":          m.ID,
+			"babyId":      m.BabyID,
+			"title":       m.Title,
+			"description": m.Description,
+			"category":    m.Category,
+			"achievedAt":  m.AchievedAt,
+			"note":        m.Note,
+			"photoUrl":    m.PhotoURL,
+			"isCustom":    m.IsCustom,
+			"createdAt":   m.CreatedAt,
+		})
+	}
+
+	return map[string]interface{}{
+		"baby":           babyToMap(baby),
+		"feedingSessions": feedingMaps,
+		"sleepSessions":  sleepMaps,
+		"measurements":   measurementMaps,
+		"milestones":     milestoneMaps,
+	}, nil
 }
 
 func loadFeedingSessions(ctx context.Context, pool *pgxpool.Pool, babyID string) ([]FeedingSession, error) {

@@ -15,7 +15,8 @@ import { BreastTimer } from "@/components/feeding"
 import { BottleForm } from "@/components/feeding"
 import { SolidsForm } from "@/components/feeding"
 import { AppHeader } from "@/components/layout/app-header"
-import { DEMO_BABY, DEMO_FEED_SESSIONS, recordsForProfile } from "@/lib/demo-data"
+import { DEMO_BABY_ID, recordsForProfile } from "@/lib/demo-data"
+import { fetchDemoData, type DemoData } from "@/lib/graphql-client"
 
 function getDateRange(daysAgo = 0): [Date, Date] {
   const now = new Date()
@@ -47,17 +48,34 @@ export default function FeedingPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
   const user = useAppStore((s) => s.user)
   const feedSessions = useAppStore((s) => s.feedSessions)
+  const [demoData, setDemoData] = useState<DemoData | null>(null)
   useEffect(() => {
     if (activeBaby?.id) {
       fetchFeedSessions(activeBaby.id).catch(() => {})
+    } else if (!activeBaby && !user && !demoData) {
+      fetchDemoData().then(setDemoData).catch(() => {})
     }
-  }, [activeBaby?.id])
+  }, [activeBaby?.id, activeBaby, user, demoData])
 
-  const babyId = activeBaby?.id ?? DEMO_BABY.id
-  const babyName = activeBaby?.name
+  const babyId = activeBaby?.id ?? demoData?.baby.id ?? DEMO_BABY_ID
+  const babyName = activeBaby?.name ?? demoData?.baby.name
+  const demoFeedSessions = useMemo(() => (demoData?.feedingSessions ?? []).map((session) => ({
+    id: session.id,
+    baby_id: session.babyId,
+    feed_type: session.feedType as FeedSession["feed_type"],
+    started_at: session.startedAt,
+    ended_at: session.endedAt || undefined,
+    left_duration_sec: session.leftDurationSec || undefined,
+    right_duration_sec: session.rightDurationSec || undefined,
+    amount_ml: session.amountMl || undefined,
+    milk_type: (session.milkType as FeedSession["milk_type"]) || undefined,
+    food_name: session.foodName || undefined,
+    reaction: session.reaction || undefined,
+    notes: session.notes || undefined,
+  })), [demoData])
   const displayFeedSessions = useMemo(
-    () => recordsForProfile(activeBaby, feedSessions, DEMO_FEED_SESSIONS, !!user),
-    [activeBaby, feedSessions, user],
+    () => recordsForProfile(activeBaby, feedSessions, demoFeedSessions, !!user),
+    [activeBaby, feedSessions, demoFeedSessions, user],
   )
 
   const [activeTab, setActiveTab] = useState<FeedType>("breast")

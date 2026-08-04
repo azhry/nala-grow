@@ -499,3 +499,24 @@ export const EXPORT_DATA_QUERY = `query exportData($babyId: ID!, $dateFrom: Stri
 export const EXPORT_CSV_QUERY = `query exportCSV($babyId: ID!, $dateFrom: String, $dateTo: String) {
   exportCSV(babyId: $babyId, dateFrom: $dateFrom, dateTo: $dateTo)
 }`
+
+export const DEMO_DATA_QUERY = `query demoData {
+  demoData {
+    baby {
+      id name dob sex photoUrl createdAt userId
+    }
+    feedingSessions {
+      id babyId feedType startedAt endedAt leftDurationSec rightDurationSec
+      amountMl milkType foodName reaction temperature quantity quantityUnit notes createdAt
+    }
+    sleepSessions {
+      id babyId startedAt endedAt location notes createdAt
+    }
+    measurements {
+      id babyId date weight height headCircumference createdAt
+    }
+    milestones {
+      id babyId title description category achievedAt note photoUrl isCustom createdAt
+    }
+  }
+}`

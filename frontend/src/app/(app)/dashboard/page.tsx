@@ -7,9 +7,9 @@ import { FAB } from "@/components/ui"
 import Link from "next/link"
 import { calculateAge } from "@/lib/age"
 import { type FeedSession, type Measurement, type SleepSession, useAppStore } from "@/lib/store"
-import { getFeedingSessions, getMeasurements, getSleepSessions } from "@/lib/graphql-client"
+import { getFeedingSessions, getMeasurements, getSleepSessions, fetchDemoData, type DemoData } from "@/lib/graphql-client"
 import type { FeedingSession as GraphQLFeedingSession, Measurement as GraphQLMeasurement, SleepSession as GraphQLSleepSession } from "@/lib/graphql-types"
-import { DEMO_BABY, DEMO_FEED_SESSIONS, DEMO_MEASUREMENTS, DEMO_SLEEP_SESSIONS } from "@/lib/demo-data"
+import { DEMO_BABY_ID, setCachedDemoData } from "@/lib/demo-data"
 
 type DashboardSection = "feed" | "sleep" | "growth" | null
 type Activity = { id: string; icon: string; label: string; detail: string; time: string; color: string; occurredAt: string }
@@ -81,10 +81,11 @@ export default function DashboardPage() {
   const requestNumber = useRef(0)
   const [showAllActivities, setShowAllActivities] = useState(false)
   const [activeSection, setActiveSection] = useState<DashboardSection>(null)
+  const [demoData, setDemoData] = useState<DemoData | null>(null)
   const { openLog } = useQuickLog()
   const todayKey = getTodayKey()
   const babyId = activeBaby?.id
-  const babyName = activeBaby?.name
+  const babyName = activeBaby?.name ?? demoData?.baby.name
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"
 
   const loadDashboard = useCallback(async () => {
@@ -95,10 +96,10 @@ export default function DashboardPage() {
         setSleepSessions([])
         setMeasurements([])
         setLoadState("ready")
-      } else {
-        setFeedSessions(DEMO_FEED_SESSIONS)
-        setSleepSessions(DEMO_SLEEP_SESSIONS)
-        setMeasurements(DEMO_MEASUREMENTS)
+      } else if (demoData) {
+        setFeedSessions(demoData.feedingSessions.map(toFeedSession))
+        setSleepSessions(demoData.sleepSessions.map(toSleepSession))
+        setMeasurements(demoData.measurements.map(toMeasurement))
         setLoadState("idle")
       }
       return
@@ -115,14 +116,27 @@ export default function DashboardPage() {
       if (request !== requestNumber.current) return
       setLoadState("error")
     }
-  }, [babyId, user])
+  }, [babyId, user, demoData])
 
   useEffect(() => {
-    void loadDashboard()
-  }, [loadDashboard])
+    if (babyId) {
+      void loadDashboard()
+    } else if (!user && !demoData) {
+      fetchDemoData()
+        .then((data) => {
+          setDemoData(data)
+          setCachedDemoData(data)
+          setFeedSessions(data.feedingSessions.map(toFeedSession))
+          setSleepSessions(data.sleepSessions.map(toSleepSession))
+          setMeasurements(data.measurements.map(toMeasurement))
+          setLoadState("idle")
+        })
+        .catch(() => setLoadState("error"))
+    }
+  }, [babyId, user, demoData, loadDashboard])
 
   const dashboard = useMemo(() => {
-    const profileId = babyId ?? DEMO_BABY.id
+    const profileId = babyId ?? demoData?.baby.id ?? DEMO_BABY_ID
     const feeds = feedSessions.filter((feed) => feed.baby_id === profileId)
     const sleeps = sleepSessions.filter((sleep) => sleep.baby_id === profileId)
     const growth = measurements.filter((measurement) => measurement.baby_id === profileId)
@@ -136,12 +150,12 @@ export default function DashboardPage() {
     const latestGrowth = [...growth].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     const todayActivities = activityFromRecords(todayFeeds, todaySleeps, growth.filter((measurement) => measurement.date.startsWith(todayKey)))
     return { feeds, sleeps, growth, todayFeeds, totalMinutes, longestMinutes, latestFeed, lastFeedHours, latestGrowth, activities: todayActivities }
-  }, [babyId, feedSessions, sleepSessions, measurements, todayKey])
+  }, [babyId, feedSessions, sleepSessions, measurements, todayKey, demoData])
 
   const feedStatus = getFeedStatus(dashboard.lastFeedHours)
   const eventCount = dashboard.activities.length
   const summarySentence = babyName
-    ? `${calculateAge(activeBaby?.dob ?? DEMO_BABY.dob)}. ${eventCount ? `You’ve logged ${eventCount} event${eventCount === 1 ? "" : "s"} today.` : "No events logged today yet."}`
+    ? `${calculateAge(activeBaby?.dob ?? demoData?.baby.dob ?? DEMO_BABY_ID)}. ${eventCount ? `You’ve logged ${eventCount} event${eventCount === 1 ? "" : "s"} today.` : "No events logged today yet."}`
     : "Choose a baby profile to see today’s care summary."
   const visibleActivities = showAllActivities ? dashboard.activities : dashboard.activities.slice(0, 3)
 
