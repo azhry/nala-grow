@@ -69,8 +69,13 @@ copy_item() {
     return
   fi
 
-  mkdir -p "$(dirname "$dst")"
-  cp -rf "$REPO_ROOT/$src" "$dst"
+  if [ -d "$REPO_ROOT/$src" ]; then
+    mkdir -p "$dst"
+    cp -rf "$REPO_ROOT/$src/." "$dst/"
+  else
+    mkdir -p "$(dirname "$dst")"
+    cp -f "$REPO_ROOT/$src" "$dst"
+  fi
   echo "COPY: $src -> $dst"
 }
 
