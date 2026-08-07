@@ -56,6 +56,12 @@ func Start(ctx context.Context) (*Harness, error) {
 		return nil, fmt.Errorf("connect postgres pool: %w", err)
 	}
 
+	if err := cleanupDemoData(ctx, pool); err != nil {
+		pool.Close()
+		cleanup()
+		return nil, fmt.Errorf("cleanup demo data: %w", err)
+	}
+
 	return &Harness{DatabaseURL: databaseURL, Pool: pool, container: container}, nil
 }
 
@@ -96,3 +102,15 @@ func (h *Harness) SeedFile(ctx context.Context, path string) error {
 
 // DefaultTimeout bounds container startup and package cleanup.
 const DefaultTimeout = 2 * time.Minute
+
+func cleanupDemoData(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `
+		DELETE FROM milestones WHERE id IN ('00000000-0000-0000-0000-000000000040', '00000000-0000-0000-0000-000000000041');
+		DELETE FROM measurements WHERE id IN ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000032');
+		DELETE FROM sleep_sessions WHERE id IN ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000021');
+		DELETE FROM feeding_sessions WHERE id IN ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000011');
+		DELETE FROM babies WHERE id = '00000000-0000-0000-0000-000000000001';
+		DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000000';
+	`)
+	return err
+}
