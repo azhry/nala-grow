@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
+	"github.com/graphql-go/graphql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -87,17 +88,21 @@ type Handler struct {
 	googleVerifier *auth.GoogleTokenVerifier
 	resetTokens    *auth.ResetTokenStore
 	googleClientID string
+	schema         graphql.Schema
+	schemaErr      error
 }
 
 // NewHandler requires PostgreSQL. GraphQL operations never use process-local
 // state as a persistence substitute.
 func NewHandler(db *pgxpool.Pool, authSvc *auth.Service) *Handler {
-	return &Handler{
+	h := &Handler{
 		db:             db,
 		auth:           authSvc,
 		googleVerifier: auth.NewGoogleTokenVerifier(),
 		resetTokens:    auth.NewResetTokenStore(),
 	}
+	h.schema, h.schemaErr = newSchema(h)
+	return h
 }
 
 // SetGoogleClientID configures the expected Google OAuth client ID for token verification.
@@ -130,15 +135,36 @@ func NewHealth() HealthResult {
 
 func (h *Handler) Execute(ctx context.Context, query string, variables map[string]interface{}) ExecResult {
 	query = strings.TrimSpace(query)
-
-	switch {
-	case strings.HasPrefix(query, "query"):
-		return h.execQuery(ctx, query, variables)
-	case strings.HasPrefix(query, "mutation"):
-		return h.execMutation(ctx, query, variables)
-	default:
+	if query == "" {
+		return ExecResult{Errors: []GraphQLError{{Message: "query is required"}}}
+	}
+	if strings.HasPrefix(strings.ToLower(query), "subscription") {
 		return ExecResult{Errors: []GraphQLError{{Message: "unsupported operation"}}}
 	}
+	if legacyQuery, operation, field, ok := normalizeLegacyRequest(query, variables); ok {
+		if legacyMissingRequired(operation, field, variables) {
+			if operation == "query" {
+				return h.resolveQuery(ctx, field, variables)
+			}
+			return h.resolveMutation(ctx, field, variables)
+		}
+		query = legacyQuery
+	}
+	if h.schemaErr != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "graphql schema unavailable"}}}
+	}
+
+	result := graphql.Do(graphql.Params{
+		Schema:         h.schema,
+		RequestString:  query,
+		VariableValues: variables,
+		Context:        ctx,
+	})
+	execResult := ExecResult{Data: normalizeGraphQLData(result.Data)}
+	for _, err := range result.Errors {
+		execResult.Errors = append(execResult.Errors, GraphQLError{Message: err.Message})
+	}
+	return execResult
 }
 
 func authenticatedUser(ctx context.Context, h *Handler) (string, ExecResult) {
@@ -156,23 +182,30 @@ func authenticatedUser(ctx context.Context, h *Handler) (string, ExecResult) {
 	return claims.UserID, ExecResult{}
 }
 
-func (h *Handler) execQuery(ctx context.Context, query string, variables map[string]interface{}) ExecResult {
-	body := strings.ToLower(query)
+func (h *Handler) resolveQuery(ctx context.Context, field string, variables map[string]interface{}) ExecResult {
 
-	if strings.Contains(body, "health") {
+	if field == "health" {
 		return ExecResult{Data: map[string]interface{}{
 			"health": NewHealth(),
 		}}
 	}
 
+	if field == "demoData" {
+		data, err := loadDemoData(ctx, h.db)
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not load demo data"}}}
+		}
+		return ExecResult{Data: map[string]interface{}{"demoData": data}}
+	}
+
 	// Match the baby fields themselves, rather than every query that contains a
 	// `babyId` variable. Dashboard list queries carry that variable too.
-	if strings.Contains(body, "babies") || strings.Contains(body, "query baby") || strings.Contains(body, "{ baby ") || strings.Contains(body, "{baby ") {
+	if field == "babies" || field == "baby" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
 		}
-		if strings.Contains(body, "babies") {
+		if field == "babies" {
 			profiles, err := loadBabies(ctx, h.db, userID)
 			if err != nil {
 				return ExecResult{Errors: []GraphQLError{{Message: "could not load babies"}}}
@@ -202,7 +235,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "exportcsv") || strings.Contains(body, "export_csv") {
+	if field == "exportCSV" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -324,7 +357,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "exportdata") || strings.Contains(body, "export_data") {
+	if field == "exportData" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -407,7 +440,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "milestones") {
+	if field == "milestones" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -435,7 +468,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "milestone") && !strings.Contains(body, "milestones") {
+	if field == "milestone" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -453,7 +486,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "sleepsessions") || strings.Contains(body, "sleep_sessions") {
+	if field == "sleepSessions" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -481,7 +514,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "sleepsession") && !strings.Contains(body, "sleepsessions") && !strings.Contains(body, "sleep_sessions") {
+	if field == "sleepSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -502,7 +535,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "feedingsessions") || strings.Contains(body, "feeding_sessions") {
+	if field == "feedingSessions" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -530,7 +563,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "feedingsession") && !strings.Contains(body, "feedingsessions") && !strings.Contains(body, "feeding_sessions") {
+	if field == "feedingSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -551,7 +584,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "measurements") {
+	if field == "measurements" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -579,7 +612,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "measurement") && !strings.Contains(body, "measurements") {
+	if field == "measurement" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -597,7 +630,7 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "me") || strings.Contains(body, "{me") {
+	if field == "me" {
 		token, _ := ctx.Value("raw_token").(string)
 		if token == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "not authenticated"}}}
@@ -626,10 +659,9 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 	return ExecResult{Errors: []GraphQLError{{Message: "unknown query"}}}
 }
 
-func (h *Handler) execMutation(ctx context.Context, query string, variables map[string]interface{}) ExecResult {
-	body := strings.ToLower(query)
+func (h *Handler) resolveMutation(ctx context.Context, field string, variables map[string]interface{}) ExecResult {
 
-	if strings.Contains(body, "signup") {
+	if field == "signup" {
 		email := getVar(variables, "email")
 		password := getVar(variables, "password")
 		displayName := getVar(variables, "displayName")
@@ -667,7 +699,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		return authResult("signup", token, userID, existing)
 	}
 
-	if strings.Contains(body, "loginwithgoogle") || strings.Contains(body, "login_with_google") {
+	if field == "loginWithGoogle" {
 		idToken := getVar(variables, "idToken")
 		if idToken == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "idToken required"}}}
@@ -708,7 +740,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		return authResult("loginWithGoogle", token, foundID, found)
 	}
 
-	if strings.Contains(body, "login") {
+	if field == "login" {
 		email := getVar(variables, "email")
 		password := getVar(variables, "password")
 		if email == "" {
@@ -731,7 +763,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
 	}
 
-	if strings.Contains(body, "requestpasswordreset") || strings.Contains(body, "requestPasswordReset") {
+	if field == "requestPasswordReset" {
 		email := getVar(variables, "email")
 		if email == "" {
 			return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
@@ -755,7 +787,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "resetpassword") || strings.Contains(body, "resetPassword") {
+	if field == "resetPassword" {
 		tokenStr := getVar(variables, "token")
 		newPassword := getVar(variables, "newPassword")
 		if tokenStr == "" || newPassword == "" {
@@ -787,7 +819,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "createbaby") || strings.Contains(body, "createBaby") {
+	if field == "createBaby" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -813,7 +845,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "updatebaby") || strings.Contains(body, "updateBaby") {
+	if field == "updateBaby" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -846,7 +878,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "deletebaby") || strings.Contains(body, "deleteBaby") {
+	if field == "deleteBaby" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -867,7 +899,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "createmilestone") || strings.Contains(body, "createMilestone") {
+	if field == "createMilestone" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -908,7 +940,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "updatemilestone") || strings.Contains(body, "updateMilestone") {
+	if field == "updateMilestone" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -950,7 +982,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "deletemilestone") || strings.Contains(body, "deleteMilestone") {
+	if field == "deleteMilestone" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -971,7 +1003,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "createsleepsession") || strings.Contains(body, "createSleepSession") {
+	if field == "createSleepSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1005,7 +1037,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "updatesleepsession") || strings.Contains(body, "updateSleepSession") {
+	if field == "updateSleepSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1041,7 +1073,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "deletesleepsession") || strings.Contains(body, "deleteSleepSession") {
+	if field == "deleteSleepSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1065,7 +1097,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "createfeedingsession") || strings.Contains(body, "createFeedingSession") {
+	if field == "createFeedingSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1107,7 +1139,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "updatefeedingsession") || strings.Contains(body, "updateFeedingSession") {
+	if field == "updateFeedingSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1132,7 +1164,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "deletefeedingsession") || strings.Contains(body, "deleteFeedingSession") {
+	if field == "deleteFeedingSession" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1156,7 +1188,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "createmeasurement") || strings.Contains(body, "createMeasurement") {
+	if field == "createMeasurement" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1210,7 +1242,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "updatemeasurement") || strings.Contains(body, "updateMeasurement") {
+	if field == "updateMeasurement" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1243,7 +1275,7 @@ func (h *Handler) execMutation(ctx context.Context, query string, variables map[
 		}}
 	}
 
-	if strings.Contains(body, "deletemeasurement") || strings.Contains(body, "deleteMeasurement") {
+	if field == "deleteMeasurement" {
 		userID, errResult := authenticatedUser(ctx, h)
 		if errResult.Errors != nil {
 			return errResult
@@ -1782,11 +1814,11 @@ func loadDemoData(ctx context.Context, pool *pgxpool.Pool) (map[string]interface
 	}
 
 	return map[string]interface{}{
-		"baby":           babyToMap(baby),
+		"baby":            babyToMap(baby),
 		"feedingSessions": feedingMaps,
-		"sleepSessions":  sleepMaps,
-		"measurements":   measurementMaps,
-		"milestones":     milestoneMaps,
+		"sleepSessions":   sleepMaps,
+		"measurements":    measurementMaps,
+		"milestones":      milestoneMaps,
 	}, nil
 }
 

@@ -1,10 +1,9 @@
 // ---------------------------------------------------------------------------
 // NalaGrow — GraphQL query & mutation strings
 //
-// The backend uses strings.Contains() routing (case-insensitive after
-// lowering), so each operation name MUST contain the exact substring the
-// backend checks for.  Variables are accepted both at the top level AND
-// nested under "input" — the getVar / getVarFloat / … helpers check both.
+// The backend exposes these operations through a graphql-go schema. Operation
+// and argument names mirror the resolver contract; direct Handler.Execute test
+// callers retain legacy variable normalization for backward compatibility.
 // ---------------------------------------------------------------------------
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
