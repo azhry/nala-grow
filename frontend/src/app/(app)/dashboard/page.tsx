@@ -5,10 +5,12 @@ import { AppHeader } from "@/components/layout/app-header"
 import { useQuickLog } from "@/components/providers/quick-log-provider"
 import { FAB } from "@/components/ui"
 import Link from "next/link"
+import { signOut } from "@/lib/auth"
 import { calculateAge } from "@/lib/age"
 import { type FeedSession, type Measurement, type SleepSession, useAppStore } from "@/lib/store"
 import { getFeedingSessions, getMeasurements, getSleepSessions, fetchDemoData, type DemoData } from "@/lib/graphql-client"
 import type { FeedingSession as GraphQLFeedingSession, Measurement as GraphQLMeasurement, SleepSession as GraphQLSleepSession } from "@/lib/graphql-types"
+import { GraphQLError } from "@/lib/graphql-types"
 import { DEMO_BABY_ID, setCachedDemoData } from "@/lib/demo-data"
 
 type DashboardSection = "feed" | "sleep" | "growth" | null
@@ -112,8 +114,13 @@ export default function DashboardPage() {
       setSleepSessions(sleeps.map(toSleepSession))
       setMeasurements(growth.map(toMeasurement))
       setLoadState("ready")
-    } catch {
+    } catch (err) {
       if (request !== requestNumber.current) return
+      const message = err instanceof GraphQLError ? err.errors.map((e) => e.message).join("; ") : (err as Error).message
+      if (message.toLowerCase().includes("not authenticated")) {
+        void signOut()
+        return
+      }
       setLoadState("error")
     }
   }, [babyId, user, demoData])

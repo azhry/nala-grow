@@ -10,19 +10,27 @@ import { useAppStore } from "@/lib/store"
 export default function SignupPage() {
   const router = useRouter()
   const user = useAppStore((s) => s.user)
-
-  useEffect(() => {
-    if (user) {
-      router.replace("/dashboard")
-    }
-  }, [user, router])
-
+  const hasHydrated = useAppStore((s) => s._hasHydrated)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (hasHydrated && user) {
+      router.replace("/dashboard")
+    }
+  }, [hasHydrated, user, router])
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

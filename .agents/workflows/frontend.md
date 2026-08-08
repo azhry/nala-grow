@@ -4,7 +4,7 @@ Apply this workflow to new or changed UI, including fixes to an existing screen.
 
 ## Delegation
 
-Spawn a dedicated frontend implementation subagent. It owns implementation, interaction testing, responsive verification, commit, push, and PR handoff. An exploration/research subagent may provide context, but never substitutes for this required implementation subagent; the primary agent must not perform the implementation itself.
+Spawn a dedicated frontend implementation subagent. It owns implementation, interaction testing, responsive verification, commit, push, and PR handoff. An exploration/research subagent may provide context, but never substitutes for this required implementation subagent; the primary agent must not perform the implementation itself. If Agent Manager cannot expose live transcript output, report that limitation and keep the implementation subagent running. Do not substitute primary-agent implementation unless the user explicitly changes the workflow.
 
 ## Implementation
 
