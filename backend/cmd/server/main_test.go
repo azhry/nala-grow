@@ -25,3 +25,20 @@ func TestLoadConfigAcceptsLoopbackHost(t *testing.T) {
 		t.Fatalf("Host = %q, want 127.0.0.1", got)
 	}
 }
+
+func TestListenAddressDefaultsToAllInterfaces(t *testing.T) {
+	t.Setenv("HOST", "")
+	t.Setenv("PORT", "8080")
+
+	if got := loadConfig().ListenAddress(); got != ":8080" {
+		t.Fatalf("ListenAddress() = %q, want :8080", got)
+	}
+}
+
+func TestListenAddressUsesConfiguredHost(t *testing.T) {
+	cfg := Config{Host: "127.0.0.1", Port: "8080"}
+
+	if got := cfg.ListenAddress(); got != "127.0.0.1:8080" {
+		t.Fatalf("ListenAddress() = %q, want 127.0.0.1:8080", got)
+	}
+}

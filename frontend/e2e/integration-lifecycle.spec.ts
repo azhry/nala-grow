@@ -3,11 +3,11 @@ import fs from "node:fs/promises"
 import path from "node:path"
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-")
-const evidenceDir = path.resolve("test-output", "azh-410", runId)
-const email = `azh410-${Date.now()}@example.com`
-const password = "NalaGrow-AZH410!"
-const baby = { name: "Mira AZH410", dob: "2026-01-15", sex: "female" }
-const bottle = { amountMl: 150, milkType: "formula", temperature: "warm", notes: `AZH-410 persisted bottle ${runId}` }
+const evidenceDir = path.resolve("test-output", "full-stack-integration", runId)
+const email = `e2e-${Date.now()}@example.com`
+const password = "NalaGrow-E2E!"
+const baby = { name: "Mira E2E", dob: "2026-01-15", sex: "female" }
+const bottle = { amountMl: 150, milkType: "formula", temperature: "warm", notes: `Full-stack E2E persisted bottle ${runId}` }
 
 type GraphQLEvidence = {
   operation: string
@@ -165,7 +165,7 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     for (const operation of requiredOperations) expect(graphql.some((item) => item.operation === operation)).toBe(true)
 
     const evidence = {
-      issue: "AZH-410",
+      flow: "frontend-backend-integration",
       runId,
       generatedAt: new Date().toISOString(),
       disposableAccount: { email, password },
@@ -190,8 +190,8 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
       ],
     }
     await fs.writeFile(path.join(evidenceDir, "evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`)
-    console.log(`AZH-410 evidence: ${path.join(evidenceDir, "evidence.json")}`)
-    console.log(`AZH-410 disposable account: ${email} / ${password}`)
+    console.log(`Full-stack integration evidence: ${path.join(evidenceDir, "evidence.json")}`)
+    console.log(`Full-stack integration disposable account: ${email} / ${password}`)
   } finally {
     await signupContext?.close().catch(() => {})
     await appContext?.close().catch(() => {})

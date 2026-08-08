@@ -20,6 +20,11 @@ import (
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
+// An empty host is a valid net/http listen host. It preserves the existing
+// production behavior by binding to all available interfaces (for example,
+// ":8080") when HOST is unset. Integration runs set HOST to 127.0.0.1.
+const defaultListenHost = ""
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
@@ -92,7 +97,7 @@ func main() {
 	})
 
 	httpServer := &http.Server{
-		Addr:         net.JoinHostPort(cfg.Host, cfg.Port),
+		Addr:         cfg.ListenAddress(),
 		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -134,9 +139,13 @@ type Config struct {
 	GoogleClientID string
 }
 
+func (c Config) ListenAddress() string {
+	return net.JoinHostPort(c.Host, c.Port)
+}
+
 func loadConfig() Config {
 	return Config{
-		Host:           getEnv("HOST", ""),
+		Host:           getEnv("HOST", defaultListenHost),
 		Port:           getEnv("PORT", "8080"),
 		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
 		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
