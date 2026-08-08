@@ -34,14 +34,26 @@ function getStoredToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
 
+function setAuthCookie(token: string): void {
+  if (typeof document === "undefined") return
+  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+}
+
+function clearAuthCookie(): void {
+  if (typeof document === "undefined") return
+  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
+}
+
 function storeToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token)
+  setAuthCookie(token)
   setAuthToken(token)
   useAppStore.getState().setToken(token)
 }
 
 function clearStoredToken(): void {
   localStorage.removeItem(TOKEN_KEY)
+  clearAuthCookie()
   clearAuthToken()
   useAppStore.getState().setToken(null)
 }

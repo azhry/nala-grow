@@ -9,6 +9,7 @@ import { signOut } from "@/lib/auth"
 import { calculateAge } from "@/lib/age"
 import { type FeedSession, type Measurement, type SleepSession, useAppStore } from "@/lib/store"
 import { getFeedingSessions, getMeasurements, getSleepSessions, fetchDemoData, type DemoData } from "@/lib/graphql-client"
+import { fetchBabies } from "@/lib/baby-service"
 import type { FeedingSession as GraphQLFeedingSession, Measurement as GraphQLMeasurement, SleepSession as GraphQLSleepSession } from "@/lib/graphql-types"
 import { GraphQLError } from "@/lib/graphql-types"
 import { DEMO_BABY_ID, setCachedDemoData } from "@/lib/demo-data"
@@ -128,7 +129,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (babyId) {
       void loadDashboard()
-    } else if (!user && !demoData) {
+    } else if (user) {
+      fetchBabies()
+        .then((profiles) => {
+          const setBabies = useAppStore.getState().setBabies
+          const setActiveBaby = useAppStore.getState().setActiveBaby
+          setBabies(profiles)
+          if (profiles.length > 0) {
+            setActiveBaby(profiles[0])
+          }
+        })
+        .catch(() => setLoadState("error"))
+    } else if (!demoData) {
       fetchDemoData()
         .then((data) => {
           setDemoData(data)

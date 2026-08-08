@@ -165,16 +165,6 @@ func (h *Handler) execQuery(ctx context.Context, query string, variables map[str
 		}}
 	}
 
-	if strings.Contains(body, "demodata") {
-		data, err := loadDemoData(ctx, h.db)
-		if err != nil {
-			return ExecResult{Errors: []GraphQLError{{Message: "could not load demo data"}}}
-		}
-		return ExecResult{Data: map[string]interface{}{
-			"demoData": data,
-		}}
-	}
-
 	// Match the baby fields themselves, rather than every query that contains a
 	// `babyId` variable. Dashboard list queries carry that variable too.
 	if strings.Contains(body, "babies") || strings.Contains(body, "query baby") || strings.Contains(body, "{ baby ") || strings.Contains(body, "{baby ") {

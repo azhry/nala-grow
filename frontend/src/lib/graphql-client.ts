@@ -79,7 +79,7 @@ export type {
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const API_URL =
-  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8080/graphql"
+  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
 
 const TOKEN_KEY = "nalagrow-token"
 

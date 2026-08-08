@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 
 const BASE_URL = "http://localhost:3000"
-const GRAPHQL_URL = "http://localhost:8080/graphql"
+const GRAPHQL_URL = "http://localhost:4000/graphql"
 
 async function gql(
   query: string,
