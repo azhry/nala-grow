@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getSessionToken,
+  getCurrentSession,
   isAuthenticated,
   resetPassword,
   signInWithEmail,
@@ -182,6 +183,39 @@ describe("auth service", () => {
     it("returns the token from localStorage when present", () => {
       localStorage.setItem(AUTH_TOKEN_KEY, "my-jwt-token")
       expect(getSessionToken()).toBe("my-jwt-token")
+    })
+
+    it("restores the token from the browser auth cookie", () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=cookie-token`
+
+      expect(getSessionToken()).toBe("cookie-token")
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe("cookie-token")
+      expect(mockSetAuthToken).toHaveBeenCalledWith("cookie-token")
+      expect(mockSetToken).toHaveBeenCalledWith("cookie-token")
+    })
+  })
+
+  describe("getCurrentSession", () => {
+    it("validates and persists a session recovered from the browser cookie", async () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=cookie-token`
+      mockGetMe.mockResolvedValue({ ...sessionUser })
+
+      await expect(getCurrentSession()).resolves.toEqual({
+        user: sessionUser,
+        token: "cookie-token",
+      })
+      expect(mockGetMe).toHaveBeenCalled()
+      expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
+    })
+
+    it("clears an invalid browser cookie before returning no session", async () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=expired-token`
+      mockGetMe.mockRejectedValue(new Error("expired"))
+
+      await expect(getCurrentSession()).resolves.toBeNull()
+      expect(document.cookie).not.toContain(`${AUTH_TOKEN_KEY}=`)
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull()
+      expect(mockResetState).toHaveBeenCalled()
     })
   })
 

@@ -28,9 +28,35 @@ export interface AuthSession {
 
 // ─── Token persistence ───────────────────────────────────────────────────────
 
+function getAuthCookie(): string | null {
+  if (typeof document === "undefined") return null
+
+  const prefix = `${AUTH_TOKEN_KEY}=`
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null
+}
+
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem(AUTH_TOKEN_KEY)
+
+  const cookieToken = getAuthCookie()
+  const storedToken = localStorage.getItem(AUTH_TOKEN_KEY)
+  const token = cookieToken ?? storedToken
+  if (!token) return null
+
+  if (storedToken !== token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+    setAuthToken(token)
+  }
+  if (!cookieToken) setAuthCookie(token)
+
+  const state = useAppStore.getState()
+  if (state.token !== token) state.setToken(token)
+  return token
 }
 
 function setAuthCookie(token: string): void {
@@ -235,6 +261,7 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
   } catch {
     // Token is invalid or expired — clear it
     clearStoredToken()
+    useAppStore.getState().resetState()
     return null
   }
 }
