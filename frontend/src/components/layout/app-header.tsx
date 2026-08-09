@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { useAppStore } from "@/lib/store"
 import Link from "next/link"
 import { signOut } from "@/lib/auth"
@@ -9,13 +8,11 @@ import { signOut } from "@/lib/auth"
 export function AppHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const activeBaby = useAppStore((s) => s.activeBaby)
-  const router = useRouter()
 
   const displayName = activeBaby?.name
 
   const handleLogout = () => {
-    signOut()
-    router.replace("/login")
+    void signOut()
   }
 
   return (
