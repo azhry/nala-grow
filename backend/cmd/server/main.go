@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 
-	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/auth"
+	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/graph"
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
@@ -56,30 +56,7 @@ func main() {
 		handler.SetGoogleClientID(cfg.GoogleClientID)
 	}
 
-	r.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			w.Header().Set("Content-Type", "text/html")
-			w.Write(graph.PlaygroundHTML)
-			return
-		}
-		if r.Method != "POST" {
-			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req struct {
-			Query     string                 `json:"query"`
-			Variables map[string]interface{} `json:"variables"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, "invalid request body")
-			return
-		}
-
-		result := handler.Execute(r.Context(), req.Query, req.Variables)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-	})
+	r.HandleFunc("/graphql", graphqlEndpoint(handler))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -125,10 +102,10 @@ func writeError(w http.ResponseWriter, msg string) {
 }
 
 type Config struct {
-	Port          string
-	DatabaseURL   string
-	AllowedOrigin string
-	JWTSecret     string
+	Port           string
+	DatabaseURL    string
+	AllowedOrigin  string
+	JWTSecret      string
 	GoogleClientID string
 }
 
