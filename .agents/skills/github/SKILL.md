@@ -15,6 +15,14 @@ Git is the local version-control system for branches and commits. GitHub hosts G
 - Read and manage GitHub issues, labels, assignees, review threads, and CI checks.
 - Compare commits and link PRs to external work trackers.
 
+## Read path selection
+
+- For the complete PR discussion timeline, use the connected `mcp__codex_apps__github_fetch_pr_comments({ repo_full_name, pr_number })` operation. It combines issue comments, inline review comments/replies, and review submissions.
+- For inline review threads where resolved/unresolved state matters, use the connected `mcp__codex_apps__github_list_pull_request_review_threads({ repo_full_name, pr_number })` operation. Do not infer resolution from a plain comment timeline.
+- For commit metadata, diffs, and the canonical URL, use the connected `mcp__codex_apps__github_fetch_commit({ repo_full_name, commit_sha })` operation.
+- For code comments attached to a commit, use the documented `list-commit-comments` REST fallback in [TOOLING.md](TOOLING.md); the active connector has no commit-comments operation.
+- Discover the active connector names before selecting a fallback. Keep read operations separate from review-thread mutation operations, and report a missing connector capability instead of silently substituting incomplete data.
+
 ## Workflow
 
 1. Inspect status, current branch, remote, and repository instructions before editing or staging.
