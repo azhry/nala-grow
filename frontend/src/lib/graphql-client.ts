@@ -57,8 +57,8 @@ import {
   DELETE_MILESTONE_MUTATION,
   EXPORT_DATA_QUERY,
   EXPORT_CSV_QUERY,
-  DEMO_DATA_QUERY,
 } from "./graphql-queries"
+import { DEMO_BABY_ID } from "./demo-data"
 
 export type {
   AuthResponse,
@@ -479,5 +479,15 @@ export interface DemoData {
 }
 
 export async function fetchDemoData(): Promise<DemoData> {
-  return execute<DemoData>(DEMO_DATA_QUERY, {}, { auth: false })
+  const variables = { babyId: DEMO_BABY_ID }
+  const [baby, feedingSessions, sleepSessions, measurements, milestones] =
+    await Promise.all([
+      execute<BabyProfile>(BABY_QUERY, { id: DEMO_BABY_ID }),
+      execute<DemoData["feedingSessions"]>(FEEDING_SESSIONS_QUERY, variables),
+      execute<DemoData["sleepSessions"]>(SLEEP_SESSIONS_QUERY, variables),
+      execute<DemoData["measurements"]>(MEASUREMENTS_QUERY, variables),
+      execute<DemoData["milestones"]>(MILESTONES_QUERY, variables),
+    ])
+
+  return { baby, feedingSessions, sleepSessions, measurements, milestones }
 }

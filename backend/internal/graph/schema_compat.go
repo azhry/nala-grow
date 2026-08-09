@@ -1,0 +1,118 @@
+package graph
+
+const (
+	legacyHealthSelection      = " { ok timestamp version }"
+	legacyUserSelection        = " { id email displayName photoUrl createdAt }"
+	legacyAuthSelection        = " { token user { id email displayName photoUrl createdAt } }"
+	legacyBabySelection        = " { id name dob sex photoUrl createdAt userId }"
+	legacyMeasurementSelection = " { id babyId date weight height headCircumference weightPercentile heightPercentile headCircumferencePercentile createdAt }"
+	legacyFeedingSelection     = " { id babyId feedType startedAt endedAt leftDurationSec rightDurationSec amountMl milkType foodName reaction temperature quantity quantityUnit notes createdAt }"
+	legacySleepSelection       = " { id babyId startedAt endedAt location notes createdAt }"
+	legacyMilestoneSelection   = " { id babyId title description category achievedAt note photoUrl isCustom createdAt }"
+	legacyExportSelection      = " { babyName babyDob babySex feedSessions { id babyId feedType startedAt endedAt leftDurationSec rightDurationSec amountMl milkType foodName reaction temperature quantity quantityUnit notes createdAt } sleepSessions { id babyId startedAt endedAt location notes createdAt } measurements { id babyId date weight height headCircumference createdAt } milestones { id babyId title description category achievedAt note photoUrl isCustom createdAt } dateFrom dateTo }"
+)
+
+var legacySelections = map[string]string{
+	"health":               legacyHealthSelection,
+	"me":                   legacyUserSelection,
+	"babies":               " { id name dob sex photoUrl createdAt userId }",
+	"baby":                 legacyBabySelection,
+	"measurements":         " { id babyId date weight height headCircumference createdAt }",
+	"measurement":          legacyMeasurementSelection,
+	"feedingSessions":      legacyFeedingSelection,
+	"feedingSession":       legacyFeedingSelection,
+	"sleepSessions":        legacySleepSelection,
+	"sleepSession":         legacySleepSelection,
+	"milestones":           legacyMilestoneSelection,
+	"milestone":            legacyMilestoneSelection,
+	"exportData":           legacyExportSelection,
+	"exportCSV":            "",
+	"signup":               legacyAuthSelection,
+	"login":                legacyAuthSelection,
+	"loginWithGoogle":      legacyAuthSelection,
+	"requestPasswordReset": "",
+	"resetPassword":        "",
+	"createBaby":           legacyBabySelection,
+	"updateBaby":           legacyBabySelection,
+	"deleteBaby":           legacyBabySelection,
+	"createMeasurement":    legacyMeasurementSelection,
+	"updateMeasurement":    legacyMeasurementSelection,
+	"deleteMeasurement":    legacyMeasurementSelection,
+	"createFeedingSession": legacyFeedingSelection,
+	"updateFeedingSession": legacyFeedingSelection,
+	"deleteFeedingSession": legacyFeedingSelection,
+	"createSleepSession":   legacySleepSelection,
+	"updateSleepSession":   legacySleepSelection,
+	"deleteSleepSession":   legacySleepSelection,
+	"createMilestone":      legacyMilestoneSelection,
+	"updateMilestone":      legacyMilestoneSelection,
+	"deleteMilestone":      legacyMilestoneSelection,
+}
+
+var legacyArguments = map[string][]string{
+	"signup":               {"email", "password", "displayName"},
+	"login":                {"email", "password"},
+	"loginWithGoogle":      {"idToken"},
+	"requestPasswordReset": {"email"},
+	"resetPassword":        {"token", "newPassword"},
+	"baby":                 {"id"},
+	"createBaby":           {"name", "dob", "sex", "photoUrl"},
+	"updateBaby":           {"id", "name", "dob", "sex", "photoUrl"},
+	"deleteBaby":           {"id"},
+	"measurements":         {"babyId"},
+	"measurement":          {"id"},
+	"createMeasurement":    {"babyId", "date", "weight", "height", "headCircumference"},
+	"updateMeasurement":    {"id", "date", "weight", "height", "headCircumference"},
+	"deleteMeasurement":    {"id"},
+	"feedingSessions":      {"babyId"},
+	"feedingSession":       {"id"},
+	"createFeedingSession": {"babyId", "feedType", "startedAt", "endedAt", "leftDurationSec", "rightDurationSec", "amountMl", "milkType", "temperature", "foodName", "quantity", "quantityUnit", "reaction", "notes"},
+	"updateFeedingSession": {"id", "feedType", "startedAt", "endedAt", "leftDurationSec", "rightDurationSec", "amountMl", "milkType", "temperature", "foodName", "quantity", "quantityUnit", "reaction", "notes"},
+	"deleteFeedingSession": {"id"},
+	"sleepSessions":        {"babyId"},
+	"sleepSession":         {"id"},
+	"createSleepSession":   {"babyId", "startedAt", "endedAt", "location", "notes"},
+	"updateSleepSession":   {"id", "startedAt", "endedAt", "location", "notes"},
+	"deleteSleepSession":   {"id"},
+	"milestones":           {"babyId"},
+	"milestone":            {"id"},
+	"createMilestone":      {"babyId", "title", "description", "category", "achievedAt", "note", "photoUrl", "isCustom"},
+	"updateMilestone":      {"id", "title", "description", "category", "achievedAt", "note", "photoUrl", "isCustom"},
+	"deleteMilestone":      {"id"},
+	"exportData":           {"babyId", "dateFrom", "dateTo"},
+	"exportCSV":            {"babyId", "dateFrom", "dateTo"},
+}
+
+var legacyRequiredArguments = map[string][]string{
+	"mutation:signup":               {"email", "password"},
+	"mutation:login":                {"email"},
+	"mutation:loginWithGoogle":      {"idToken"},
+	"mutation:requestPasswordReset": {"email"},
+	"mutation:resetPassword":        {"token", "newPassword"},
+	"query:baby":                    {"id"},
+	"mutation:createBaby":           {"name"},
+	"mutation:updateBaby":           {"id"},
+	"mutation:deleteBaby":           {"id"},
+	"query:measurements":            {"babyId"},
+	"query:measurement":             {"id"},
+	"mutation:createMeasurement":    {"babyId"},
+	"mutation:updateMeasurement":    {"id"},
+	"mutation:deleteMeasurement":    {"id"},
+	"query:feedingSessions":         {"babyId"},
+	"query:feedingSession":          {"id"},
+	"mutation:createFeedingSession": {"babyId", "feedType"},
+	"mutation:updateFeedingSession": {"id"},
+	"mutation:deleteFeedingSession": {"id"},
+	"query:sleepSessions":           {"babyId"},
+	"query:sleepSession":            {"id"},
+	"mutation:createSleepSession":   {"babyId"},
+	"mutation:updateSleepSession":   {"id"},
+	"mutation:deleteSleepSession":   {"id"},
+	"query:milestones":              {"babyId"},
+	"query:milestone":               {"id"},
+	"mutation:createMilestone":      {"babyId", "title"},
+	"mutation:updateMilestone":      {"id"},
+	"mutation:deleteMilestone":      {"id"},
+	"query:exportData":              {"babyId"},
+	"query:exportCSV":               {"babyId"},
+}

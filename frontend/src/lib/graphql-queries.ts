@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
 // NalaGrow — GraphQL query & mutation strings
 //
-// The backend exposes these operations through a graphql-go schema. Operation
-// and argument names mirror the resolver contract; direct Handler.Execute test
-// callers retain legacy variable normalization for backward compatibility.
+// The backend uses strings.Contains() routing (case-insensitive after
+// lowering), so each operation name MUST contain the exact substring the
+// backend checks for.  Variables are accepted both at the top level AND
+// nested under "input" — the getVar / getVarFloat / … helpers check both.
 // ---------------------------------------------------------------------------
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
@@ -497,25 +498,4 @@ export const EXPORT_DATA_QUERY = `query exportData($babyId: ID!, $dateFrom: Stri
 
 export const EXPORT_CSV_QUERY = `query exportCSV($babyId: ID!, $dateFrom: String, $dateTo: String) {
   exportCSV(babyId: $babyId, dateFrom: $dateFrom, dateTo: $dateTo)
-}`
-
-export const DEMO_DATA_QUERY = `query demoData {
-  demoData {
-    baby {
-      id name dob sex photoUrl createdAt userId
-    }
-    feedingSessions {
-      id babyId feedType startedAt endedAt leftDurationSec rightDurationSec
-      amountMl milkType foodName reaction temperature quantity quantityUnit notes createdAt
-    }
-    sleepSessions {
-      id babyId startedAt endedAt location notes createdAt
-    }
-    measurements {
-      id babyId date weight height headCircumference createdAt
-    }
-    milestones {
-      id babyId title description category achievedAt note photoUrl isCustom createdAt
-    }
-  }
 }`

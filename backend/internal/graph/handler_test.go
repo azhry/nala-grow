@@ -58,36 +58,16 @@ func TestExecute(t *testing.T) {
 	})
 }
 
-func TestDemoDataResolver(t *testing.T) {
-	h := newTestHandler()
-	res := h.Execute(context.Background(), `query demoData {
-		demoData {
-			baby { id name dob sex photoUrl createdAt userId }
-			feedingSessions { id babyId feedType startedAt endedAt leftDurationSec rightDurationSec amountMl milkType foodName reaction temperature quantity quantityUnit notes createdAt }
-			sleepSessions { id babyId startedAt endedAt location notes createdAt }
-			measurements { id babyId date weight height headCircumference createdAt }
-			milestones { id babyId title description category achievedAt note photoUrl isCustom createdAt }
-		}
-	}`, nil)
-	require.Empty(t, res.Errors)
-
-	data, ok := res.Data.(map[string]interface{})
-	require.True(t, ok)
-	demo, ok := data["demoData"].(map[string]interface{})
-	require.True(t, ok)
-	baby, ok := demo["baby"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, demoBabyID, baby["id"])
-	assert.Equal(t, "Lily", baby["name"])
-	assert.NotEmpty(t, demo["feedingSessions"])
-	assert.NotEmpty(t, demo["sleepSessions"])
-	assert.NotEmpty(t, demo["measurements"])
-	assert.NotEmpty(t, demo["milestones"])
-}
-
 func TestGraphQLSchemaRejectsUnknownField(t *testing.T) {
 	h := newTestHandler()
 	res := h.Execute(context.Background(), "query { unknownField }", nil)
+	require.NotEmpty(t, res.Errors)
+	assert.Contains(t, res.Errors[0].Message, "Cannot query field")
+}
+
+func TestGraphQLSchemaRejectsDedicatedDemoField(t *testing.T) {
+	h := newTestHandler()
+	res := h.Execute(context.Background(), "query { demoData }", nil)
 	require.NotEmpty(t, res.Errors)
 	assert.Contains(t, res.Errors[0].Message, "Cannot query field")
 }
