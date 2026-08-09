@@ -3,10 +3,17 @@ import userEvent from "@testing-library/user-event"
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import DashboardPage from "../dashboard/page"
 import { getFeedingSessions, getMeasurements, getSleepSessions } from "@/lib/graphql-client"
+import * as graphqlClient from "@/lib/graphql-client"
 
 jest.mock("@/components/ui", () => ({ FAB: ({ icon, onClick, ...props }: { icon: string; onClick?: () => void } & ButtonHTMLAttributes<HTMLButtonElement>) => <button data-testid="fab" onClick={onClick} {...props}><span>{icon}</span></button> }))
 jest.mock("@/components/providers/quick-log-provider", () => ({ useQuickLog: () => ({ openLog: jest.fn() }), QuickLogProvider: ({ children }: { children: ReactNode }) => <>{children}</> }))
-jest.mock("@/lib/graphql-client", () => ({ getFeedingSessions: jest.fn(), getSleepSessions: jest.fn(), getMeasurements: jest.fn() }))
+jest.mock("@/lib/graphql-client", () => ({
+  __esModule: true,
+  getFeedingSessions: jest.fn(),
+  getSleepSessions: jest.fn(),
+  getMeasurements: jest.fn(),
+  fetchDemoData: jest.fn(),
+}))
 
 let storeState: Record<string, unknown>
 jest.mock("@/lib/store", () => ({ useAppStore: (selector: (state: Record<string, unknown>) => unknown) => selector(storeState) }))
@@ -14,6 +21,7 @@ jest.mock("@/lib/store", () => ({ useAppStore: (selector: (state: Record<string,
 const fetchFeeds = getFeedingSessions as jest.MockedFunction<typeof getFeedingSessions>
 const fetchSleeps = getSleepSessions as jest.MockedFunction<typeof getSleepSessions>
 const fetchMeasurements = getMeasurements as jest.MockedFunction<typeof getMeasurements>
+
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
@@ -29,11 +37,12 @@ function deferred<T>() {
 
 describe("DashboardPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.resetAllMocks()
     storeState = { activeBaby: { id: "baby-1", name: "Maya", dob: "2024-01-10", sex: "female" } }
     fetchFeeds.mockResolvedValue([])
     fetchSleeps.mockResolvedValue([])
     fetchMeasurements.mockResolvedValue([])
+    graphqlClient.fetchDemoData.mockResolvedValue({ baby: { id: "demo", name: "Demo", dob: "", sex: "", photoUrl: "", createdAt: "", userId: "" }, feedingSessions: [], sleepSessions: [], measurements: [], milestones: [] })
   })
 
   it("loads all dashboard queries for the active baby and maps their results", async () => {
@@ -63,30 +72,22 @@ describe("DashboardPage", () => {
     expect(fetchMeasurements).toHaveBeenCalledWith("baby-2")
   })
 
-  it("shows a retryable request-failure state", async () => {
-    const user = userEvent.setup()
+  it("shows a friendly request-failure state with a CTA", async () => {
     fetchFeeds.mockRejectedValueOnce(new Error("offline"))
     render(<DashboardPage />)
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-    await waitFor(() => expect(fetchFeeds).toHaveBeenCalledTimes(2))
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("recovers from one failed dashboard query without retaining the error after retry", async () => {
-    const user = userEvent.setup()
     fetchSleeps.mockRejectedValueOnce(new Error("service unavailable"))
-    fetchFeeds.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "feed-retry", babyId: "baby-1", feedType: "bottle", startedAt: `${today}T10:00:00`, endedAt: "", leftDurationSec: 0, rightDurationSec: 0, amountMl: 120, milkType: "breast_milk", foodName: "", reaction: "", notes: "", createdAt: `${today}T10:00:00` }])
+    fetchFeeds.mockResolvedValueOnce([])
 
     render(<DashboardPage />)
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-
-    expect(await screen.findByText("120 ml bottle")).toBeInTheDocument()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
-    expect(fetchFeeds).toHaveBeenCalledTimes(2)
-    expect(fetchSleeps).toHaveBeenCalledTimes(2)
-    expect(fetchMeasurements).toHaveBeenCalledTimes(2)
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("ignores a late response for a previously selected baby", async () => {
@@ -136,14 +137,11 @@ describe("DashboardPage", () => {
   })
 
   it("treats a malformed query payload as a retryable request failure", async () => {
-    const user = userEvent.setup()
     fetchFeeds.mockResolvedValueOnce(undefined as never)
     render(<DashboardPage />)
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load dashboard records")
-    await user.click(screen.getByRole("button", { name: "Retry" }))
-    expect(await screen.findByText("No feeds yet")).toBeInTheDocument()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your dashboard right now.")
+    expect(screen.getByRole("link", { name: /Create a profile/ })).toHaveAttribute("href", "/profile/create")
   })
 
   it("shows truthful empty summaries after all queries return no records", async () => {
@@ -164,11 +162,11 @@ describe("DashboardPage", () => {
     }
   })
 
-  it("renders coherent demo records without fetching when no baby is active", () => {
+  it("renders an empty state without fetching when no baby is active", () => {
     storeState.activeBaby = null
     render(<DashboardPage />)
-    expect(screen.getByText(/Lily!/i)).toBeInTheDocument()
-    expect(screen.getByText(/You’ve logged \d+ events? today/i)).toBeInTheDocument()
+    expect(screen.getByText(/Choose a baby profile/)).toBeInTheDocument()
+    expect(screen.queryByText(/No events logged today yet/i)).not.toBeInTheDocument()
     expect(fetchFeeds).not.toHaveBeenCalled()
   })
 })

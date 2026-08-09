@@ -6,6 +6,8 @@
 !.agents/workflows/**
 !.agents/templates/
 !.agents/templates/**
+!.agents/knowledge/
+!.agents/knowledge/**
 skills-lock.json
 notes.txt
 node_modules
@@ -18,3 +20,4 @@ backend/nala-grow-backend.exe
 .env.local
 .env.production
 .codex
+.playwright-mcp/

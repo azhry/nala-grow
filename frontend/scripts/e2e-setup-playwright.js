@@ -7,7 +7,7 @@ const { spawn, execSync } = require("child_process")
 const http = require("http")
 const path = require("path")
 
-const BACKEND_PORT = 8080
+const BACKEND_PORT = 4000
 const FRONTEND_PORT = 3000
 const POSTGRES_PORT = 5432
 const DB_CONTAINER = "nalagrow-pg"
@@ -102,7 +102,7 @@ function resetDatabase() {
 
 async function main() {
   // --- Kill stale processes ---
-  log("Killing stale processes on ports 3000, 8080...")
+  log("Killing stale processes on ports 3000, 4000...")
   await killPort(FRONTEND_PORT)
   await killPort(BACKEND_PORT)
 

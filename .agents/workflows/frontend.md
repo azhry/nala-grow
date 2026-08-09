@@ -1,10 +1,14 @@
+---
+description: 
+---
+
 # Frontend workflow
 
 Apply this workflow to new or changed UI, including fixes to an existing screen.
 
 ## Delegation
 
-Spawn a dedicated frontend implementation subagent. It owns implementation, interaction testing, responsive verification, commit, push, and PR handoff. An exploration/research subagent may provide context, but never substitutes for this required implementation subagent; the primary agent must not perform the implementation itself.
+Spawn a dedicated frontend implementation subagent. It owns implementation, interaction testing, responsive verification, commit, push, and PR handoff. An exploration/research subagent may provide context, but never substitutes for this required implementation subagent; the primary agent must not perform the implementation itself. If Agent Manager cannot expose live transcript output, report that limitation and keep the implementation subagent running. Do not substitute primary-agent implementation unless the user explicitly changes the workflow.
 
 ## Implementation
 
@@ -23,6 +27,7 @@ Spawn a dedicated frontend implementation subagent. It owns implementation, inte
 - Exercise every relevant control and assert its expected visible/data result; include open/close, navigation, filtering/date changes, editing/deleting, exports, and error/empty states when present.
 - Record focused test results and identify pre-existing failures separately. Only call a command successful when it exited zero; a build or lint failure elsewhere in the repository must be reported as a blocker, not as a passing verification result.
 - Before staging and handoff, inspect `git status --short`; do not commit generated screenshots, browser artifacts, temporary logs, or unrelated user files.
+- Unit Test, Integration Test, and lint check only be used to check whether the code is error or the API contract is correct. Those should not be used as proof that the work is done or correct.
 
 ## Handoff
 

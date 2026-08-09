@@ -138,6 +138,7 @@ interface AppState {
   addMilestone: (milestone: Milestone) => void
   updateMilestone: (id: string, data: Partial<Milestone>) => void
   deleteMilestone: (id: string) => void
+  resetState: () => void
   setHasHydrated: (v: boolean) => void
 }
 
@@ -229,7 +230,19 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           milestones: state.milestones.filter((m) => m.id !== id),
         })),
-      setHasHydrated: (v) => set({ _hasHydrated: v }),
+      resetState: () => set({
+    user: null,
+    token: null,
+    activeBaby: null,
+    babies: [],
+    measurements: [],
+    unitSystem: "metric",
+    feedSessions: [],
+    sleepSessions: [],
+    milestones: [],
+    _hasHydrated: true,
+  }),
+  setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: "nalagrow-store",

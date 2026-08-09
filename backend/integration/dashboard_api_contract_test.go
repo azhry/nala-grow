@@ -124,7 +124,15 @@ func seedDashboardContractRows(t *testing.T, ctx context.Context, harness *testu
 
 func executeDashboardList(t *testing.T, ctx context.Context, client *graph.Handler, operation, babyID string) []map[string]interface{} {
 	t.Helper()
-	result := client.Execute(ctx, "query "+operation+"($babyId: ID!) { "+operation+"(babyId: $babyId) }", map[string]interface{}{"babyId": babyID})
+	selections := map[string]string{
+		"feedingSessions": "{ id }",
+		"sleepSessions":   "{ id }",
+		"measurements":    "{ id }",
+		"milestones":      "{ id }",
+	}
+	selection, ok := selections[operation]
+	require.True(t, ok, "unsupported dashboard list operation: %s", operation)
+	result := client.Execute(ctx, "query "+operation+"($babyId: ID!) { "+operation+"(babyId: $babyId) "+selection+" }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, result.Errors)
 	return result.Data.(map[string]interface{})[operation].([]map[string]interface{})
 }
