@@ -7,7 +7,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 from urllib.error import HTTPError, URLError
 
 
@@ -142,6 +142,111 @@ class PullRequestCommandTests(unittest.TestCase):
             gh_tooling.cmd_view_pr(args)
 
         request.assert_called_once_with("GET", "/repos/azhry/nala-grow/pulls/87")
+
+
+class DiscussionAndCommitCommentTests(unittest.TestCase):
+    def test_list_pr_threads_aggregates_and_tags_all_sources(self) -> None:
+        args = argparse.Namespace(owner="azhry", repo="nala-grow", number=87)
+        responses = [
+            [{"id": 1, "created_at": "2026-08-09T01:00:00Z", "body": "conversation"}],
+            [{"id": 2, "created_at": "2026-08-09T02:00:00Z", "path": "app.py"}],
+            [{"id": 3, "submitted_at": "2026-08-09T03:00:00Z", "state": "commented"}],
+        ]
+        with patch.object(gh_tooling, "github_request", side_effect=responses) as request, patch(
+            "builtins.print"
+        ) as output:
+            gh_tooling.cmd_list_pr_threads(args)
+
+        request.assert_has_calls(
+            [
+                call("GET", "/repos/azhry/nala-grow/issues/87/comments?per_page=100&page=1"),
+                call("GET", "/repos/azhry/nala-grow/pulls/87/comments?per_page=100&page=1"),
+                call("GET", "/repos/azhry/nala-grow/pulls/87/reviews?per_page=100&page=1"),
+            ]
+        )
+        result = json.loads(output.call_args.args[0])
+        self.assertEqual([item["id"] for item in result], [1, 2, 3])
+        self.assertEqual(
+            [(item["source"], item["kind"]) for item in result],
+            [
+                ("issue_comments", "issue_comment"),
+                ("review_comments", "review_comment"),
+                ("reviews", "review_submission"),
+            ],
+        )
+
+    def test_list_pr_threads_fetches_next_page_when_page_is_full(self) -> None:
+        args = argparse.Namespace(owner="azhry", repo="nala-grow", number=87)
+        full_page = [
+            {"id": index, "created_at": f"2026-08-09T00:{index:02d}:00Z"}
+            for index in range(100)
+        ]
+        responses = [full_page, [{"id": 100, "created_at": "2026-08-09T01:40:00Z"}], [], []]
+        with patch.object(gh_tooling, "github_request", side_effect=responses) as request, patch(
+            "builtins.print"
+        ):
+            gh_tooling.cmd_list_pr_threads(args)
+
+        self.assertEqual(
+            request.call_args_list[0].args[1],
+            "/repos/azhry/nala-grow/issues/87/comments?per_page=100&page=1",
+        )
+        self.assertEqual(
+            request.call_args_list[1].args[1],
+            "/repos/azhry/nala-grow/issues/87/comments?per_page=100&page=2",
+        )
+
+    def test_list_commit_comments_uses_commit_comments_endpoint(self) -> None:
+        args = argparse.Namespace(owner="azhry", repo="nala-grow", commit_sha="abc123")
+        response = [{"id": 55, "body": "Please add a test", "path": "app.py"}]
+        with patch.object(gh_tooling, "github_request", return_value=response) as request, patch(
+            "builtins.print"
+        ) as output:
+            gh_tooling.cmd_list_commit_comments(args)
+
+        request.assert_called_once_with(
+            "GET", "/repos/azhry/nala-grow/commits/abc123/comments?per_page=100&page=1"
+        )
+        self.assertEqual(json.loads(output.call_args.args[0]), response)
+
+    def test_missing_token_fails_without_exposing_credentials(self) -> None:
+        stderr = io.StringIO()
+        with patch.dict("os.environ", {}, clear=True), patch("sys.stderr", stderr):
+            with self.assertRaisesRegex(SystemExit, "1"):
+                gh_tooling.github_request("GET", "/repos/azhry/nala-grow/commits/abc123/comments")
+
+        self.assertIn("GITHUB_TOKEN", stderr.getvalue())
+        self.assertNotIn("abc123", stderr.getvalue())
+
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"}, clear=True)
+    def test_commit_comments_http_error_exits_nonzero_without_token(self) -> None:
+        error = HTTPError(
+            "https://api.github.com/repos/azhry/nala-grow/commits/abc123/comments",
+            404,
+            "Not Found",
+            {},
+            io.BytesIO(b'{"message":"Not Found"}'),
+        )
+        args = argparse.Namespace(owner="azhry", repo="nala-grow", commit_sha="abc123")
+        stderr = io.StringIO()
+        with patch.object(gh_tooling, "urlopen", side_effect=error), patch("sys.stderr", stderr):
+            with self.assertRaisesRegex(SystemExit, "1"):
+                gh_tooling.cmd_list_commit_comments(args)
+
+        self.assertIn("HTTP error 404", stderr.getvalue())
+        self.assertNotIn("test-token", stderr.getvalue())
+
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"}, clear=True)
+    def test_commit_comments_network_error_exits_nonzero(self) -> None:
+        args = argparse.Namespace(owner="azhry", repo="nala-grow", commit_sha="abc123")
+        stderr = io.StringIO()
+        with patch.object(gh_tooling, "urlopen", side_effect=URLError("offline")), patch(
+            "sys.stderr", stderr
+        ):
+            with self.assertRaisesRegex(SystemExit, "1"):
+                gh_tooling.cmd_list_commit_comments(args)
+
+        self.assertIn("Connection error: offline", stderr.getvalue())
 
 
 if __name__ == "__main__":
