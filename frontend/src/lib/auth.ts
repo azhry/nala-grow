@@ -202,7 +202,23 @@ export async function updatePassword(
 
 // ─── Session management ──────────────────────────────────────────────────────
 
-export async function signOut(): Promise<void> {
+let loginNavigationStarted = false
+
+/**
+ * Leave the current document so the server and middleware establish the
+ * authoritative unauthenticated route. The module guard prevents an
+ * intentional logout from racing with AuthGuard's fallback redirect.
+ */
+export function navigateToLogin(): void {
+  if (typeof window === "undefined" || loginNavigationStarted || window.location.pathname === "/login") {
+    return
+  }
+
+  loginNavigationStarted = true
+  window.location.replace("/login")
+}
+
+export function signOut(): void {
   clearStoredToken()
   useAppStore.getState().resetState()
 }

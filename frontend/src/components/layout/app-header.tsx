@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useAppStore } from "@/lib/store"
 import Link from "next/link"
-import { signOut } from "@/lib/auth"
+import { navigateToLogin, signOut } from "@/lib/auth"
 
 export function AppHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -12,7 +12,8 @@ export function AppHeader() {
   const displayName = activeBaby?.name
 
   const handleLogout = () => {
-    void signOut()
+    signOut()
+    navigateToLogin()
   }
 
   return (

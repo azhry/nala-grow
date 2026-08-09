@@ -1,16 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { AppHeader } from "@/components/layout/app-header"
-import { signOut } from "@/lib/auth"
+import { navigateToLogin, signOut } from "@/lib/auth"
 
-const mockReplace = jest.fn()
 const mockSignOut = jest.mocked(signOut)
-
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}))
+const mockNavigateToLogin = jest.mocked(navigateToLogin)
 
 jest.mock("@/lib/auth", () => ({
   signOut: jest.fn(),
+  navigateToLogin: jest.fn(),
 }))
 
 jest.mock("@/lib/store", () => ({
@@ -20,7 +17,8 @@ jest.mock("@/lib/store", () => ({
 describe("AppHeader", () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockSignOut.mockResolvedValue(undefined)
+    mockSignOut.mockImplementation(() => undefined)
+    mockNavigateToLogin.mockImplementation(() => undefined)
   })
 
   it("provides working home, profile, and notification controls without a no-op search field", () => {
@@ -33,12 +31,17 @@ describe("AppHeader", () => {
     expect(screen.getByText("No new notifications.")).toBeVisible()
   })
 
-  it("clears the session without competing with the app-wide auth redirect", async () => {
+  it("clears auth before starting the single full login navigation", () => {
     render(<AppHeader />)
+
+    const callOrder: string[] = []
+    mockSignOut.mockImplementation(() => callOrder.push("signOut"))
+    mockNavigateToLogin.mockImplementation(() => callOrder.push("navigateToLogin"))
 
     fireEvent.click(screen.getByRole("button", { name: /Logout/ }))
 
-    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1))
-    expect(mockReplace).not.toHaveBeenCalled()
+    expect(callOrder).toEqual(["signOut", "navigateToLogin"])
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(mockNavigateToLogin).toHaveBeenCalledTimes(1)
   })
 })

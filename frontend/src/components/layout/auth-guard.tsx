@@ -1,18 +1,17 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useAppStore } from "@/lib/store"
+import { navigateToLogin } from "@/lib/auth"
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
   const user = useAppStore((s) => s.user)
 
   useEffect(() => {
     if (!user) {
-      router.replace("/login")
+      navigateToLogin()
     }
-  }, [user, router])
+  }, [user])
 
   if (!user) {
     return null
