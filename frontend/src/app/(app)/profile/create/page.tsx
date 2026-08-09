@@ -22,6 +22,7 @@ export default function CreateBabyProfilePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [showSuccess, setShowSuccess] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
 
   function handlePhotoChange(file: File) {
     setPhotoFile(file)
@@ -193,10 +194,21 @@ export default function CreateBabyProfilePage() {
           </form>
 
           <div className="mt-stack-md text-center">
-            <button className="mx-auto flex items-center justify-center gap-1 font-body-sm text-body-sm text-on-surface-variant transition-colors hover:text-primary">
+            <button
+              type="button"
+              aria-expanded={showInfo}
+              aria-controls="profile-info"
+              onClick={() => setShowInfo((visible) => !visible)}
+              className="mx-auto flex items-center justify-center gap-1 font-body-sm text-body-sm text-on-surface-variant transition-colors hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
               <span className="material-symbols-outlined text-sm">help</span>
               Why do we need this information?
             </button>
+            {showInfo && (
+              <p id="profile-info" className="mt-2 font-body-sm text-body-sm text-on-surface-variant">
+                Your baby&apos;s profile helps NalaGrow personalize growth, feeding, sleep, and milestone tracking.
+              </p>
+            )}
           </div>
         </div>
       </div>

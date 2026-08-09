@@ -19,9 +19,28 @@ describe("baby service", () => {
   })
 
   describe("fetchBabies", () => {
-    it("calls getBabies from graphql client", async () => {
-      mockGetBabies.mockResolvedValue([])
-      await fetchBabies()
+    it("maps GraphQL profiles into the existing store shape", async () => {
+      mockGetBabies.mockResolvedValue([
+        {
+          id: "1",
+          name: "Lily",
+          dob: "2024-06-12",
+          sex: "female",
+          photoUrl: "http://example.com/pic.jpg",
+          createdAt: "",
+          userId: "",
+        },
+      ])
+
+      await expect(fetchBabies()).resolves.toEqual([
+        {
+          id: "1",
+          name: "Lily",
+          dob: "2024-06-12",
+          sex: "female",
+          photo_url: "http://example.com/pic.jpg",
+        },
+      ])
       expect(mockGetBabies).toHaveBeenCalledWith()
     })
   })

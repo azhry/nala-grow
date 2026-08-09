@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signUpWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
 import { useAppStore } from "@/lib/store"
+import {
+  getPostAuthDestination,
+  isProfileLookupError,
+} from "@/lib/profile-bootstrap"
 
 export default function SignupFormClient() {
   const router = useRouter()
@@ -16,13 +20,16 @@ export default function SignupFormClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [authFlowActive, setAuthFlowActive] = useState(false)
+  const [profileLookupRetry, setProfileLookupRetry] = useState(false)
   const [error, setError] = useState("")
 
   useLayoutEffect(() => {
-    if (hasHydrated && user) {
+    if (hasHydrated && user && !authFlowActive) {
       router.replace("/dashboard")
     }
-  }, [hasHydrated, user, router])
+  }, [authFlowActive, hasHydrated, user, router])
 
   if (!hasHydrated) {
     return (
@@ -45,16 +52,60 @@ export default function SignupFormClient() {
       return
     }
 
+    setAuthFlowActive(true)
+    setProfileLookupRetry(false)
     setLoading(true)
     try {
       await signUpWithEmail(email, password)
-      router.push("/dashboard")
+      const destination = await getPostAuthDestination(null)
+      router.push(destination)
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (isProfileLookupError(err)) {
+        setProfileLookupRetry(true)
+        setError(err.message)
+      } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
         setError("Something went wrong. Please try again.")
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError("")
+    setProfileLookupRetry(false)
+    setAuthFlowActive(true)
+    setGoogleLoading(true)
+    try {
+      const session = await signInWithGoogle()
+      if (!session) {
+        setAuthFlowActive(false)
+        return
+      }
+      const destination = await getPostAuthDestination(null)
+      router.push(destination)
+    } catch (err) {
+      if (isProfileLookupError(err)) {
+        setProfileLookupRetry(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.")
+      }
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
+  async function handleProfileLookupRetry() {
+    setError("")
+    setLoading(true)
+    try {
+      const destination = await getPostAuthDestination(null)
+      router.push(destination)
+    } catch (err) {
+      setError(isProfileLookupError(err) ? err.message : "Something went wrong. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -106,7 +157,12 @@ export default function SignupFormClient() {
             </p>
           </div>
 
-          <OAuthButton onClick={signInWithGoogle} className="mb-stack-md" />
+          <OAuthButton onClick={handleGoogleSignIn} className="mb-stack-md" />
+          {googleLoading && (
+            <p role="status" className="-mt-stack-sm mb-stack-md text-center font-body-sm text-body-sm text-on-surface-variant">
+              Connecting to Google…
+            </p>
+          )}
 
           <div className="relative mb-stack-md flex items-center gap-base">
             <div className="flex-grow border-t border-outline-variant" />
@@ -197,9 +253,20 @@ export default function SignupFormClient() {
             </div>
 
             {error && (
-              <p className="ml-1 font-body-sm text-body-sm text-error">
+              <p role="alert" className="ml-1 font-body-sm text-body-sm text-error">
                 {error}
               </p>
+            )}
+
+            {profileLookupRetry && (
+              <button
+                type="button"
+                onClick={handleProfileLookupRetry}
+                disabled={loading}
+                className="ml-1 font-label-md text-label-md text-primary underline underline-offset-2 disabled:opacity-50"
+              >
+                Retry profile lookup
+              </button>
             )}
 
             <button

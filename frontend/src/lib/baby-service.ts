@@ -13,10 +13,25 @@ import {
   deleteBaby as gqlDeleteBaby,
 } from "./graphql-client"
 import type { BabyInput } from "./graphql-types"
+import type { BabyProfile as GraphQLBabyProfile } from "./graphql-types"
 import type { BabyProfile as StoreBabyProfile } from "./store"
 
 export type { StoreBabyProfile as BabyProfile }
-export const fetchBabies = gqlGetBabies as () => Promise<StoreBabyProfile[]>
+
+function toStoreBabyProfile(profile: GraphQLBabyProfile): StoreBabyProfile {
+  return {
+    id: profile.id,
+    name: profile.name,
+    dob: profile.dob,
+    sex: profile.sex as StoreBabyProfile["sex"],
+    photo_url: profile.photoUrl || undefined,
+  }
+}
+
+export async function fetchBabies(): Promise<StoreBabyProfile[]> {
+  const profiles = await gqlGetBabies()
+  return profiles.map(toStoreBabyProfile)
+}
 
 /**
  * Backward-compatible createBaby wrapper.
@@ -32,7 +47,7 @@ export async function createBaby(
     photoUrl: (data.photoUrl ?? data.photo_url) as string | undefined,
   }
   const result = await gqlCreateBaby(input)
-  return result as unknown as StoreBabyProfile
+  return toStoreBabyProfile(result)
 }
 
 /**
@@ -50,14 +65,14 @@ export async function updateBaby(
   if (data.photoUrl ?? data.photo_url)
     input.photoUrl = (data.photoUrl ?? data.photo_url) as string
   const result = await gqlUpdateBaby(id, input)
-  return result as unknown as StoreBabyProfile
+  return toStoreBabyProfile(result)
 }
 
 export async function deleteBaby(
   id: string
 ): Promise<StoreBabyProfile> {
   const result = await gqlDeleteBaby(id)
-  return result as unknown as StoreBabyProfile
+  return toStoreBabyProfile(result)
 }
 
 // Underscore-prefixed names for explicit migration (used by FE-015)

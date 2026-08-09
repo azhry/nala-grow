@@ -131,6 +131,8 @@ jest.mock("@/lib/store", () => ({
 // ─── Auth lib mocks ─────────────────────────────────────────────────────────
 
 const mockSignInWithEmail = jest.fn()
+const mockSignUpWithEmail = jest.fn()
+const mockSignInWithGoogle = jest.fn()
 const mockResetPassword = jest.fn()
 const mockUpdatePassword = jest.fn()
 
@@ -146,9 +148,27 @@ jest.mock("@/lib/auth", () => ({
   },
   resetPassword: (...args: any[]) => mockResetPassword(...args),
   signInWithEmail: (...args: any[]) => mockSignInWithEmail(...args),
-  signInWithGoogle: jest.fn(),
+  signUpWithEmail: (...args: any[]) => mockSignUpWithEmail(...args),
+  signInWithGoogle: (...args: any[]) => mockSignInWithGoogle(...args),
   updatePassword: (...args: any[]) => mockUpdatePassword(...args),
 }))
+
+const mockGetPostAuthDestination = jest.fn()
+
+jest.mock("@/lib/profile-bootstrap", () => ({
+  getPostAuthDestination: (...args: any[]) => mockGetPostAuthDestination(...args),
+  getSafeRedirect: (redirect: string | null) =>
+    redirect?.startsWith("/profile") ? redirect : "/dashboard",
+  ProfileLookupError: Error,
+  isProfileLookupError: (error: unknown) =>
+    error instanceof Error && error.name === "ProfileLookupError",
+}))
+
+function mockProfileLookupError() {
+  const error = new Error("We couldn’t check your baby profiles. Please try again.")
+  error.name = "ProfileLookupError"
+  return error
+}
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
@@ -164,6 +184,15 @@ describe("auth pages", () => {
       token: "token",
       user: { id: "user-1", email: "test@test.com" },
     })
+    mockSignUpWithEmail.mockResolvedValue({
+      token: "token",
+      user: { id: "user-1", email: "test@test.com" },
+    })
+    mockSignInWithGoogle.mockResolvedValue({
+      token: "token",
+      user: { id: "user-1", email: "test@test.com" },
+    })
+    mockGetPostAuthDestination.mockResolvedValue("/dashboard")
     mockResetPassword.mockResolvedValue(undefined)
     mockUpdatePassword.mockResolvedValue(undefined)
   })
@@ -202,7 +231,7 @@ describe("auth pages", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "password123" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /login/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^(Login|Continue)/i }))
 
     await waitFor(() => expect(mockSignInWithEmail).toHaveBeenCalled(), { timeout: 3000 })
     expect(screen.queryByTestId("login-error")).not.toBeInTheDocument()
@@ -210,6 +239,7 @@ describe("auth pages", () => {
 
   it("allows internal protected login redirect params", async () => {
     mockLocationHref = "http://localhost/login?redirect=/profile/manage"
+    window.history.replaceState({}, "", "/login?redirect=/profile/manage")
 
     render(<LoginPage />)
 
@@ -219,10 +249,89 @@ describe("auth pages", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "password123" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /login/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^(Login|Continue)/i }))
 
     await waitFor(() => expect(mockSignInWithEmail).toHaveBeenCalled(), { timeout: 3000 })
     expect(screen.queryByTestId("login-error")).not.toBeInTheDocument()
+    expect(mockGetPostAuthDestination).toHaveBeenCalledWith("/profile/manage")
+  })
+
+  it("routes a zero-profile login to onboarding despite a protected redirect", async () => {
+    mockLocationHref = "http://localhost/login?redirect=/dashboard"
+    mockGetPostAuthDestination.mockResolvedValue("/profile/create")
+
+    render(<LoginPage />)
+
+    fireEvent.change(screen.getByLabelText("Email Address"), {
+      target: { value: "test@test.com" },
+    })
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^(Login|Continue)/i }))
+
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
+  })
+
+  it("offers a retry when the login profile lookup fails", async () => {
+    mockGetPostAuthDestination.mockRejectedValue(mockProfileLookupError())
+
+    render(<LoginPage />)
+
+    fireEvent.change(screen.getByLabelText("Email Address"), {
+      target: { value: "test@test.com" },
+    })
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^(Login|Continue)/i }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "couldn’t check your baby profiles",
+    )
+    expect(screen.getByRole("button", { name: "Retry profile lookup" })).toBeInTheDocument()
+
+    mockGetPostAuthDestination.mockResolvedValue("/profile/create")
+    fireEvent.click(screen.getByRole("button", { name: "Retry profile lookup" }))
+
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
+  })
+
+  it("uses the same profile decision for deterministic Google login", async () => {
+    mockGetPostAuthDestination.mockResolvedValue("/profile/create")
+
+    render(<LoginPage />)
+    fireEvent.click(screen.getByRole("button", { name: /Continue with Google/i }))
+
+    await waitFor(() => expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
+  })
+
+  it("uses the same profile decision for deterministic Google signup", async () => {
+    mockGetPostAuthDestination.mockResolvedValue("/profile/create")
+
+    render(<SignupPage />)
+    fireEvent.click(screen.getByRole("button", { name: /Continue with Google/i }))
+
+    await waitFor(() => expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
+  })
+
+  it("routes a new email signup to onboarding", async () => {
+    mockGetPostAuthDestination.mockResolvedValue("/profile/create")
+
+    render(<SignupPage />)
+    fireEvent.change(screen.getByLabelText("Email Address"), {
+      target: { value: "new@test.com" },
+    })
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    })
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Create Account" }))
+
+    await waitFor(() => expect(mockSignUpWithEmail).toHaveBeenCalledWith("new@test.com", "password123"))
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
   })
 
   it("shows the new password form for Supabase recovery code redirects", () => {

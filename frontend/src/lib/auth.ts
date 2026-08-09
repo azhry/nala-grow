@@ -163,39 +163,45 @@ function loadGsiScript(): Promise<void> {
   return gsiLoading
 }
 
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(): Promise<AuthSession | null> {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   if (!clientId) {
     console.warn(
       "Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID.",
     )
-    return
+    return null
   }
 
   await loadGsiScript()
 
-  return new Promise<void>((resolve) => {
+  return new Promise<AuthSession | null>((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google
 
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response: { credential: string }) => {
-        try {
-          const gqlResponse = await gqlLoginWithGoogle(response.credential)
-          persistAuthResponse(gqlResponse)
-          // Hard redirect to dashboard after successful Google sign-in
-          window.location.href = "/dashboard"
-        } catch (err) {
-          console.error("Google sign-in failed:", err)
-        }
-        resolve()
-      },
-      cancel_on_tap_outside: false,
-    })
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential: string }) => {
+          try {
+            const gqlResponse = await gqlLoginWithGoogle(response.credential)
+            resolve(persistAuthResponse(gqlResponse))
+          } catch (err) {
+            console.error("Google sign-in failed:", err)
+            if (err instanceof GraphQLError) {
+              reject(new ApiError(401, err.message, ""))
+            } else {
+              reject(new ApiError(500, (err as Error).message, ""))
+            }
+          }
+        },
+        cancel_on_tap_outside: false,
+      })
 
-    google.accounts.id.prompt()
+      google.accounts.id.prompt()
+    } catch (err) {
+      reject(err)
+    }
   })
 }
 

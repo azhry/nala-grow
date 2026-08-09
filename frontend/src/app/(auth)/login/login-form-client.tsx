@@ -6,28 +6,11 @@ import { useRouter } from "next/navigation"
 import { OAuthButton, Spinner } from "@/components/ui"
 import { signInWithEmail, signInWithGoogle, ApiError } from "@/lib/auth"
 import { useAppStore } from "@/lib/store"
-import { fetchBabies } from "@/lib/baby-service"
-
-const PROTECTED_REDIRECTS = [
-  "/dashboard",
-  "/feeding",
-  "/sleep",
-  "/milestones",
-  "/profile",
-]
-
-function getSafeRedirect(redirect: string | null) {
-  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) {
-    return "/dashboard"
-  }
-
-  const pathname = redirect.split(/[?#]/)[0]
-  const isProtected = PROTECTED_REDIRECTS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  )
-
-  return isProtected ? redirect : "/dashboard"
-}
+import {
+  getPostAuthDestination,
+  getSafeRedirect,
+  isProfileLookupError,
+} from "@/lib/profile-bootstrap"
 
 export default function LoginFormClient() {
   const router = useRouter()
@@ -37,13 +20,16 @@ export default function LoginFormClient() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [authFlowActive, setAuthFlowActive] = useState(false)
+  const [profileLookupRetry, setProfileLookupRetry] = useState(false)
   const [error, setError] = useState("")
 
   useLayoutEffect(() => {
-    if (hasHydrated && user) {
+    if (hasHydrated && user && !authFlowActive) {
       router.replace("/dashboard")
     }
-  }, [hasHydrated, user, router])
+  }, [authFlowActive, hasHydrated, user, router])
 
   if (!hasHydrated) {
     return (
@@ -56,32 +42,68 @@ export default function LoginFormClient() {
   function getRedirect(): string {
     if (typeof window === "undefined") return "/dashboard"
     const params = new URLSearchParams(window.location.search)
-    return getSafeRedirect(params.get("redirect"))
+    return params.get("redirect") ?? ""
+  }
+
+  async function completeAuth(redirect: string) {
+    const destination = await getPostAuthDestination(redirect || null)
+    router.push(destination)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
+    setProfileLookupRetry(false)
+    setAuthFlowActive(true)
     setLoading(true)
     try {
       await signInWithEmail(email, password)
-      try {
-        const profiles = await fetchBabies()
-        const setBabies = useAppStore.getState().setBabies
-        const setActiveBaby = useAppStore.getState().setActiveBaby
-        setBabies(profiles)
-        if (profiles.length > 0) {
-          setActiveBaby(profiles[0])
-        }
-      } catch {
-        // Ignore profile fetch errors; user can view profiles later
-      }
-      router.push(getRedirect())
+      await completeAuth(getRedirect())
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Something went wrong. Please try again."
-      setError(msg)
+      if (isProfileLookupError(err)) {
+        setProfileLookupRetry(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.")
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleProfileLookupRetry() {
+    setError("")
+    setLoading(true)
+    try {
+      await completeAuth(getRedirect())
+    } catch (err) {
+      setError(isProfileLookupError(err) ? err.message : "Something went wrong. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError("")
+    setProfileLookupRetry(false)
+    setAuthFlowActive(true)
+    setGoogleLoading(true)
+    try {
+      const session = await signInWithGoogle()
+      if (!session) {
+        setAuthFlowActive(false)
+        return
+      }
+      await completeAuth(getRedirect())
+    } catch (err) {
+      if (isProfileLookupError(err)) {
+        setProfileLookupRetry(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.")
+      }
+    } finally {
+      setGoogleLoading(false)
     }
   }
 
@@ -174,9 +196,20 @@ export default function LoginFormClient() {
             </div>
 
             {error && (
-              <p className="ml-1 font-body-sm text-body-sm text-error" data-testid="login-error">
+              <p role="alert" className="ml-1 font-body-sm text-body-sm text-error" data-testid="login-error">
                 {error}
               </p>
+            )}
+
+            {profileLookupRetry && (
+              <button
+                type="button"
+                onClick={handleProfileLookupRetry}
+                disabled={loading}
+                className="ml-1 font-label-md text-label-md text-primary underline underline-offset-2 disabled:opacity-50"
+              >
+                Retry profile lookup
+              </button>
             )}
 
             <button
@@ -184,7 +217,7 @@ export default function LoginFormClient() {
               disabled={loading}
               className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-headline-sm text-headline-sm text-on-primary shadow-md shadow-primary/20 transition-all hover:brightness-110 disabled:opacity-50"
             >
-              {loading ? <Spinner size="sm" /> : <>{getRedirect() === "/dashboard" ? "Login" : "Continue"}</>}
+              {loading ? <Spinner size="sm" /> : <>{getSafeRedirect(getRedirect() || null) === "/dashboard" ? "Login" : "Continue"}</>}
               {!loading && <span className="material-symbols-outlined text-[18px]">arrow_forward</span>}
             </button>
           </form>
@@ -197,7 +230,12 @@ export default function LoginFormClient() {
               </span>
               <div className="h-px flex-1 bg-outline-variant/30" />
             </div>
-            <OAuthButton onClick={signInWithGoogle} />
+            <OAuthButton onClick={handleGoogleSignIn} />
+            {googleLoading && (
+              <p role="status" className="text-center font-body-sm text-body-sm text-on-surface-variant">
+                Connecting to Google…
+              </p>
+            )}
           </div>
         </div>
 
