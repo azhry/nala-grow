@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { AUTH_TOKEN_KEY } from "./lib/auth-constants"
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get("nalagrow-token")?.value
+  const token = request.cookies.get(AUTH_TOKEN_KEY)?.value
   const path = request.nextUrl.pathname
 
   const isAuthPage =

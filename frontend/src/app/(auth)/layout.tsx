@@ -1,12 +1,13 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { AUTH_TOKEN_KEY } from "@/lib/auth-constants"
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const token = cookies().get("nalagrow-token")?.value
+  const token = cookies().get(AUTH_TOKEN_KEY)?.value
   if (token) {
     redirect("/dashboard")
   }

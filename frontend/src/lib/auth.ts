@@ -14,6 +14,7 @@ import {
 } from "./graphql-client"
 import { GraphQLError } from "./graphql-types"
 import type { AuthResponse as GqlAuthResponse } from "./graphql-types"
+import { AUTH_TOKEN_KEY } from "./auth-constants"
 
 export interface AuthUser {
   id: string
@@ -27,32 +28,30 @@ export interface AuthSession {
 
 // ─── Token persistence ───────────────────────────────────────────────────────
 
-const TOKEN_KEY = "nalagrow-token"
-
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem(TOKEN_KEY)
+  return localStorage.getItem(AUTH_TOKEN_KEY)
 }
 
 function setAuthCookie(token: string): void {
   if (typeof document === "undefined") return
-  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+  document.cookie = `${AUTH_TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
 }
 
 function clearAuthCookie(): void {
   if (typeof document === "undefined") return
-  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
+  document.cookie = `${AUTH_TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
 }
 
 function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  localStorage.setItem(AUTH_TOKEN_KEY, token)
   setAuthCookie(token)
   setAuthToken(token)
   useAppStore.getState().setToken(token)
 }
 
 function clearStoredToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
   clearAuthCookie()
   clearAuthToken()
   useAppStore.getState().setToken(null)

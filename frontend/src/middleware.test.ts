@@ -1,11 +1,12 @@
 /** @jest-environment node */
 
 import { NextRequest } from "next/server"
+import { AUTH_TOKEN_KEY } from "./lib/auth-constants"
 import { middleware } from "./middleware"
 
 function request(path: string, token?: string) {
   return new NextRequest(`http://localhost${path}`, {
-    headers: token ? { cookie: `nalagrow-token=${token}` } : undefined,
+    headers: token ? { cookie: `${AUTH_TOKEN_KEY}=${token}` } : undefined,
   })
 }
 

@@ -59,6 +59,7 @@ import {
   EXPORT_CSV_QUERY,
 } from "./graphql-queries"
 import { DEMO_BABY_ID } from "./demo-data"
+import { AUTH_TOKEN_KEY } from "./auth-constants"
 
 export type {
   AuthResponse,
@@ -81,21 +82,19 @@ export type {
 const API_URL =
   process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
 
-const TOKEN_KEY = "nalagrow-token"
-
 // ─── Token helpers ──────────────────────────────────────────────────────────
 
 /**
  * Retrieve the JWT auth token.
  *
  * Priority:
- * 1. Dedicated "nalagrow-token" localStorage key (set by FE-014)
+ * 1. Dedicated auth-token localStorage key (set by FE-014)
  * 2. Zustand persist store ("nalagrow-store") — extract token if stored there
  * 3. Returns null if no token is found
  */
 function getAuthToken(): string | null {
   // 1. Dedicated key
-  const dedicated = localStorage.getItem(TOKEN_KEY)
+  const dedicated = localStorage.getItem(AUTH_TOKEN_KEY)
   if (dedicated) return dedicated
 
   // 2. Zustand persist store (pre-FE-014 compatibility)
@@ -117,12 +116,12 @@ function getAuthToken(): string | null {
 
 /** Persist a JWT auth token for subsequent requests (used by FE-014). */
 export function setAuthToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  localStorage.setItem(AUTH_TOKEN_KEY, token)
 }
 
 /** Remove the stored JWT token (logout). */
 export function clearAuthToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
 }
 
 // ─── Core executor ──────────────────────────────────────────────────────────
