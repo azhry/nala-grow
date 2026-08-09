@@ -1,9 +1,9 @@
 # Real frontend/backend integration flow
 
-This runbook documents the reusable, real-browser integration check for changes
-that cross the frontend/API boundary. It lives beside the Playwright specs so
-agents and developers can run the same lifecycle locally and reproduce its
-evidence without relying on a particular pull request description.
+This repository runbook documents the shared lifecycle for real-browser tests
+that need the frontend, backend, and PostgreSQL together. It lives beside the
+Playwright specs because it describes a reusable project capability, while pull
+request descriptions should record only task-specific results and evidence.
 
 ## Prerequisites
 
@@ -12,20 +12,43 @@ evidence without relying on a particular pull request description.
 - Ports 3000 and 8080 may be reclaimed by this command; port 55410 must be
   available for the dedicated PostgreSQL container.
 
-Run the integration from `frontend/`:
+## Usage
+
+Run the default frontend/backend proof from `frontend/`:
 
 ```powershell
 npm run test:e2e:integration
 ```
 
+With no spec path, the runner selects
+`e2e/frontend-backend-integration.spec.ts`. That default remains the complete
+login-led proof: UI signup, a fresh login context, profile creation, failed
+feeding save and retry, and PostgreSQL-backed reload.
+
+Pass one or more alternate Playwright spec paths to reuse the same service
+startup and cleanup:
+
+```powershell
+npm run test:e2e:integration -- e2e/auth-navigation.spec.ts
+npm run test:e2e:integration -- e2e/auth-navigation.spec.ts e2e/frontend-backend-integration.spec.ts
+```
+
+Playwright options are forwarded too. If no `*.spec.*` path is present, options
+apply to the generic default spec:
+
+```powershell
+npm run test:e2e:integration -- --grep "login-led"
+```
+
 The command reclaims exact listeners on `127.0.0.1:3000` and `127.0.0.1:8080`, starts a fresh PostgreSQL test database in the dedicated preserved `nalagrow-pg-e2e` container (host port 55410, avoiding the normal project database), builds and starts a stable loopback-only backend executable, starts Next.js explicitly on port 3000, and runs desktop Chrome. It stops only the child processes it owns and stops (but does not remove) PostgreSQL afterward.
 
-The browser flow signs up a disposable account through the UI, opens a fresh
-context, verifies failed and successful login, creates a profile, exercises a
-failed feeding save and retry, and confirms the saved record after a reload.
-It does not seed application data through GraphQL or local storage.
-
-Each run writes an ignored `test-output/full-stack-integration/<timestamp>/evidence.json` plus screenshots. The evidence includes the disposable account, literal UI inputs, sanitized GraphQL variables/responses, returned IDs and timestamps, and observable results. JWTs and cookies are never recorded.
+The default spec does not seed application data through GraphQL or local
+storage. It writes an ignored
+`test-output/full-stack-integration/<timestamp>/evidence.json` plus screenshots.
+The evidence includes the disposable account, literal UI inputs, sanitized
+GraphQL variables/responses, returned IDs and timestamps, and observable
+results. JWTs and cookies are never recorded. Alternate specs own any additional
+artifacts they generate.
 
 ## Manual reproduction
 

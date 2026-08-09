@@ -20,10 +20,10 @@ import (
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
-// An empty host is a valid net/http listen host. It preserves the existing
-// production behavior by binding to all available interfaces (for example,
-// ":8080") when HOST is unset. Integration runs set HOST to 127.0.0.1.
-const defaultListenHost = ""
+// The production-compatible default remains an all-interface bind, but uses an
+// explicit address so an unset HOST cannot be mistaken for missing config.
+// Integration runs override HOST with 127.0.0.1 to remain loopback-only.
+const defaultListenHost = "0.0.0.0"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))

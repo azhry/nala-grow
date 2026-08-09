@@ -13,8 +13,8 @@ func TestLoadConfigDefaultsToFrontendDevOrigin(t *testing.T) {
 func TestLoadConfigHostDefaultsToAllInterfaces(t *testing.T) {
 	t.Setenv("HOST", "")
 
-	if got := loadConfig().Host; got != "" {
-		t.Fatalf("Host = %q, want empty host for the production-compatible all-interface default", got)
+	if got := loadConfig().Host; got != "0.0.0.0" {
+		t.Fatalf("Host = %q, want explicit all-interface default 0.0.0.0", got)
 	}
 }
 
@@ -30,8 +30,8 @@ func TestListenAddressDefaultsToAllInterfaces(t *testing.T) {
 	t.Setenv("HOST", "")
 	t.Setenv("PORT", "8080")
 
-	if got := loadConfig().ListenAddress(); got != ":8080" {
-		t.Fatalf("ListenAddress() = %q, want :8080", got)
+	if got := loadConfig().ListenAddress(); got != "0.0.0.0:8080" {
+		t.Fatalf("ListenAddress() = %q, want 0.0.0.0:8080", got)
 	}
 }
 

@@ -6,8 +6,18 @@ const path = require("path")
 const frontendDir = path.resolve(__dirname, "..")
 const lifecycleScript = path.join(__dirname, "e2e-setup-playwright.js")
 const playwrightCli = require.resolve("@playwright/test/cli")
+const defaultSpec = "e2e/frontend-backend-integration.spec.ts"
 let lifecycle
 let shuttingDown = false
+
+function isSpecPath(argument) {
+  return /\.spec\.[cm]?[jt]sx?$/i.test(argument)
+}
+
+function buildPlaywrightArgs(cliArgs) {
+  const specArgs = cliArgs.some(isSpecPath) ? [] : [defaultSpec]
+  return ["test", ...specArgs, "--project=desktop", ...cliArgs]
+}
 
 function pipeWithReadiness(stream, target, onLine) {
   let buffer = ""
@@ -46,9 +56,9 @@ function startLifecycle() {
   })
 }
 
-function runPlaywright() {
+function runPlaywright(cliArgs = process.argv.slice(2)) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [playwrightCli, "test", "e2e/integration-lifecycle.spec.ts", "--project=desktop", ...process.argv.slice(2)], {
+    const child = spawn(process.execPath, [playwrightCli, ...buildPlaywrightArgs(cliArgs)], {
       cwd: frontendDir,
       env: { ...process.env, E2E_SERVICES_EXTERNAL: "1" },
       stdio: "inherit",
@@ -86,8 +96,12 @@ async function main() {
   process.exit(exitCode)
 }
 
-main().catch(async (error) => {
-  console.error(`[e2e-integration] ${error.stack || error.message}`)
-  await shutdownLifecycle()
-  process.exit(1)
-})
+if (require.main === module) {
+  main().catch(async (error) => {
+    console.error(`[e2e-integration] ${error.stack || error.message}`)
+    await shutdownLifecycle()
+    process.exit(1)
+  })
+}
+
+module.exports = { buildPlaywrightArgs, defaultSpec, isSpecPath }
