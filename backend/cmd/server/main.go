@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,11 +14,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 
-	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/auth"
+	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/graph"
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
+
+// The production-compatible default remains an all-interface bind, but uses an
+// explicit address so an unset HOST cannot be mistaken for missing config.
+// Integration runs override HOST with 127.0.0.1 to remain loopback-only.
+const defaultListenHost = "0.0.0.0"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -91,14 +97,14 @@ func main() {
 	})
 
 	httpServer := &http.Server{
-		Addr:         ":" + cfg.Port,
+		Addr:         cfg.ListenAddress(),
 		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
 	go func() {
-		slog.Info("server starting", "port", cfg.Port)
+		slog.Info("server starting", "host", cfg.Host, "port", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
@@ -125,15 +131,21 @@ func writeError(w http.ResponseWriter, msg string) {
 }
 
 type Config struct {
-	Port          string
-	DatabaseURL   string
-	AllowedOrigin string
-	JWTSecret     string
+	Host           string
+	Port           string
+	DatabaseURL    string
+	AllowedOrigin  string
+	JWTSecret      string
 	GoogleClientID string
+}
+
+func (c Config) ListenAddress() string {
+	return net.JoinHostPort(c.Host, c.Port)
 }
 
 func loadConfig() Config {
 	return Config{
+		Host:           getEnv("HOST", defaultListenHost),
 		Port:           getEnv("PORT", "4000"),
 		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
 		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
