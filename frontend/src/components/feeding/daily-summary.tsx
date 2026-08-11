@@ -49,13 +49,13 @@ function DailySummary({ bottleTotalMl, breastTotalMins, barData, range = "today"
           </div>
         </div>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex items-center gap-1 mb-1">
             <div className="w-3 h-3 bg-primary rounded-sm" />
             <span className="text-[10px] text-on-surface-variant">Bottle (ml)</span>
           </div>
-          <div className="relative h-32 w-full flex items-end gap-2">
+          <div className="relative h-36 sm:h-40 w-full flex items-end gap-1.5 sm:gap-2">
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
               <div className="border-t border-primary w-full" />
               <div className="border-t border-primary w-full" />
@@ -73,7 +73,7 @@ function DailySummary({ bottleTotalMl, breastTotalMins, barData, range = "today"
             <div className="w-3 h-3 bg-primary/20 rounded-sm" />
             <span className="text-[10px] text-on-surface-variant">Breast (min)</span>
           </div>
-          <div className="relative h-32 w-full flex items-end gap-2">
+          <div className="relative h-36 sm:h-40 w-full flex items-end gap-1.5 sm:gap-2">
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
               <div className="border-t border-primary/40 w-full" />
               <div className="border-t border-primary/40 w-full" />

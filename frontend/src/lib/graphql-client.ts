@@ -58,6 +58,8 @@ import {
   EXPORT_DATA_QUERY,
   EXPORT_CSV_QUERY,
 } from "./graphql-queries"
+import { DEMO_BABY_ID } from "./demo-data"
+import { AUTH_TOKEN_KEY } from "./auth-constants"
 
 export type {
   AuthResponse,
@@ -78,9 +80,7 @@ export type {
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const API_URL =
-  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8080/graphql"
-
-const TOKEN_KEY = "nalagrow-token"
+  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
 
 // ─── Token helpers ──────────────────────────────────────────────────────────
 
@@ -88,13 +88,13 @@ const TOKEN_KEY = "nalagrow-token"
  * Retrieve the JWT auth token.
  *
  * Priority:
- * 1. Dedicated "nalagrow-token" localStorage key (set by FE-014)
+ * 1. Dedicated auth-token localStorage key (set by FE-014)
  * 2. Zustand persist store ("nalagrow-store") — extract token if stored there
  * 3. Returns null if no token is found
  */
 function getAuthToken(): string | null {
   // 1. Dedicated key
-  const dedicated = localStorage.getItem(TOKEN_KEY)
+  const dedicated = localStorage.getItem(AUTH_TOKEN_KEY)
   if (dedicated) return dedicated
 
   // 2. Zustand persist store (pre-FE-014 compatibility)
@@ -116,12 +116,12 @@ function getAuthToken(): string | null {
 
 /** Persist a JWT auth token for subsequent requests (used by FE-014). */
 export function setAuthToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  localStorage.setItem(AUTH_TOKEN_KEY, token)
 }
 
 /** Remove the stored JWT token (logout). */
 export function clearAuthToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
 }
 
 // ─── Core executor ──────────────────────────────────────────────────────────
@@ -415,4 +415,78 @@ export async function getExportCSV(
     { babyId, dateFrom: dateFrom ?? undefined, dateTo: dateTo ?? undefined },
     { auth: true }
   )
+}
+
+export interface DemoData {
+  baby: {
+    id: string
+    name: string
+    dob: string
+    sex: string
+    photoUrl: string
+    createdAt: string
+    userId: string
+  }
+  feedingSessions: {
+    id: string
+    babyId: string
+    feedType: string
+    startedAt: string
+    endedAt: string
+    leftDurationSec: number
+    rightDurationSec: number
+    amountMl: number
+    milkType: string
+    foodName: string
+    reaction: string
+    temperature?: string | null
+    quantity?: number | null
+    quantityUnit?: string | null
+    notes: string
+    createdAt: string
+  }[]
+  sleepSessions: {
+    id: string
+    babyId: string
+    startedAt: string
+    endedAt: string
+    location: string
+    notes: string
+    createdAt: string
+  }[]
+  measurements: {
+    id: string
+    babyId: string
+    date: string
+    weight: number
+    height: number
+    headCircumference: number
+    createdAt: string
+  }[]
+  milestones: {
+    id: string
+    babyId: string
+    title: string
+    description: string
+    category: string
+    achievedAt: string
+    note: string
+    photoUrl: string
+    isCustom: boolean
+    createdAt: string
+  }[]
+}
+
+export async function fetchDemoData(): Promise<DemoData> {
+  const variables = { babyId: DEMO_BABY_ID }
+  const [baby, feedingSessions, sleepSessions, measurements, milestones] =
+    await Promise.all([
+      execute<BabyProfile>(BABY_QUERY, { id: DEMO_BABY_ID }),
+      execute<DemoData["feedingSessions"]>(FEEDING_SESSIONS_QUERY, variables),
+      execute<DemoData["sleepSessions"]>(SLEEP_SESSIONS_QUERY, variables),
+      execute<DemoData["measurements"]>(MEASUREMENTS_QUERY, variables),
+      execute<DemoData["milestones"]>(MILESTONES_QUERY, variables),
+    ])
+
+  return { baby, feedingSessions, sleepSessions, measurements, milestones }
 }

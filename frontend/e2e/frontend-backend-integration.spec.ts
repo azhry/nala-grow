@@ -37,7 +37,7 @@ function captureGraphQL(page: Page) {
     if (request.url().includes("/graphql")) console.log(`[browser:graphql] ${request.method()} ${request.url()}`)
   })
   page.on("response", (response) => {
-    if (response.url() !== "http://127.0.0.1:8080/graphql") return
+    if (response.url() !== "http://127.0.0.1:4000/graphql") return
     responseCaptures.push(captureResponse(response))
   })
 }
@@ -79,7 +79,7 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     const signupPage = await signupContext.newPage()
     captureGraphQL(signupPage)
     await signupPage.goto(`${baseURL}/login`)
-    await expect(signupPage.getByRole("heading", { name: "NalaGrow" })).toBeVisible()
+    await expect(signupPage.getByRole("heading", { name: "Welcome back" })).toBeVisible()
     await signupPage.getByRole("link", { name: "Create an account" }).click()
     await signupPage.waitForLoadState("networkidle")
     await signupPage.getByLabel("Email Address").fill(email)
@@ -107,7 +107,7 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     await page.getByRole("button", { name: "Login" }).click()
     await expect(page).toHaveURL(/\/dashboard$/)
 
-    await page.getByRole("link", { name: /Manage .* profile/ }).click()
+    await page.getByRole("link", { name: "Add a profile" }).click()
     await expect(page).toHaveURL(/\/profile\/create$/)
     await page.getByLabel("Baby's Name").fill(baby.name)
     await page.getByLabel("Date of Birth").fill(baby.dob)
@@ -128,7 +128,7 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     await page.getByPlaceholder("How did it go?").fill(bottle.notes)
 
     let failedSaveObserved = false
-    await page.route("http://127.0.0.1:8080/graphql", async (route) => {
+    await page.route("http://127.0.0.1:4000/graphql", async (route) => {
       const body = route.request().postData() ?? ""
       if (!failedSaveObserved && body.includes("createFeedingSession")) {
         failedSaveObserved = true
@@ -141,7 +141,7 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     await expect(page.getByRole("alert").filter({ hasText: "Unable to save this feeding entry" })).toBeVisible()
     await expect(page.getByPlaceholder("How did it go?")).toHaveValue(bottle.notes)
     await screenshot(page, "04-save-failure-retains-form.png")
-    await page.unroute("http://127.0.0.1:8080/graphql")
+    await page.unroute("http://127.0.0.1:4000/graphql")
 
     await page.getByRole("button", { name: "Save Entry" }).click()
     await expect(page.getByText("Bottle Feed").first()).toBeVisible()

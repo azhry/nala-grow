@@ -32,7 +32,7 @@ def github_request(
     method: str,
     path: str,
     payload: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Any:
     url = f"{GITHUB_API_URL}{path}"
     data: bytes | None = None
     if payload is not None:
@@ -71,6 +71,79 @@ def extract_response(result: dict[str, Any]) -> dict[str, Any]:
             print(f"API error: {error}", file=sys.stderr)
         sys.exit(1)
     return result
+
+
+def github_list_request(path: str, page_size: int = 100) -> list[dict[str, Any]]:
+    """Fetch all pages from a GitHub list endpoint without exposing credentials."""
+
+    records: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        separator = "&" if "?" in path else "?"
+        response = github_request(
+            "GET",
+            f"{path}{separator}per_page={page_size}&page={page}",
+        )
+        if not isinstance(response, list) or not all(isinstance(item, dict) for item in response):
+            raise RuntimeError(f"Expected a list response from {path}.")
+
+        records.extend(response)
+        if len(response) < page_size:
+            return records
+        page += 1
+
+
+def tag_pr_records(
+    records: list[dict[str, Any]], source: str, kind: str
+) -> list[dict[str, Any]]:
+    """Keep GitHub fields intact while identifying the source collection."""
+
+    return [{**record, "source": source, "kind": kind} for record in records]
+
+
+def record_timestamp(record: dict[str, Any]) -> str:
+    return str(
+        record.get("created_at")
+        or record.get("submitted_at")
+        or record.get("updated_at")
+        or ""
+    )
+
+
+def list_pr_threads(owner: str, repo: str, number: int) -> list[dict[str, Any]]:
+    """Aggregate conversation, inline review, and review-submission records."""
+
+    sources = (
+        (
+            "issue_comments",
+            "issue_comment",
+            f"/repos/{owner}/{repo}/issues/{number}/comments",
+        ),
+        (
+            "review_comments",
+            "review_comment",
+            f"/repos/{owner}/{repo}/pulls/{number}/comments",
+        ),
+        (
+            "reviews",
+            "review_submission",
+            f"/repos/{owner}/{repo}/pulls/{number}/reviews",
+        ),
+    )
+    records: list[dict[str, Any]] = []
+    for source, kind, path in sources:
+        records.extend(tag_pr_records(github_list_request(path), source, kind))
+
+    return [
+        record
+        for _, record in sorted(
+            enumerate(records), key=lambda item: (record_timestamp(item[1]), item[0])
+        )
+    ]
+
+
+def list_commit_comments(owner: str, repo: str, commit_sha: str) -> list[dict[str, Any]]:
+    return github_list_request(f"/repos/{owner}/{repo}/commits/{commit_sha}/comments")
 
 
 # --- PR commands ---
@@ -147,6 +220,16 @@ def cmd_create_comment(args: argparse.Namespace) -> None:
 def cmd_list_comments(args: argparse.Namespace) -> None:
     path = f"/repos/{args.owner}/{args.repo}/issues/{args.number}/comments"
     result = github_request("GET", path)
+    print(json.dumps(result, indent=2))
+
+
+def cmd_list_pr_threads(args: argparse.Namespace) -> None:
+    result = list_pr_threads(args.owner, args.repo, args.number)
+    print(json.dumps(result, indent=2))
+
+
+def cmd_list_commit_comments(args: argparse.Namespace) -> None:
+    result = list_commit_comments(args.owner, args.repo, args.commit_sha)
     print(json.dumps(result, indent=2))
 
 
@@ -240,6 +323,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_list_comments.add_argument("--repo", required=True, help="Repository name")
     p_list_comments.add_argument("--number", required=True, type=int, help="PR or issue number")
     p_list_comments.set_defaults(func=cmd_list_comments)
+
+    # list-pr-threads
+    p_pr_threads = subparsers.add_parser(
+        "list-pr-threads",
+        help="Aggregate PR conversation, inline review comments, and reviews",
+    )
+    p_pr_threads.add_argument("--owner", required=True, help="Repository owner")
+    p_pr_threads.add_argument("--repo", required=True, help="Repository name")
+    p_pr_threads.add_argument("--number", required=True, type=int, help="Pull request number")
+    p_pr_threads.set_defaults(func=cmd_list_pr_threads)
+
+    # list-commit-comments
+    p_commit_comments = subparsers.add_parser(
+        "list-commit-comments", help="List code comments attached to a commit"
+    )
+    p_commit_comments.add_argument("--owner", required=True, help="Repository owner")
+    p_commit_comments.add_argument("--repo", required=True, help="Repository name")
+    p_commit_comments.add_argument("--commit-sha", required=True, help="Commit SHA")
+    p_commit_comments.set_defaults(func=cmd_list_commit_comments)
 
     # view-issue
     p_view_issue = subparsers.add_parser("view-issue", help="View an issue")

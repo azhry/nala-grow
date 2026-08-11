@@ -4,6 +4,18 @@ import LoginPage from "../login/page"
 import SignupPage from "../signup/page"
 import ResetPasswordPage from "../reset-password/page"
 
+type MockAuthState = {
+  user: { id: string; email: string } | null
+  _hasHydrated: boolean
+}
+
+let mockAuthState: MockAuthState
+const mockRouter = {
+  push: jest.fn(),
+  replace: jest.fn(),
+}
+const mockUseAppStore = jest.fn()
+
 // ─── window.location mock (used by login page redirect) ─────────────────────
 
 // ─── window.location mock (used by login page redirect) ─────────────────────
@@ -107,8 +119,13 @@ afterAll(() => {
 let mockSearchParams = new URLSearchParams()
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => mockRouter,
   useSearchParams: () => mockSearchParams,
+}))
+
+jest.mock("@/lib/store", () => ({
+  useAppStore: (selector: (state: MockAuthState) => unknown) =>
+    mockUseAppStore(selector),
 }))
 
 // ─── Auth lib mocks ─────────────────────────────────────────────────────────
@@ -138,6 +155,10 @@ jest.mock("@/lib/auth", () => ({
 describe("auth pages", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockAuthState = { user: null, _hasHydrated: true }
+    mockUseAppStore.mockImplementation((selector: (state: MockAuthState) => unknown) =>
+      selector(mockAuthState),
+    )
     mockLocationHref = "http://localhost/login"
     mockSignInWithEmail.mockResolvedValue({
       token: "token",
@@ -145,6 +166,29 @@ describe("auth pages", () => {
     })
     mockResetPassword.mockResolvedValue(undefined)
     mockUpdatePassword.mockResolvedValue(undefined)
+  })
+
+  it.each([
+    ["login", () => <LoginPage />],
+    ["signup", () => <SignupPage />],
+  ])("waits for hydration before redirecting from %s", (_pageName, renderPage) => {
+    mockAuthState = {
+      user: { id: "stale-user", email: "stale@example.com" },
+      _hasHydrated: false,
+    }
+
+    const { container, rerender } = render(renderPage())
+
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument()
+    expect(mockRouter.replace).not.toHaveBeenCalled()
+
+    mockAuthState = {
+      user: { id: "hydrated-user", email: "hydrated@example.com" },
+      _hasHydrated: true,
+    }
+    rerender(renderPage())
+
+    expect(mockRouter.replace).toHaveBeenCalledWith("/dashboard")
   })
 
   it("falls back to dashboard for unsafe login redirect params", async () => {

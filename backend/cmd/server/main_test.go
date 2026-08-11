@@ -28,17 +28,17 @@ func TestLoadConfigAcceptsLoopbackHost(t *testing.T) {
 
 func TestListenAddressDefaultsToAllInterfaces(t *testing.T) {
 	t.Setenv("HOST", "")
-	t.Setenv("PORT", "8080")
+	t.Setenv("PORT", "4000")
 
-	if got := loadConfig().ListenAddress(); got != "0.0.0.0:8080" {
-		t.Fatalf("ListenAddress() = %q, want 0.0.0.0:8080", got)
+	if got := loadConfig().ListenAddress(); got != "0.0.0.0:4000" {
+		t.Fatalf("ListenAddress() = %q, want 0.0.0.0:4000", got)
 	}
 }
 
 func TestListenAddressUsesConfiguredHost(t *testing.T) {
-	cfg := Config{Host: "127.0.0.1", Port: "8080"}
+	cfg := Config{Host: "127.0.0.1", Port: "4000"}
 
-	if got := cfg.ListenAddress(); got != "127.0.0.1:8080" {
-		t.Fatalf("ListenAddress() = %q, want 127.0.0.1:8080", got)
+	if got := cfg.ListenAddress(); got != "127.0.0.1:4000" {
+		t.Fatalf("ListenAddress() = %q, want 127.0.0.1:4000", got)
 	}
 }

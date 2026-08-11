@@ -7,7 +7,7 @@ const os = require("os")
 const path = require("path")
 
 const HOST = "127.0.0.1"
-const BACKEND_PORT = 8080
+const BACKEND_PORT = 4000
 const FRONTEND_PORT = 3000
 const POSTGRES_PORT = 55410
 const DB_CONTAINER = "nalagrow-pg-e2e"

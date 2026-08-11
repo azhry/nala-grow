@@ -146,7 +146,7 @@ func (c Config) ListenAddress() string {
 func loadConfig() Config {
 	return Config{
 		Host:           getEnv("HOST", defaultListenHost),
-		Port:           getEnv("PORT", "8080"),
+		Port:           getEnv("PORT", "4000"),
 		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
 		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
 		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),

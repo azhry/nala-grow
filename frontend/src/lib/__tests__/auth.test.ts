@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getSessionToken,
+  getCurrentSession,
   isAuthenticated,
   resetPassword,
   signInWithEmail,
@@ -10,6 +11,7 @@ import {
   updatePassword,
 } from "../auth"
 import type { AuthResponse } from "../graphql-types"
+import { AUTH_TOKEN_KEY } from "../auth-constants"
 
 // ─── GraphQL client mocks ────────────────────────────────────────────────────
 
@@ -39,6 +41,7 @@ const mockSetUser = jest.fn()
 const mockSetToken = jest.fn()
 const mockSetActiveBaby = jest.fn()
 const mockSetBabies = jest.fn()
+const mockResetState = jest.fn()
 let mockUserValue: { id: string; email: string } | null = null
 
 jest.mock("../store", () => ({
@@ -49,6 +52,7 @@ jest.mock("../store", () => ({
       setToken: mockSetToken,
       setActiveBaby: mockSetActiveBaby,
       setBabies: mockSetBabies,
+      resetState: mockResetState,
     }),
   },
 }))
@@ -60,8 +64,6 @@ const authResponse: AuthResponse = {
   token: "gql-token-123",
   user: { ...sessionUser, displayName: "", photoUrl: "", createdAt: "" },
 }
-
-const TOKEN_KEY = "nalagrow-token"
 
 describe("auth service", () => {
   beforeEach(() => {
@@ -77,7 +79,7 @@ describe("auth service", () => {
       const result = await signInWithEmail("test@test.com", "password123")
 
       expect(mockLogin).toHaveBeenCalledWith("test@test.com", "password123")
-      expect(localStorage.getItem(TOKEN_KEY)).toBe("gql-token-123")
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe("gql-token-123")
       expect(mockSetAuthToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
@@ -106,7 +108,7 @@ describe("auth service", () => {
         "new@test.com",
         "password123",
       )
-      expect(localStorage.getItem(TOKEN_KEY)).toBe("gql-token-123")
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe("gql-token-123")
       expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
       expect(result).toEqual({ user: sessionUser, token: "gql-token-123" })
@@ -163,16 +165,13 @@ describe("auth service", () => {
 
   describe("signOut", () => {
     it("clears token from localStorage and resets store state", async () => {
-      localStorage.setItem(TOKEN_KEY, "some-token")
+      localStorage.setItem(AUTH_TOKEN_KEY, "some-token")
 
       await signOut()
 
-      expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull()
       expect(mockClearAuthToken).toHaveBeenCalled()
-      expect(mockSetToken).toHaveBeenCalledWith(null)
-      expect(mockSetUser).toHaveBeenCalledWith(null)
-      expect(mockSetActiveBaby).toHaveBeenCalledWith(null)
-      expect(mockSetBabies).toHaveBeenCalledWith([])
+      expect(mockResetState).toHaveBeenCalled()
     })
   })
 
@@ -182,8 +181,41 @@ describe("auth service", () => {
     })
 
     it("returns the token from localStorage when present", () => {
-      localStorage.setItem(TOKEN_KEY, "my-jwt-token")
+      localStorage.setItem(AUTH_TOKEN_KEY, "my-jwt-token")
       expect(getSessionToken()).toBe("my-jwt-token")
+    })
+
+    it("restores the token from the browser auth cookie", () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=cookie-token`
+
+      expect(getSessionToken()).toBe("cookie-token")
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe("cookie-token")
+      expect(mockSetAuthToken).toHaveBeenCalledWith("cookie-token")
+      expect(mockSetToken).toHaveBeenCalledWith("cookie-token")
+    })
+  })
+
+  describe("getCurrentSession", () => {
+    it("validates and persists a session recovered from the browser cookie", async () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=cookie-token`
+      mockGetMe.mockResolvedValue({ ...sessionUser })
+
+      await expect(getCurrentSession()).resolves.toEqual({
+        user: sessionUser,
+        token: "cookie-token",
+      })
+      expect(mockGetMe).toHaveBeenCalled()
+      expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
+    })
+
+    it("clears an invalid browser cookie before returning no session", async () => {
+      document.cookie = `${AUTH_TOKEN_KEY}=expired-token`
+      mockGetMe.mockRejectedValue(new Error("expired"))
+
+      await expect(getCurrentSession()).resolves.toBeNull()
+      expect(document.cookie).not.toContain(`${AUTH_TOKEN_KEY}=`)
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull()
+      expect(mockResetState).toHaveBeenCalled()
     })
   })
 
@@ -193,7 +225,7 @@ describe("auth service", () => {
     })
 
     it("returns true when a token exists in localStorage", () => {
-      localStorage.setItem(TOKEN_KEY, "some-token")
+      localStorage.setItem(AUTH_TOKEN_KEY, "some-token")
       expect(isAuthenticated()).toBe(true)
     })
   })

@@ -14,6 +14,7 @@ import {
 } from "./graphql-client"
 import { GraphQLError } from "./graphql-types"
 import type { AuthResponse as GqlAuthResponse } from "./graphql-types"
+import { AUTH_TOKEN_KEY } from "./auth-constants"
 
 export interface AuthUser {
   id: string
@@ -27,21 +28,57 @@ export interface AuthSession {
 
 // ─── Token persistence ───────────────────────────────────────────────────────
 
-const TOKEN_KEY = "nalagrow-token"
+function getAuthCookie(): string | null {
+  if (typeof document === "undefined") return null
+
+  const prefix = `${AUTH_TOKEN_KEY}=`
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null
+}
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem(TOKEN_KEY)
+
+  const cookieToken = getAuthCookie()
+  const storedToken = localStorage.getItem(AUTH_TOKEN_KEY)
+  const token = cookieToken ?? storedToken
+  if (!token) return null
+
+  if (storedToken !== token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+    setAuthToken(token)
+  }
+  if (!cookieToken) setAuthCookie(token)
+
+  const state = useAppStore.getState()
+  if (state.token !== token) state.setToken(token)
+  return token
+}
+
+function setAuthCookie(token: string): void {
+  if (typeof document === "undefined") return
+  document.cookie = `${AUTH_TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+}
+
+function clearAuthCookie(): void {
+  if (typeof document === "undefined") return
+  document.cookie = `${AUTH_TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
 }
 
 function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  localStorage.setItem(AUTH_TOKEN_KEY, token)
+  setAuthCookie(token)
   setAuthToken(token)
   useAppStore.getState().setToken(token)
 }
 
 function clearStoredToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
+  clearAuthCookie()
   clearAuthToken()
   useAppStore.getState().setToken(null)
 }
@@ -191,11 +228,25 @@ export async function updatePassword(
 
 // ─── Session management ──────────────────────────────────────────────────────
 
-export async function signOut(): Promise<void> {
+let loginNavigationStarted = false
+
+/**
+ * Leave the current document so the server and middleware establish the
+ * authoritative unauthenticated route. The module guard prevents an
+ * intentional logout from racing with AuthGuard's fallback redirect.
+ */
+export function navigateToLogin(): void {
+  if (typeof window === "undefined" || loginNavigationStarted || window.location.pathname === "/login") {
+    return
+  }
+
+  loginNavigationStarted = true
+  window.location.replace("/login")
+}
+
+export function signOut(): void {
   clearStoredToken()
-  useAppStore.getState().setUser(null)
-  useAppStore.getState().setActiveBaby(null)
-  useAppStore.getState().setBabies([])
+  useAppStore.getState().resetState()
 }
 
 export async function getCurrentSession(): Promise<AuthSession | null> {
@@ -210,6 +261,7 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
   } catch {
     // Token is invalid or expired — clear it
     clearStoredToken()
+    useAppStore.getState().resetState()
     return null
   }
 }

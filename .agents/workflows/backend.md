@@ -1,3 +1,7 @@
+---
+description: 
+---
+
 # Backend workflow
 
 Apply this workflow to changes under `backend/`, including Go services, GraphQL operations, authentication, persistence, and database migrations.
@@ -39,6 +43,7 @@ Apply this workflow to changes under `backend/`, including Go services, GraphQL 
 - Treat race-sensitive shared-state changes as requiring `go test -race` for the affected packages when the current platform supports it.
 - Report exact commands and exit results. Distinguish environment blockers and pre-existing failures from regressions introduced by the task.
 - Before staging and handoff, inspect `git status --short`; do not commit `coverage.out`, local environment files, database dumps, logs, credentials, or unrelated user files.
+- Unit Test, Integration Test, and lint check only be used to check whether the code is error or the API contract is correct. Those should not be used as proof that the work is done or correct.
 
 ## Handoff
 

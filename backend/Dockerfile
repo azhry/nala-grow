@@ -19,5 +19,5 @@ WORKDIR /app
 COPY --from=builder /app/server .
 COPY internal/db/migrations ./internal/db/migrations
 
-EXPOSE 8080
+EXPOSE 4000
 CMD ["./server"]

@@ -17,7 +17,8 @@ import {
 } from "@/components/milestones"
 import { FAB } from "@/components/ui"
 import { AppHeader } from "@/components/layout/app-header"
-import { DEMO_BABY, DEMO_MILESTONES } from "@/lib/demo-data"
+import { DEMO_BABY_ID, setCachedDemoData } from "@/lib/demo-data"
+import { fetchDemoData, type DemoData } from "@/lib/graphql-client"
 
 const ageRangeLabels: Record<MilestoneAgeRange, string> = {
   "0-3": "0–3 Months",
@@ -32,20 +33,30 @@ function generateId(): string {
 
 export default function MilestonesPage() {
   const activeBaby = useAppStore((s) => s.activeBaby)
+  const user = useAppStore((s) => s.user)
   const milestones = useAppStore((s) => s.milestones)
   const addMilestone = useAppStore((s) => s.addMilestone)
   const updateMilestone = useAppStore((s) => s.updateMilestone)
   const deleteMilestone = useAppStore((s) => s.deleteMilestone)
   const setMilestones = useAppStore((s) => s.setMilestones)
 
+  const [demoData, setDemoData] = useState<DemoData | null>(null)
+
   useEffect(() => {
     if (activeBaby?.id) {
       fetchMilestones(activeBaby.id).catch(() => {})
+    } else if (!activeBaby && !user && !demoData) {
+      fetchDemoData()
+        .then((data) => {
+          setDemoData(data)
+          setCachedDemoData(data)
+        })
+        .catch(() => {})
     }
-  }, [activeBaby?.id, setMilestones])
+  }, [activeBaby?.id, activeBaby, user, demoData, setMilestones])
 
-  const babyId = activeBaby?.id ?? DEMO_BABY.id
-  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const babyId = activeBaby?.id ?? demoData?.baby.id ?? DEMO_BABY_ID
+  const babyName = activeBaby?.name ?? demoData?.baby.name
 
   const [ageFilter, setAgeFilter] = useState<MilestoneAgeRange | "all">("all")
   const [showForm, setShowForm] = useState(false)
@@ -56,11 +67,24 @@ export default function MilestonesPage() {
     [milestones, babyId],
   )
 
-  const isDemo = !activeBaby
+  const isDemo = !activeBaby && !user
 
   const demoCurrentLabel = isDemo ? "4-6m" : undefined
 
-  const [demoGoals, setDemoGoals] = useState<Milestone[]>(DEMO_MILESTONES)
+  const demoMilestones = useMemo(() => (demoData?.milestones ?? []).map((m) => ({
+    id: m.id,
+    baby_id: m.babyId,
+    definition_id: undefined,
+    title: m.title,
+    category: m.category as Milestone["category"],
+    age_range: "0-3" as Milestone["age_range"],
+    achieved: !!m.achievedAt,
+    achieved_date: m.achievedAt || undefined,
+    notes: m.note || undefined,
+    photo_url: m.photoUrl || undefined,
+    is_custom: m.isCustom,
+  })), [demoData])
+  const [demoGoals, setDemoGoals] = useState<Milestone[]>(demoMilestones)
   const demoJourneyCards = useMemo(
     () => demoGoals.filter((milestone) => milestone.achieved),
     [demoGoals],
@@ -75,7 +99,7 @@ export default function MilestonesPage() {
   )
 
   const seededMilestones = useMemo(() => {
-    if (isDemo) return DEMO_MILESTONES
+    if (isDemo) return demoMilestones
 
     const existing = new Map(babyMilestones.map((m) => [m.definition_id, m]))
     const result: Milestone[] = []
@@ -102,7 +126,7 @@ export default function MilestonesPage() {
     result.push(...customMilestones)
 
     return result
-  }, [babyMilestones, babyId, isDemo])
+  }, [babyMilestones, babyId, isDemo, demoMilestones])
 
   const filteredSeeded = useMemo(
     () =>

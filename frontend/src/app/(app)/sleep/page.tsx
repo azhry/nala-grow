@@ -9,7 +9,8 @@ import {
   updateSleepSession as updateSleepSessionApi,
 } from "@/lib/sleep-service"
 import { AppHeader } from "@/components/layout/app-header"
-import { DEMO_BABY, DEMO_SLEEP_SESSIONS, recordsForProfile } from "@/lib/demo-data"
+import { DEMO_BABY_ID, recordsForProfile, setCachedDemoData } from "@/lib/demo-data"
+import { fetchDemoData, type DemoData } from "@/lib/graphql-client"
 
 const locations: SleepLocation[] = ["crib", "bed", "carrier", "stroller", "contact"]
 
@@ -45,12 +46,14 @@ function locationLabel(location?: SleepLocation): string {
 
 export default function SleepPage() {
   const activeBaby = useAppStore((state) => state.activeBaby)
+  const user = useAppStore((state) => state.user)
   const sleepSessions = useAppStore((state) => state.sleepSessions)
   const addSleepSession = useAppStore((state) => state.addSleepSession)
   const updateSleepSession = useAppStore((state) => state.updateSleepSession)
   const setSleepSessions = useAppStore((state) => state.setSleepSessions)
-  const babyId = activeBaby?.id ?? DEMO_BABY.id
-  const babyName = activeBaby?.name ?? DEMO_BABY.name
+  const [demoData, setDemoData] = useState<DemoData | null>(null)
+  const babyId = activeBaby?.id ?? demoData?.baby.id ?? DEMO_BABY_ID
+  const babyName = activeBaby?.name ?? demoData?.baby.name
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -65,8 +68,17 @@ export default function SleepPage() {
   const [alert, setAlert] = useState<{ title: string; message: string } | null>(null)
 
   useEffect(() => {
-    if (activeBaby?.id) fetchSleepSessions(activeBaby.id).catch(() => {})
-  }, [activeBaby?.id, setSleepSessions])
+    if (activeBaby?.id) {
+      fetchSleepSessions(activeBaby.id).catch(() => {})
+    } else if (!activeBaby && !user && !demoData) {
+      fetchDemoData()
+        .then((data) => {
+          setDemoData(data)
+          setCachedDemoData(data)
+        })
+        .catch(() => {})
+    }
+  }, [activeBaby?.id, activeBaby, user, demoData, setSleepSessions])
 
   useEffect(() => {
     if (!activeSessionId || isPaused) return
@@ -74,15 +86,23 @@ export default function SleepPage() {
     return () => window.clearInterval(interval)
   }, [activeSessionId, isPaused])
 
+  const demoSleepSessions = useMemo(() => (demoData?.sleepSessions ?? []).map((session) => ({
+    id: session.id,
+    baby_id: session.babyId,
+    started_at: session.startedAt,
+    ended_at: session.endedAt || undefined,
+    location: session.location as SleepSession["location"],
+    notes: session.notes || undefined,
+  })), [demoData])
   const sessions = useMemo(
-    () => recordsForProfile(activeBaby, sleepSessions, DEMO_SLEEP_SESSIONS),
-    [activeBaby, sleepSessions],
+    () => recordsForProfile(activeBaby, sleepSessions, demoSleepSessions, !!user),
+    [activeBaby, sleepSessions, demoSleepSessions, user],
   )
   const isShowingDemo = !activeBaby
   const displaySessions = useMemo(() => {
     if (!isShowingDemo || demoSessionRunning || !demoSessionEndedAt) return sessions
     return sessions.map((session) =>
-      session.id === "demo-sleep-current" && !session.ended_at
+      !session.ended_at
         ? { ...session, ended_at: demoSessionEndedAt }
         : session,
     )
