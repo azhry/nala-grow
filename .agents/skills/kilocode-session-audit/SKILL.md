@@ -24,10 +24,12 @@ KiloCode session data is local and potentially sensitive. Inspect it read-only. 
 
    Pass exactly one selector. On Windows, try `py` or `python` only when either resolves to an installed interpreter. Otherwise resolve the workspace-bundled Python. The extractor opens `%USERPROFILE%/.local/share/kilo/kilo.db` read-only, uses SQLite's backup API when the snapshot does not exist, discovers its schema, and reports the resolved session ID, snapshot hash, and `page_count` for the session's redacted rows.
 3. If the database is absent, unreadable, has no matching row, or has an unfamiliar schema, report that condition. Do not invent KiloCode table names or fallback SQL.
-4. Reuse the same `--snapshot-file` for every command. Read every page in order with `--page 1` through `page_count`; do not form findings from a subset. Build the same coverage ledger required by the Codex skill and mark inaccessible pages as an incomplete audit.
+4. Reuse the same `--snapshot-file` for every command. Read every page in order with `--page 1` through `page_count`; do not form findings from a subset. Build the same coverage ledger and user-signal ledger required by the Codex skill: capture user turn/chat/steer signals as possible code-drift evidence and user reactions as outcome/post-condition evidence, paired with the preceding agent event and observable result. Mark inaccessible pages as an incomplete audit.
 5. Audit KiloCode-relevant sources only when loaded or applicable: `.kilo/rules/`, `kilo.json`, and genuinely project-wide rules. Inspect Codex sources only with explicit cross-tool evidence.
 6. Produce every section in the shared [audit protocol](../codex-session-audit/references/audit-protocol.md).
 
 ## Evidence and recommendations
 
 Use the same five missing-access classifications and minimal-change recommendation rules as the Codex session audit skill. Do not treat an SQLite access error as evidence that a credential, tool, or instruction was missing.
+
+For KiloCode, user reaction is a transcript event, not a sentiment score. Preserve the first divergence and the user’s subsequent correction or confirmation even when the agent later recovers. Do not reproduce raw Kilo rows or sensitive values in the signal ledger or report.

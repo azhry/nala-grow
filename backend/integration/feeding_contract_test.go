@@ -67,6 +67,19 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 		assert.Equal(t, temperature, bottleRecord["temperature"], "%s bottle temperature must be returned by create", temperature)
 	}
 
+	water := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
+		"babyId":      babyID,
+		"feedType":    "bottle",
+		"startedAt":   "2026-07-28T09:00:00Z",
+		"amountMl":    90.0,
+		"milkType":    "water",
+		"temperature": "room",
+	})
+	require.Empty(t, water.Errors)
+	waterRecord := water.Data.(map[string]interface{})["createFeedingSession"].(map[string]interface{})
+	waterID := waterRecord["id"].(string)
+	assert.Equal(t, "water", waterRecord["milkType"], "water bottle type must be returned by create")
+
 	defaultStartedAt := firstClient.Execute(authCtx, "mutation { createFeedingSession }", map[string]interface{}{
 		"babyId":   babyID,
 		"feedType": "bottle",
@@ -106,7 +119,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	var persistedRows int
 	err = harness.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM feeding_sessions WHERE baby_id = $1", babyID).Scan(&persistedRows)
 	require.NoError(t, err)
-	assert.Equal(t, 8, persistedRows, "GraphQL creates must persist all field variants alongside existing records")
+	assert.Equal(t, 9, persistedRows, "GraphQL creates must persist all field variants alongside existing records")
 
 	otherBabyResult := firstClient.Execute(authCtx, "mutation { createBaby }", map[string]interface{}{
 		"name": "Other Baby",
@@ -134,7 +147,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	reloaded := reloadedClient.Execute(reloadedCtx, "query { feedingSessions }", map[string]interface{}{"babyId": babyID})
 	require.Empty(t, reloaded.Errors)
 	feeds := reloaded.Data.(map[string]interface{})["feedingSessions"].([]map[string]interface{})
-	require.Len(t, feeds, 8)
+	require.Len(t, feeds, 9)
 
 	byID := map[string]map[string]interface{}{}
 	for _, feed := range feeds {
@@ -148,6 +161,7 @@ func TestIntegrationFeedingFormFieldsPersistThroughGraphQL(t *testing.T) {
 	for temperature, bottleID := range bottleIDs {
 		assert.Equal(t, temperature, byID[bottleID]["temperature"], "%s bottle temperature must survive reload", temperature)
 	}
+	assert.Equal(t, "water", byID[waterID]["milkType"], "water bottle type must survive reload")
 	for index, testCase := range solidsCases {
 		solids := byID[solidsIDs[index]]
 		assert.Equal(t, testCase.quantity, solids["quantity"], "%s quantity must survive reload", testCase.quantityUnit)
