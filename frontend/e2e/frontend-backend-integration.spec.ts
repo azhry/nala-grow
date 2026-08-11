@@ -8,6 +8,7 @@ const email = `e2e-${Date.now()}@example.com`
 const password = "NalaGrow-E2E!"
 const baby = { name: "Mira E2E", dob: "2026-01-15", sex: "female" }
 const bottle = { amountMl: 150, milkType: "formula", temperature: "warm", notes: `Full-stack E2E persisted bottle ${runId}` }
+const waterBottle = { amountMl: 100, milkType: "water", temperature: "room", notes: `Full-stack E2E persisted water ${runId}` }
 
 type GraphQLEvidence = {
   operation: string
@@ -156,13 +157,36 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
     await expect(page.getByText(bottle.notes)).toBeVisible()
     await screenshot(page, "06-reload-read-persisted.png")
 
+    await page.getByRole("tab", { name: "Overview" }).click()
+    await page.getByRole("button", { name: "Bottle" }).click()
+    await page.getByRole("slider").fill(String(waterBottle.amountMl))
+    await page.getByText("Water", { exact: true }).click()
+    await page.getByRole("button", { name: "Room" }).click()
+    await page.getByPlaceholder("How did it go?").fill(waterBottle.notes)
+    await page.getByRole("button", { name: "Save Entry" }).click()
+    await expect(page.getByText("100ml Water", { exact: true })).toBeVisible()
+    await screenshot(page, "07-water-save-success.png")
+
+    await page.reload()
+    await expect(page.getByRole("heading", { name: "Feeding Log" })).toBeVisible()
+    await expect(page.getByText("100ml Water", { exact: true })).toBeVisible()
+    await page.getByRole("tab", { name: "Records" }).click()
+    await expect(page.getByText(waterBottle.notes)).toBeVisible()
+    await screenshot(page, "08-water-reload-persisted.png")
+
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.getByRole("navigation").getByRole("link", { name: "Feeding" })).toBeVisible()
-    await screenshot(page, "07-mobile-persisted-record.png")
+    await screenshot(page, "09-mobile-persisted-record.png")
 
     await Promise.all(responseCaptures)
     const requiredOperations = ["signup", "login", "createBaby", "createFeedingSession", "feedingSessions"]
     for (const operation of requiredOperations) expect(graphql.some((item) => item.operation === operation)).toBe(true)
+    const formulaMutation = graphql.find((item) => item.operation === "createFeedingSession" && item.request.variables?.milkType === bottle.milkType)
+    const waterMutation = graphql.find((item) => item.operation === "createFeedingSession" && item.request.variables?.milkType === waterBottle.milkType)
+    expect(formulaMutation).toBeDefined()
+    expect(waterMutation).toBeDefined()
+    const waterResponse = waterMutation?.response as { data?: { createFeedingSession?: { milkType?: string } } }
+    expect(waterResponse.data?.createFeedingSession?.milkType).toBe(waterBottle.milkType)
 
     const evidence = {
       flow: "frontend-backend-integration",
@@ -171,10 +195,12 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
       disposableAccount: { email, password },
       profileInput: baby,
       bottleInput: bottle,
+      waterBottleInput: waterBottle,
       observableResults: {
         wrongLoginErrorVisible: true,
         failedSaveRetainedForm: failedSaveObserved,
         persistedAfterReload: true,
+        waterPersistedAfterReload: true,
         desktopViewport: "1280x900",
         mobileViewport: "390x844",
       },
@@ -186,7 +212,9 @@ test("login-led UI flow persists profile and bottle data through PostgreSQL", as
         "04-save-failure-retains-form.png",
         "05-bottle-save-success.png",
         "06-reload-read-persisted.png",
-        "07-mobile-persisted-record.png",
+        "07-water-save-success.png",
+        "08-water-reload-persisted.png",
+        "09-mobile-persisted-record.png",
       ],
     }
     await fs.writeFile(path.join(evidenceDir, "evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`)
