@@ -4,6 +4,17 @@ Use this report structure for both session sources.
 
 Before writing it, state coverage as `complete` only after every extractor page was read. A targeted question may shape emphasis but cannot narrow collection or omit unrelated major failures.
 
+## User-signal ledger
+
+After complete page coverage and before writing findings, build a compact user-signal ledger. Treat the ledger as evidence, not sentiment analysis:
+
+- **User turn/chat/steer signals** — record direct requests, clarifications, corrections, contradictions, or requests to change the workflow. Mark a signal as `code-drift` when the preceding agent action or plan no longer matches the requested observable outcome or an applicable workflow rule.
+- **User reactions** — record observable confirmation, escalation, correction, contradiction, or request for a different outcome that follows an agent claim, tool result, or verification claim. A reaction is outcome evidence; it is not, by itself, proof of technical cause or user intent.
+- **Pairing** — for each material signal, map the user event to the preceding agent claim/action, the next tool/result when available, the observable outcome, and the judgment (`followed`, `violated`, `incomplete`, `ambiguous`, `harmful`, or `not demonstrated`).
+- **Minimum fields** — `signal_id`, timestamp, user event ID, signal type, preceding agent event ID/action, observable outcome, and affected finding IDs. Describe sensitive values without reproducing them.
+
+Include the ledger in the coverage record and use it in the timeline, root-cause mapping, and actionable recommendations. Do not omit a material user signal merely because the agent later recovered; record the original divergence before the recovery.
+
 ## Output completeness gate
 
 Return the complete detailed audit to the user. Do not compress it into an executive summary, omit evidence mappings for brevity, or merely state that findings were produced.
@@ -27,7 +38,7 @@ If the complete redacted report cannot fit in one response, write the entire rep
 - Requested question and source/session ID.
 - What the user asked, what the agent attempted, and the first point where the outcome diverged.
 - Evidence coverage and limitations (missing/truncated/inaccessible events).
-- Coverage ledger: immutable snapshot SHA-256/cutoff, page range, session time range, referenced attachments, requests, decisions, failures, verification, and unresolved work.
+- Coverage ledger: immutable snapshot SHA-256/cutoff, page range, session time range, referenced attachments, requests, decisions, failures, verification, unresolved work, and the user-signal ledger.
 
 ## 2. Timeline of key events
 
