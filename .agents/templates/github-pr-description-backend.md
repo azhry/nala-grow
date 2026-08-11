@@ -42,15 +42,6 @@ Repeat a row for every changed operation. Do not combine distinct operations whe
 - Transaction/atomicity behavior: [What must succeed or fail together.]
 - Error handling and observability: [Stable errors, logging, and intentionally hidden details.]
 
-## Persistence and migrations
-
-- Storage seam: [Repository/query/service path, or "No persistence change"]
-- Migration files: [up/down paths, or "None"]
-- Schema changes: [Tables, columns, constraints, indexes, and defaults]
-- Existing-data behavior: [Backfill, fallback, nullable/default handling, or "Not applicable"]
-- Rollback behavior: [What the down migration does and any irreversible limitation]
-- Durability evidence: [Create/write → new request/client/process boundary → read/reload result]
-
 ## Security and isolation
 
 - Authentication: [Covered scenarios.]
@@ -60,30 +51,48 @@ Repeat a row for every changed operation. Do not combine distinct operations whe
 
 ## Verification
 
-Record commands exactly as executed and their real exit statuses.
+### Manual request/response sequence
 
-| Command or scenario | Exit/result | Evidence or assertions |
-| --- | ---: | --- |
-| `go build ./...` | [0/nonzero/not run] | [Result or reason not run] |
-| `go test ./... -count=1 -short -v` | [0/nonzero/not run] | [Packages/assertions] |
-| `make test-integration` | [0/nonzero/not applicable] | [Real PostgreSQL/API round trips and isolation] |
-| `make test-coverage` | [0/nonzero/not run] | [Total/relevant coverage] |
-| [Additional focused command] | [Result] | [Assertions] |
+[Fixture: real configured fixture or exact command that creates it.]
 
-### Database integration lifecycle
+#### Step 0 — Authenticate and export the session token
 
-- Fresh database/container: [Image/version and confirmation of empty initial product data]
-- Migrations: [Applied migrations and result]
-- Fixtures: [Deterministic seed source and what it creates]
-- API round trip: [Operations exercised against persisted data]
-- Cleanup: [Evidence that pools and containers were removed, including failure paths]
+```sh
+set -euo pipefail
+export AUTH_BASE_URL="${AUTH_BASE_URL:-http://127.0.0.1:4000}"
+export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:4000}"
+: "${NALA_TEST_USERNAME:?set from the configured test fixture}"
+: "${NALA_TEST_PASSWORD:?set from the configured test fixture}"
+export TOKEN="$(
+  curl --silent --show-error \
+    --header 'Content-Type: application/json' \
+    --data "$(jq -n --arg username "$NALA_TEST_USERNAME" --arg password "$NALA_TEST_PASSWORD" '{username: $username, password: $password}')" \
+    "$AUTH_BASE_URL/api/auth/login" | jq --exit-status --raw-output '.token'
+)"
+export DEPLOYMENT_ID="${DEPLOYMENT_ID:?set to the real persisted deployment fixture}"
+```
 
-## Compatibility and rollout
+Login response:
 
-- Backward compatibility: [Existing clients/records and behavior.]
-- Deployment order: [Backend/frontend/migration sequencing, or "No special order"]
-- Configuration/environment changes: [Names only; never include secret values.]
-- Operational risk and rollback: [Risk, monitoring, rollback plan.]
+```json
+{"authenticated":true,"token":"<redacted>","user":{"id":"<fixture-user-id>","tier":"<fixture-tier>"}}
+```
+
+#### Step 1 — [behavior under test]
+
+Request:
+
+```sh
+curl \
+  --header "Authorization: Bearer $TOKEN" \
+  "$API_BASE_URL/<path>"
+```
+
+Response:
+
+```json
+[copy-paste response]
+```
 
 ## Known limitations and pre-existing failures
 
