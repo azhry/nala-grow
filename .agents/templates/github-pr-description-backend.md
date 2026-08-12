@@ -55,19 +55,6 @@ For a POST or PATCH, the body cell contains only body fields; path/query/header 
 | --- | --- | --- | --- | --- | --- |
 | `[GraphQL operation or HTTP method/path]` | <pre><code class="language-json">[request body schema or null]</code></pre> | <pre><code class="language-json">[path/query/header schemas]</code></pre> | <pre><code class="language-json">[response schema]</code></pre> | <pre><code class="language-json">[error schemas]</code></pre> | <pre><code class="language-json">[authentication and ownership schema]</code></pre> |
 
-### Internal behavior
-
-- Validation and invariants: [What is enforced and where.]
-- Transaction/atomicity behavior: [What must succeed or fail together.]
-- Error handling and observability: [Stable errors, logging, and intentionally hidden details.]
-
-## Security and isolation
-
-- Authentication: [Covered scenarios.]
-- Cross-user/resource ownership: [Covered scenarios.]
-- Sensitive data: [How secrets, tokens, passwords, and internal errors are protected.]
-- Abuse/boundary cases: [Malformed input, missing resources, limits, or "Not applicable".]
-
 ## Verification
 
 ### Manual request/response sequence
@@ -78,8 +65,8 @@ For a POST or PATCH, the body cell contains only body fields; path/query/header 
 
 ```sh
 set -euo pipefail
-export AUTH_BASE_URL="${AUTH_BASE_URL:-http://127.0.0.1:4000}"
-export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:4000}"
+export AUTH_BASE_URL="${AUTH_BASE_URL:-http://127.0.0.1:8080}"
+export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8081}"
 : "${NALA_TEST_USERNAME:?set from the configured test fixture}"
 : "${NALA_TEST_PASSWORD:?set from the configured test fixture}"
 export TOKEN="$(
