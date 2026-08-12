@@ -32,9 +32,24 @@ The PR description is the review and handoff record. Do not claim a check passed
 
 Repeat a row for every changed operation. Do not combine distinct operations when their inputs, authorization, or responses differ.
 
-Use schemas, not prose, in this table. Put the JSON request-body, path/query/header, response, error, and authorization schemas directly inside their dedicated table cells; do not add separate schema sections below the table. For GET or DELETE operations with no request body, put only `null` in the Request body schema cell. Never put path, query, or header metadata in that cell. Pretty-print every JSON schema with one property per line; do not use one-line JSON in table cells.
+Use five independent schema cells plus the Operation column. Do not merge cells, move content between cells, or repeat the same schema in multiple cells. Use JSON schemas, not prose, and pretty-print every JSON object with one property per line.
 
-| Operation | Request body schema | Path/query/header schemas | Response/output schema | Errors and status schemas | Authorization/ownership schema |
+1. **Request body schema** — the JSON body only. For GET or DELETE with no body, enter exactly `null` and nothing else. Never put path parameters, query parameters, headers, auth, or server-derived values here.
+2. **Path/query/header schemas** — non-body request inputs only. Put `path`, `query`, and `headers` objects here. For a GET, this is where `appID`, `podName`, `Authorization`, and `Accept` belong.
+3. **Response/output schema** — the success status, content type, event/frame shape, and returned fields.
+4. **Errors and status schemas** — status-to-error JSON mappings only.
+5. **Authorization/ownership schema** — authentication mechanism, identity claim, resource owner, and access rule only.
+
+For a bodyless GET, the first two cells must look like this:
+
+```text
+Request body schema:       null
+Path/query/header schemas: { "path": {...}, "query": {...}, "headers": {...} }
+```
+
+For a POST or PATCH, the body cell contains only body fields; path/query/header fields still go in the separate non-body-input cell. Do not add a separate schema section below the table.
+
+| Operation | Request body schema (body only) | Path/query/header schemas (non-body inputs only) | Response/output schema | Errors and status schemas | Authorization/ownership schema |
 | --- | --- | --- | --- | --- | --- |
 | `[GraphQL operation or HTTP method/path]` | <pre><code class="language-json">[request body schema or null]</code></pre> | <pre><code class="language-json">[path/query/header schemas]</code></pre> | <pre><code class="language-json">[response schema]</code></pre> | <pre><code class="language-json">[error schemas]</code></pre> | <pre><code class="language-json">[authentication and ownership schema]</code></pre> |
 
