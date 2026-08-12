@@ -40,11 +40,13 @@ Use five independent schema cells plus the Operation column. Do not merge cells,
 4. **Errors and status schemas** — status-to-error JSON mappings only.
 5. **Authorization/ownership schema** — authentication mechanism, identity claim, resource owner, and access rule only.
 
+Markdown table safety is mandatory: keep every table row on one physical source line. Never put literal newlines or fenced code blocks inside a table cell. For readable multiline JSON inside a cell, use `<pre><code class="language-json">` with `<br>` tags for visual line breaks; do not use one-line JSON or literal newlines in the cell.
+
 For a bodyless GET, the first two cells must look like this:
 
 ```text
-Request body schema:       null
-Path/query/header schemas: { "path": {...}, "query": {...}, "headers": {...} }
+Request body cell:          <pre><code class="language-json">null</code></pre>
+Non-body input cell:        <pre><code class="language-json">{<br>&nbsp;&nbsp;"path": {...},<br>&nbsp;&nbsp;"query": {...},<br>&nbsp;&nbsp;"headers": {...}<br>}</code></pre>
 ```
 
 For a POST or PATCH, the body cell contains only body fields; path/query/header fields still go in the separate non-body-input cell. Do not add a separate schema section below the table.
