@@ -90,7 +90,7 @@ func TestSanitizeGraphQLQueryRedactsInlineLiteralsAndComments(t *testing.T) {
 func TestGraphQLEndpointLogsRequestAndPreservesResponse(t *testing.T) {
 	var logs bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
 	handler := graph.NewHandler(nil, auth.NewService("test-secret"))
@@ -128,7 +128,7 @@ func TestGraphQLEndpointLogsRequestAndPreservesResponse(t *testing.T) {
 func TestGraphQLEndpointLogsMalformedBodyWithoutRawRequest(t *testing.T) {
 	var logs bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
 	rawBody := `{"query":"query Health { health }","password":"raw-password"}`
@@ -141,6 +141,61 @@ func TestGraphQLEndpointLogsMalformedBodyWithoutRawRequest(t *testing.T) {
 	}
 	if strings.Contains(logs.String(), "raw-password") || !strings.Contains(logs.String(), "invalid request body") {
 		t.Fatalf("malformed request log = %s, want warning without raw body", logs.String())
+	}
+}
+
+func TestGraphQLLogOutputIsIndentedAndStillValidJSON(t *testing.T) {
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	logGraphQLRequest(
+		"query Health { health { ok timestamp version } }",
+		map[string]interface{}{"password": "plain-password"},
+		graph.ExecResult{Data: map[string]interface{}{"health": map[string]interface{}{"ok": true}}},
+	)
+
+	if !strings.Contains(logs.String(), "\n  \"response\": {\n") {
+		t.Fatalf("GraphQL log is not indented for human readability: %s", logs.String())
+	}
+	var event map[string]interface{}
+	if err := json.Unmarshal(logs.Bytes(), &event); err != nil {
+		t.Fatalf("formatted GraphQL log is not valid JSON: %v; log = %s", err, logs.String())
+	}
+	if event["msg"] != "graphql request" {
+		t.Fatalf("event message = %v, want graphql request", event["msg"])
+	}
+	if strings.Contains(logs.String(), "plain-password") {
+		t.Fatalf("formatted GraphQL log contains a sensitive value: %s", logs.String())
+	}
+}
+
+func TestGraphQLLogHandlerPreservesOtherJSONLogsAndScopesAttrs(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(newGraphQLLogHandler(&logs, nil)).With("component", "api")
+	logger.Info("server starting", "port", "4000")
+
+	var ordinaryEvent map[string]interface{}
+	if err := json.Unmarshal(logs.Bytes(), &ordinaryEvent); err != nil {
+		t.Fatalf("ordinary log is not valid JSON: %v; log = %s", err, logs.String())
+	}
+	if ordinaryEvent["component"] != "api" || ordinaryEvent["port"] != "4000" {
+		t.Fatalf("ordinary log fields = %v, want component and port", ordinaryEvent)
+	}
+	if strings.Contains(logs.String(), "\n  ") {
+		t.Fatalf("ordinary log should remain compact JSON: %s", logs.String())
+	}
+
+	logs.Reset()
+	slog.New(newGraphQLLogHandler(&logs, nil)).WithGroup("context").Info("graphql request", "operation", "Health")
+	var groupedEvent map[string]interface{}
+	if err := json.Unmarshal(logs.Bytes(), &groupedEvent); err != nil {
+		t.Fatalf("grouped GraphQL log is not valid JSON: %v; log = %s", err, logs.String())
+	}
+	contextFields := groupedEvent["context"].(map[string]interface{})
+	if contextFields["operation"] != "Health" {
+		t.Fatalf("grouped GraphQL fields = %v, want operation Health", contextFields)
 	}
 }
 

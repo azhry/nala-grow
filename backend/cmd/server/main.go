@@ -26,7 +26,7 @@ import (
 const defaultListenHost = "0.0.0.0"
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(newGraphQLLogHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	cfg := loadConfig()
