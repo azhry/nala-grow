@@ -32,11 +32,11 @@ The PR description is the review and handoff record. Do not claim a check passed
 
 Repeat a row for every changed operation. Do not combine distinct operations when their inputs, authorization, or responses differ.
 
-Use schemas, not prose, in this table. Put the JSON request, response, error, and authorization schemas directly inside their table cells; do not add separate schema sections below the table. For GET or DELETE operations with no request body, put only `null` in the request-body schema cell. Keep path, query, and header schemas separate from the request-body schema.
+Use schemas, not prose, in this table. Put the JSON request-body, path/query/header, response, error, and authorization schemas directly inside their dedicated table cells; do not add separate schema sections below the table. For GET or DELETE operations with no request body, put only `null` in the Request body schema cell. Never put path, query, or header metadata in that cell.
 
-| Operation | Request/input change | Response/output change | Errors and status | Authorization/ownership |
-| --- | --- | --- | --- | --- |
-| `[GraphQL operation or HTTP method/path]` | <pre><code class="language-json">[request body schema or null]</code></pre> | <pre><code class="language-json">[response schema]</code></pre> | <pre><code class="language-json">[error schemas]</code></pre> | <pre><code class="language-json">[authentication and ownership schema]</code></pre> |
+| Operation | Request body schema | Path/query/header schemas | Response/output schema | Errors and status schemas | Authorization/ownership schema |
+| --- | --- | --- | --- | --- | --- |
+| `[GraphQL operation or HTTP method/path]` | <pre><code class="language-json">[request body schema or null]</code></pre> | <pre><code class="language-json">[path/query/header schemas]</code></pre> | <pre><code class="language-json">[response schema]</code></pre> | <pre><code class="language-json">[error schemas]</code></pre> | <pre><code class="language-json">[authentication and ownership schema]</code></pre> |
 
 ### Internal behavior
 
