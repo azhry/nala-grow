@@ -19,6 +19,7 @@ backend/nala-grow-backend.exe
 .env
 .env.local
 .env.production
+/.vault-config
 .codex/*
 !.codex/agents/
 !.codex/agents/**

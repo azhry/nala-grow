@@ -51,7 +51,15 @@ func loadRuntimeConfig() (Config, error) {
 }
 
 func loadRuntimeConfigWithClient(httpClient *http.Client) (Config, error) {
-	environment := environmentMap()
+	return loadRuntimeConfigFromEnvironment(environmentMap(), "", httpClient)
+}
+
+func loadRuntimeConfigFromEnvironment(environment map[string]string, workingDir string, httpClient *http.Client) (Config, error) {
+	var err error
+	environment, err = loadRuntimeEnvironment(environment, workingDir)
+	if err != nil {
+		return Config{}, err
+	}
 	vaultValues, vaultEnabled, err := loadVaultEnvironment(environment, httpClient)
 	if err != nil {
 		return Config{}, err

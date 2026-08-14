@@ -28,6 +28,12 @@ credentials or backend secrets to the browser. Provide `VAULT_TOKEN` or the
 `VAULT_ROLE_ID`/`VAULT_SECRET_ID` AppRole pair at runtime; set
 `VAULT_KV_MOUNT` and `VAULT_KV_PATH` only when using non-default values.
 
+For local startup, copy `.vault-config.example` to the repository-root
+`.vault-config` and fill it from a protected secret source. The runtime walks
+up from the backend or frontend working directory to discover this file;
+process environment values override values from the file. The real
+`.vault-config` is ignored by Git and must never be committed.
+
 Without Vault transport variables, local development retains the existing
 process-environment defaults.
 

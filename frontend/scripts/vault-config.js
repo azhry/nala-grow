@@ -1,11 +1,24 @@
 "use strict"
 
+const fs = require("node:fs")
+const path = require("node:path")
+
 const PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_API_URL",
   "NEXT_PUBLIC_GRAPHQL_URL",
   "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
 ]
 
+const VAULT_CONFIG_KEYS = [
+  "VAULT_ADDR",
+  "VAULT_TOKEN",
+  "VAULT_ROLE_ID",
+  "VAULT_SECRET_ID",
+  "VAULT_KV_MOUNT",
+  "VAULT_KV_PATH",
+]
+
+const VAULT_CONFIG_KEY_SET = new Set(VAULT_CONFIG_KEYS)
 const DEFAULT_KV_MOUNT = "secret"
 const DEFAULT_KV_PATH = "nala-labs/nala-grow"
 
@@ -17,6 +30,59 @@ function getPublicProcessEnv(env) {
   return Object.fromEntries(
     PUBLIC_ENV_KEYS.filter((key) => env[key] !== undefined).map((key) => [key, env[key]]),
   )
+}
+
+function parseVaultConfig(contents) {
+  const values = {}
+
+  for (const line of contents.split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*?)\s*$/)
+    if (!match || !VAULT_CONFIG_KEY_SET.has(match[1])) {
+      continue
+    }
+
+    const value = match[2]
+    values[match[1]] =
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+        ? value.slice(1, -1)
+        : value
+  }
+
+  return values
+}
+
+function readVaultConfig(startDirectory = process.cwd()) {
+  let directory = path.resolve(startDirectory)
+
+  while (true) {
+    const configPath = path.join(directory, ".vault-config")
+    if (fs.existsSync(configPath)) {
+      try {
+        return parseVaultConfig(fs.readFileSync(configPath, "utf8"))
+      } catch {
+        throw new Error("Vault configuration error: unable to read .vault-config.")
+      }
+    }
+
+    const parentDirectory = path.dirname(directory)
+    if (parentDirectory === directory) {
+      return {}
+    }
+    directory = parentDirectory
+  }
+}
+
+function mergeVaultConfig(env, fileValues) {
+  const merged = { ...env }
+
+  for (const key of VAULT_CONFIG_KEYS) {
+    if (merged[key] === undefined && fileValues[key] !== undefined) {
+      merged[key] = fileValues[key]
+    }
+  }
+
+  return merged
 }
 
 function normalizeVaultAddress(address) {
@@ -117,19 +183,21 @@ async function getVaultToken(env, fetchImpl) {
   return clientToken
 }
 
-async function loadVaultPublicEnv(env = process.env, fetchImpl) {
-  if (!hasValue(env.VAULT_ADDR)) {
+async function loadVaultPublicEnv(env = process.env, fetchImpl, startDirectory = process.cwd()) {
+  const resolvedEnv = mergeVaultConfig(env, readVaultConfig(startDirectory))
+
+  if (!hasValue(resolvedEnv.VAULT_ADDR)) {
     return getPublicProcessEnv(env)
   }
 
   const request = getFetch(fetchImpl)
-  const address = normalizeVaultAddress(env.VAULT_ADDR)
-  const mount = normalizeVaultPath(env.VAULT_KV_MOUNT, DEFAULT_KV_MOUNT, "VAULT_KV_MOUNT")
-  const path = normalizeVaultPath(env.VAULT_KV_PATH, DEFAULT_KV_PATH, "VAULT_KV_PATH")
-  const token = await getVaultToken(env, request)
+  const address = normalizeVaultAddress(resolvedEnv.VAULT_ADDR)
+  const mount = normalizeVaultPath(resolvedEnv.VAULT_KV_MOUNT, DEFAULT_KV_MOUNT, "VAULT_KV_MOUNT")
+  const vaultPath = normalizeVaultPath(resolvedEnv.VAULT_KV_PATH, DEFAULT_KV_PATH, "VAULT_KV_PATH")
+  const token = await getVaultToken(resolvedEnv, request)
   const response = await requestJson(
     request,
-    `${address}/v1/${mount}/data/${path}`,
+    `${address}/v1/${mount}/data/${vaultPath}`,
     { headers: { Accept: "application/json", "X-Vault-Token": token } },
     "reading the Vault KV v2 secret",
   )

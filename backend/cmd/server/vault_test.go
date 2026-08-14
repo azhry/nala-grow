@@ -4,10 +4,64 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestLoadRuntimeEnvironmentReadsVaultConfigFromParent(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "backend", "cmd")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("os.MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, runtimeVaultConfigFile), []byte("VAULT_ADDR=https://file.example\nVAULT_TOKEN=file-token\nVAULT_KV_PATH=nala-labs/nala-grow\nIGNORED=value\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile() error = %v", err)
+	}
+
+	merged, err := loadRuntimeEnvironment(map[string]string{
+		"VAULT_ADDR":     "https://process.example",
+		"VAULT_KV_MOUNT": "process-mount",
+	}, nested)
+	if err != nil {
+		t.Fatalf("loadRuntimeEnvironment() error = %v", err)
+	}
+	if merged["VAULT_ADDR"] != "https://process.example" {
+		t.Fatalf("VAULT_ADDR = %q, want process value", merged["VAULT_ADDR"])
+	}
+	if merged["VAULT_TOKEN"] != "file-token" || merged["VAULT_KV_PATH"] != "nala-labs/nala-grow" {
+		t.Fatalf("file Vault values were not loaded: %#v", merged)
+	}
+	if _, ok := merged["IGNORED"]; ok {
+		t.Fatalf("unsupported key from .vault-config was loaded")
+	}
+}
+
+func TestLoadRuntimeConfigUsesVaultConfigFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Vault-Token") != "file-token" {
+			t.Fatalf("Vault token = %q, want file token", r.Header.Get("X-Vault-Token"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"data":{"DATABASE_URL":"postgres://vault.example/nalagrow"}}}`))
+	}))
+	defer server.Close()
+
+	workingDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workingDir, runtimeVaultConfigFile), []byte("VAULT_ADDR="+server.URL+"\nVAULT_TOKEN=file-token\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile() error = %v", err)
+	}
+
+	config, err := loadRuntimeConfigFromEnvironment(map[string]string{}, workingDir, server.Client())
+	if err != nil {
+		t.Fatalf("loadRuntimeConfigFromEnvironment() error = %v", err)
+	}
+	if config.DatabaseURL != "postgres://vault.example/nalagrow" {
+		t.Fatalf("DatabaseURL = %q, want Vault value", config.DatabaseURL)
+	}
+}
 
 func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

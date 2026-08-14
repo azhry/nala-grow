@@ -1,3 +1,7 @@
+const fs = require("node:fs")
+const os = require("node:os")
+const path = require("node:path")
+
 const { loadVaultPublicEnv } = require("./vault-config")
 
 function jsonResponse(body, status = 200) {
@@ -26,6 +30,40 @@ describe("loadVaultPublicEnv", () => {
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
     })
     expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test("reads Vault transport from a repository-root .vault-config when process env is absent", async () => {
+    const workingDir = fs.mkdtempSync(path.join(os.tmpdir(), "nala-grow-vault-config-"))
+    try {
+      fs.writeFileSync(
+        path.join(workingDir, ".vault-config"),
+        "VAULT_ADDR=https://vault.example.test\nVAULT_TOKEN=file-token\nVAULT_KV_PATH=apps/nala-grow\nIGNORED=not-loaded\n",
+        { mode: 0o600 },
+      )
+      const fetchImpl = jest.fn().mockResolvedValue(
+        jsonResponse({
+          data: {
+            data: {
+              NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
+              NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
+              NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+            },
+          },
+        }),
+      )
+
+      await expect(loadVaultPublicEnv({}, fetchImpl, workingDir)).resolves.toEqual({
+        NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
+        NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+      })
+      expect(fetchImpl).toHaveBeenCalledWith(
+        "https://vault.example.test/v1/secret/data/apps/nala-grow",
+        { headers: { Accept: "application/json", "X-Vault-Token": "file-token" } },
+      )
+    } finally {
+      fs.rmSync(workingDir, { recursive: true, force: true })
+    }
   })
 
   test("reads the default KV v2 path with a token and returns only public keys", async () => {
