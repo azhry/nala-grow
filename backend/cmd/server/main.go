@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/graph"
+	"github.com/azhry/nala-grow/backend/internal/health"
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
@@ -63,6 +65,7 @@ func main() {
 	}
 
 	r.HandleFunc("/graphql", graphqlEndpoint(handler))
+	r.Get("/healthz", health.Handler(health.NewChecker(cfg.Health, pool)))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -114,6 +117,7 @@ type Config struct {
 	AllowedOrigin  string
 	JWTSecret      string
 	GoogleClientID string
+	Health         health.Config
 }
 
 func (c Config) ListenAddress() string {
@@ -128,6 +132,17 @@ func loadConfig() Config {
 		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
 		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
+		Health: health.Config{
+			CasdoorIssuer: getEnv("CASDOOR_ISSUER", ""),
+			VaultAddress:  getEnv("VAULT_ADDR", ""),
+			MongoAddress:  getEnv("MONGODB_ADDR", ""),
+			MongoURI:      getEnv("MONGODB_URI", ""),
+			RedisAddress:  getEnv("REDIS_ADDR", ""),
+			RedisURL:      getEnv("REDIS_URL", ""),
+			KafkaAddress:  getEnv("KAFKA_ADDR", ""),
+			KafkaBrokers:  getEnv("KAFKA_BROKERS", ""),
+			Timeout:       getDuration("HEALTHCHECK_TIMEOUT", health.DefaultTimeout),
+		},
 	}
 }
 
@@ -136,4 +151,16 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getDuration(key string, fallback time.Duration) time.Duration {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return fallback
+	}
+	return duration
 }
