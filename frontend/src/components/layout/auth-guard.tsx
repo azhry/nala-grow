@@ -56,30 +56,41 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const user = useAppStore((s) => s.user)
   const hasHydrated = useAppStore((s) => s._hasHydrated)
   const [sessionChecked, setSessionChecked] = useState(false)
+  const [sessionValid, setSessionValid] = useState<boolean | null>(null)
   const [profileState, setProfileState] = useState<ProfileState>("idle")
   const [profileLookupAttempt, setProfileLookupAttempt] = useState(0)
 
   useEffect(() => {
     if (!hasHydrated) return
 
-    if (user) {
-      setSessionChecked(true)
-      return
-    }
-
     let cancelled = false
     setSessionChecked(false)
-    void getCurrentSession().finally(() => {
-      if (!cancelled) setSessionChecked(true)
-    })
+    setSessionValid(null)
+
+    void getCurrentSession()
+      .then((session) => {
+        if (!cancelled) setSessionValid(session !== null)
+      })
+      .catch(() => {
+        if (!cancelled) setSessionValid(false)
+      })
+      .finally(() => {
+        if (!cancelled) setSessionChecked(true)
+      })
 
     return () => {
       cancelled = true
     }
-  }, [hasHydrated, user])
+  }, [hasHydrated])
 
   useEffect(() => {
-    if (!hasHydrated || !sessionChecked || !user || pathname === "/profile/create") {
+    if (
+      !hasHydrated ||
+      !sessionChecked ||
+      sessionValid !== true ||
+      !user ||
+      pathname === "/profile/create"
+    ) {
       return
     }
 
@@ -99,7 +110,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [hasHydrated, pathname, profileLookupAttempt, sessionChecked, user])
+  }, [hasHydrated, pathname, profileLookupAttempt, sessionChecked, sessionValid, user])
 
   useEffect(() => {
     if (profileState === "empty" && pathname !== "/profile/create") {
@@ -108,12 +119,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [pathname, profileState, router])
 
   useEffect(() => {
-    if (hasHydrated && sessionChecked && !user) {
+    if (
+      hasHydrated &&
+      sessionChecked &&
+      (sessionValid === false || (sessionValid === true && !user))
+    ) {
       navigateToLogin()
     }
-  }, [hasHydrated, sessionChecked, user])
+  }, [hasHydrated, sessionChecked, sessionValid, user])
 
-  if (!hasHydrated || !sessionChecked || !user) {
+  if (!hasHydrated || !sessionChecked || sessionValid !== true || !user) {
     return null
   }
 

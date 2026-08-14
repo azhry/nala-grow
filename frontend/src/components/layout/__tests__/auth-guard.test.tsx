@@ -46,6 +46,19 @@ describe("layout AuthGuard", () => {
     ])
     mockNavigateToLogin.mockImplementation(() => undefined)
     mockGetCurrentSession.mockReset()
+    mockGetCurrentSession.mockImplementation(async () => {
+      const sessionUser = storeState.user ?? {
+        id: "user-1",
+        email: "user@example.com",
+      }
+      const sessionToken = storeState.token ?? "token"
+      storeState = {
+        ...storeState,
+        user: sessionUser,
+        token: sessionToken,
+      }
+      return { user: sessionUser, token: sessionToken }
+    })
   })
 
   it("waits for Zustand hydration before bootstrapping auth", async () => {
@@ -160,7 +173,7 @@ describe("layout AuthGuard", () => {
       </AuthGuard>,
     )
 
-    expect(screen.getByText("Create profile")).toBeInTheDocument()
+    expect(await screen.findByText("Create profile")).toBeInTheDocument()
     expect(mockBootstrapProfiles).not.toHaveBeenCalled()
   })
 
@@ -203,5 +216,25 @@ describe("layout AuthGuard", () => {
 
     expect(mockNavigateToLogin).not.toHaveBeenCalled()
     await waitFor(() => expect(mockNavigateToLogin).toHaveBeenCalledTimes(1))
+  })
+
+  it("does not bootstrap persisted users when session validation fails", async () => {
+    mockGetCurrentSession.mockResolvedValue(null)
+    storeState = {
+      user: { id: "stale-user", email: "stale@example.com" },
+      token: "stale-token",
+      _hasHydrated: true,
+    }
+
+    render(
+      <AuthGuard>
+        <div>Dashboard</div>
+      </AuthGuard>,
+    )
+
+    await waitFor(() => expect(mockNavigateToLogin).toHaveBeenCalledTimes(1))
+    expect(mockGetCurrentSession).toHaveBeenCalledTimes(1)
+    expect(mockBootstrapProfiles).not.toHaveBeenCalled()
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument()
   })
 })
