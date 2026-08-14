@@ -147,6 +147,20 @@ describe("profile pages", () => {
     expect(mockPush).toHaveBeenCalledWith("/profile/manage")
   })
 
+  it("keeps the profile information disclosure keyboard accessible", () => {
+    render(<CreateBabyProfilePage />)
+
+    const infoButton = screen.getByRole("button", {
+      name: /Why do we need this information\?/i,
+    })
+    expect(infoButton).toHaveAttribute("aria-expanded", "false")
+
+    fireEvent.click(infoButton)
+
+    expect(infoButton).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByText(/personalize growth, feeding, sleep/i)).toBeInTheDocument()
+  })
+
   it("edits a baby profile with a Supabase Storage photo URL", async () => {
     mockUpdateBaby.mockResolvedValue({
       ...babyOne,
@@ -214,5 +228,17 @@ describe("profile pages", () => {
       expect(mockSetBabies).toHaveBeenCalledWith([babyOne]),
     )
     expect(mockSetActiveBaby).toHaveBeenCalledWith(babyOne)
+  })
+
+  it("shows a recoverable state when the profile lookup fails", async () => {
+    mockFetchBabies.mockRejectedValue(new Error("network unavailable"))
+
+    render(<ProfileIndexPage />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "couldn’t load your profiles",
+    )
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument()
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 })
