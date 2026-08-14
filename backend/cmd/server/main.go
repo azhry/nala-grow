@@ -31,7 +31,11 @@ func main() {
 	logger := slog.New(newGraphQLLogHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	cfg := loadConfig()
+	cfg, err := loadRuntimeConfig()
+	if err != nil {
+		slog.Error("configuration loading failed", "error", err)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -125,36 +129,48 @@ func (c Config) ListenAddress() string {
 }
 
 func loadConfig() Config {
+	return configFromEnvironment(environmentMap())
+}
+
+func configFromEnvironment(environment map[string]string) Config {
 	return Config{
-		Host:           getEnv("HOST", defaultListenHost),
-		Port:           getEnv("PORT", "4000"),
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
-		AllowedOrigin:  getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
-		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
-		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
+		Host:           getEnvFrom(environment, "HOST", defaultListenHost),
+		Port:           getEnvFrom(environment, "PORT", "4000"),
+		DatabaseURL:    getEnvFrom(environment, "DATABASE_URL", "postgres://nalagrow:nalagrow@localhost:5432/nalagrow?sslmode=disable"),
+		AllowedOrigin:  getEnvFrom(environment, "ALLOWED_ORIGIN", "http://localhost:3000"),
+		JWTSecret:      getEnvFrom(environment, "JWT_SECRET", "dev-secret-change-in-production"),
+		GoogleClientID: getEnvFrom(environment, "GOOGLE_CLIENT_ID", ""),
 		Health: health.Config{
-			CasdoorIssuer: getEnv("CASDOOR_ISSUER", ""),
-			VaultAddress:  getEnv("VAULT_ADDR", ""),
-			MongoAddress:  getEnv("MONGODB_ADDR", ""),
-			MongoURI:      getEnv("MONGODB_URI", ""),
-			RedisAddress:  getEnv("REDIS_ADDR", ""),
-			RedisURL:      getEnv("REDIS_URL", ""),
-			KafkaAddress:  getEnv("KAFKA_ADDR", ""),
-			KafkaBrokers:  getEnv("KAFKA_BROKERS", ""),
-			Timeout:       getDuration("HEALTHCHECK_TIMEOUT", health.DefaultTimeout),
+			CasdoorIssuer: getEnvFrom(environment, "CASDOOR_ISSUER", ""),
+			VaultAddress:  getEnvFrom(environment, "VAULT_ADDR", ""),
+			MongoAddress:  getEnvFrom(environment, "MONGODB_ADDR", ""),
+			MongoURI:      getEnvFrom(environment, "MONGODB_URI", ""),
+			RedisAddress:  getEnvFrom(environment, "REDIS_ADDR", ""),
+			RedisURL:      getEnvFrom(environment, "REDIS_URL", ""),
+			KafkaAddress:  getEnvFrom(environment, "KAFKA_ADDR", ""),
+			KafkaBrokers:  getEnvFrom(environment, "KAFKA_BROKERS", ""),
+			Timeout:       getDurationFrom(environment, "HEALTHCHECK_TIMEOUT", health.DefaultTimeout),
 		},
 	}
 }
 
 func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	return getEnvFrom(environmentMap(), key, fallback)
+}
+
+func getDuration(key string, fallback time.Duration) time.Duration {
+	return getDurationFrom(environmentMap(), key, fallback)
+}
+
+func getEnvFrom(environment map[string]string, key, fallback string) string {
+	if v := environment[key]; v != "" {
 		return v
 	}
 	return fallback
 }
 
-func getDuration(key string, fallback time.Duration) time.Duration {
-	value := strings.TrimSpace(os.Getenv(key))
+func getDurationFrom(environment map[string]string, key string, fallback time.Duration) time.Duration {
+	value := strings.TrimSpace(environment[key])
 	if value == "" {
 		return fallback
 	}

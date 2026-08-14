@@ -19,6 +19,24 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
 
+## Vault-backed configuration
+
+When `VAULT_ADDR` is configured, the backend loads application configuration
+from the Vault KV v2 path `secret/nala-labs/nala-grow`. The Next.js build reads
+only the `NEXT_PUBLIC_*` values from that path and never exposes Vault
+credentials or backend secrets to the browser. Provide `VAULT_TOKEN` or the
+`VAULT_ROLE_ID`/`VAULT_SECRET_ID` AppRole pair at runtime; set
+`VAULT_KV_MOUNT` and `VAULT_KV_PATH` only when using non-default values.
+
+For local startup, copy `.vault-config.example` to the repository-root
+`.vault-config` and fill it from a protected secret source. The runtime walks
+up from the backend or frontend working directory to discover this file;
+process environment values override values from the file. The real
+`.vault-config` is ignored by Git and must never be committed.
+
+Without Vault transport variables, local development retains the existing
+process-environment defaults.
+
 ## Project Structure
 
 ```
