@@ -51,6 +51,30 @@ func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	}
 }
 
+func TestConfigReadsCasdoorSettingsAndRequiresCompleteConfiguration(t *testing.T) {
+	config := configFromEnvironment(map[string]string{
+		"CASDOOR_ENABLED":       "true",
+		"CASDOOR_ISSUER":        "https://casdoor.example",
+		"CASDOOR_CLIENT_ID":     "nala-grow-web",
+		"CASDOOR_CLIENT_SECRET": "client-secret",
+		"CASDOOR_ORGANIZATION":  "NalaGrow",
+		"CASDOOR_APPLICATION":   "nala-grow-web",
+		"CASDOOR_AUDIENCE":      "nala-grow-api",
+		"CASDOOR_REDIRECT_URI":  "http://localhost:3000/auth/callback",
+		"CASDOOR_ADMIN_TOKEN":   "admin-token",
+	})
+	if !config.Casdoor.Enabled || config.Casdoor.Issuer != "https://casdoor.example" || config.Casdoor.Audience != "nala-grow-api" {
+		t.Fatalf("Casdoor config = %+v", config.Casdoor)
+	}
+
+	incomplete := configFromEnvironment(map[string]string{
+		"CASDOOR_ISSUER": "https://casdoor.example",
+	})
+	if incomplete.Casdoor.Enabled {
+		t.Fatal("Casdoor should remain disabled when only the health issuer is configured")
+	}
+}
+
 func TestGetDurationFallsBackForInvalidOrNonPositiveValues(t *testing.T) {
 	for _, value := range []string{"not-a-duration", "0s", "-1s"} {
 		t.Run(value, func(t *testing.T) {
