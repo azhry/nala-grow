@@ -3,6 +3,7 @@ import {
   getSessionToken,
   getCurrentSession,
   isAuthenticated,
+  refreshAuthSession,
   resetPassword,
   signInWithEmail,
   signInWithGoogle,
@@ -12,12 +13,14 @@ import {
 } from "../auth"
 import type { AuthResponse } from "../graphql-types"
 import { AUTH_TOKEN_KEY } from "../auth-constants"
+import { AUTH_SESSION_KEY } from "../auth-constants"
 
 // ─── GraphQL client mocks ────────────────────────────────────────────────────
 
 const mockLogin = jest.fn()
 const mockSignup = jest.fn()
 const mockLoginWithGoogle = jest.fn()
+const mockRefreshSession = jest.fn()
 const mockRequestPasswordReset = jest.fn()
 const mockResetPassword = jest.fn()
 const mockGetMe = jest.fn()
@@ -28,6 +31,8 @@ jest.mock("../graphql-client", () => ({
   login: (...args: unknown[]) => mockLogin(...args),
   signup: (...args: unknown[]) => mockSignup(...args),
   loginWithGoogle: (...args: unknown[]) => mockLoginWithGoogle(...args),
+  loginWithCasdoor: jest.fn(),
+  refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
   requestPasswordReset: (...args: unknown[]) => mockRequestPasswordReset(...args),
   resetPassword: (...args: unknown[]) => mockResetPassword(...args),
   getMe: (...args: unknown[]) => mockGetMe(...args),
@@ -59,10 +64,22 @@ jest.mock("../store", () => ({
 
 // ─── Test data ───────────────────────────────────────────────────────────────
 
-const sessionUser = { id: "user-1", email: "test@test.com" }
+const sessionUser = {
+  id: "user-1",
+  email: "test@test.com",
+  displayName: "Test Parent",
+  photoUrl: "",
+  createdAt: "2026-01-01T00:00:00Z",
+  subject: "casdoor-user-1",
+  organization: "nala-grow",
+  roles: ["Parent"],
+  permissions: [],
+}
 const authResponse: AuthResponse = {
   token: "gql-token-123",
-  user: { ...sessionUser, displayName: "", photoUrl: "", createdAt: "" },
+  refreshToken: "refresh-token-123",
+  expiresIn: 60,
+  user: sessionUser,
 }
 
 describe("auth service", () => {
@@ -70,6 +87,8 @@ describe("auth service", () => {
     jest.clearAllMocks()
     mockUserValue = null
     localStorage.clear()
+    document.cookie = `${AUTH_TOKEN_KEY}=; max-age=0`
+    document.cookie = `${AUTH_SESSION_KEY}=; max-age=0`
   })
 
   describe("signInWithEmail", () => {
@@ -83,7 +102,8 @@ describe("auth service", () => {
       expect(mockSetAuthToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
-      expect(result).toEqual({ user: sessionUser, token: "gql-token-123" })
+      expect(result).toEqual(expect.objectContaining({ user: sessionUser, token: "gql-token-123" }))
+      expect(result.expiresAt).toBeGreaterThan(Date.now())
     })
 
     it("wraps GraphQLError into ApiError", async () => {
@@ -111,21 +131,40 @@ describe("auth service", () => {
       expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe("gql-token-123")
       expect(mockSetToken).toHaveBeenCalledWith("gql-token-123")
       expect(mockSetUser).toHaveBeenCalledWith(sessionUser)
-      expect(result).toEqual({ user: sessionUser, token: "gql-token-123" })
+      expect(result).toEqual(expect.objectContaining({ user: sessionUser, token: "gql-token-123" }))
     })
   })
 
   describe("signInWithGoogle", () => {
-    it("warns when GOOGLE_CLIENT_ID is not configured", async () => {
-      const warnSpy = jest.spyOn(console, "warn").mockImplementation()
+    it("fails safely when Casdoor is not configured", async () => {
+      delete process.env.NEXT_PUBLIC_CASDOOR_ISSUER
+      delete process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID
 
-      delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-      await signInWithGoogle()
+      await expect(signInWithGoogle()).rejects.toThrow(/not configured/i)
+    })
+  })
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        "Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID.",
+  describe("refreshAuthSession", () => {
+    it("persists the refreshed access token without exposing the refresh token in the cookie", async () => {
+      localStorage.setItem(
+        AUTH_SESSION_KEY,
+        JSON.stringify({
+          token: "expired-token",
+          refreshToken: "refresh-token",
+          expiresAt: Date.now() - 1,
+        }),
       )
-      warnSpy.mockRestore()
+      mockRefreshSession.mockResolvedValue({
+        ...authResponse,
+        token: "refreshed-token",
+      })
+
+      const result = await refreshAuthSession()
+
+      expect(mockRefreshSession).toHaveBeenCalledWith("refresh-token")
+      expect(result?.token).toBe("refreshed-token")
+      expect(localStorage.getItem(AUTH_SESSION_KEY)).toContain("refresh-token-123")
+      expect(document.cookie).not.toContain("refresh-token")
     })
   })
 
