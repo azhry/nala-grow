@@ -59,6 +59,18 @@ export interface FeedSession {
 export type MilestoneCategory = "physical" | "cognitive" | "social" | "language"
 export type MilestoneAgeRange = "0-3" | "3-6" | "6-12" | "12-24"
 
+export interface UserIdentity {
+  id: string
+  email: string
+  displayName?: string
+  photoUrl?: string
+  createdAt?: string
+  subject?: string | null
+  organization?: string | null
+  roles?: string[]
+  permissions?: string[]
+}
+
 export interface MilestoneDefinition {
   id: string
   title: string
@@ -104,7 +116,7 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
 ]
 
 interface AppState {
-  user: { id: string; email: string } | null
+  user: UserIdentity | null
   token: string | null
   activeBaby: BabyProfile | null
   babies: BabyProfile[]
