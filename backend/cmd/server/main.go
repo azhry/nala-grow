@@ -62,7 +62,11 @@ func main() {
 		AllowCredentials: true,
 	}).Handler)
 
-	authSvc := auth.NewService(cfg.JWTSecret)
+	authSvc, err := auth.NewServiceWithCasdoor(cfg.JWTSecret, cfg.Casdoor)
+	if err != nil {
+		slog.Error("authentication configuration failed", "error", err)
+		return
+	}
 	handler := graph.NewHandler(pool, authSvc)
 	if cfg.GoogleClientID != "" {
 		handler.SetGoogleClientID(cfg.GoogleClientID)
@@ -121,6 +125,7 @@ type Config struct {
 	AllowedOrigin  string
 	JWTSecret      string
 	GoogleClientID string
+	Casdoor        auth.CasdoorConfig
 	Health         health.Config
 }
 
@@ -133,6 +138,13 @@ func loadConfig() Config {
 }
 
 func configFromEnvironment(environment map[string]string) Config {
+	casdoorIssuer := getEnvFrom(environment, "CASDOOR_ISSUER", "")
+	casdoorClientID := getEnvFrom(environment, "CASDOOR_CLIENT_ID", "")
+	casdoorClientSecret := getEnvFrom(environment, "CASDOOR_CLIENT_SECRET", "")
+	casdoorEnabledValue := strings.TrimSpace(environment["CASDOOR_ENABLED"])
+	casdoorEnabled := !strings.EqualFold(casdoorEnabledValue, "false") &&
+		(strings.EqualFold(casdoorEnabledValue, "true") ||
+			(casdoorIssuer != "" && casdoorClientID != "" && casdoorClientSecret != ""))
 	return Config{
 		Host:           getEnvFrom(environment, "HOST", defaultListenHost),
 		Port:           getEnvFrom(environment, "PORT", "4000"),
@@ -140,6 +152,17 @@ func configFromEnvironment(environment map[string]string) Config {
 		AllowedOrigin:  getEnvFrom(environment, "ALLOWED_ORIGIN", "http://localhost:3000"),
 		JWTSecret:      getEnvFrom(environment, "JWT_SECRET", "dev-secret-change-in-production"),
 		GoogleClientID: getEnvFrom(environment, "GOOGLE_CLIENT_ID", ""),
+		Casdoor: auth.CasdoorConfig{
+			Enabled:      casdoorEnabled,
+			Issuer:       casdoorIssuer,
+			ClientID:     casdoorClientID,
+			ClientSecret: casdoorClientSecret,
+			Organization: getEnvFrom(environment, "CASDOOR_ORGANIZATION", ""),
+			Application:  getEnvFrom(environment, "CASDOOR_APPLICATION", ""),
+			Audience:     getEnvFrom(environment, "CASDOOR_AUDIENCE", casdoorClientID),
+			RedirectURI:  getEnvFrom(environment, "CASDOOR_REDIRECT_URI", ""),
+			AdminToken:   getEnvFrom(environment, "CASDOOR_ADMIN_TOKEN", ""),
+		},
 		Health: health.Config{
 			CasdoorIssuer: getEnvFrom(environment, "CASDOOR_ISSUER", ""),
 			VaultAddress:  getEnvFrom(environment, "VAULT_ADDR", ""),
