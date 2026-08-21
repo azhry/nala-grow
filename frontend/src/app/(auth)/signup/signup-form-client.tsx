@@ -79,7 +79,7 @@ export default function SignupFormClient() {
     setAuthFlowActive(true)
     setGoogleLoading(true)
     try {
-      const session = await signInWithGoogle()
+      const session = await signInWithGoogle(null)
       if (!session) {
         setAuthFlowActive(false)
         return
