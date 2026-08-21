@@ -9,8 +9,23 @@
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
 
-export const SIGNUP_MUTATION = `mutation signup($email: String!, $password: String!, $displayName: String) {
-  signup(email: $email, password: $password, displayName: $displayName) {
+const AUTH_RESPONSE_FIELDS = `
+    token
+    refreshToken
+    expiresIn
+    user {
+      id
+      email
+      displayName
+      photoUrl
+      createdAt
+      subject
+      organization
+      roles
+      permissions
+    }`
+
+const LEGACY_AUTH_RESPONSE_FIELDS = `
     token
     user {
       id
@@ -18,33 +33,48 @@ export const SIGNUP_MUTATION = `mutation signup($email: String!, $password: Stri
       displayName
       photoUrl
       createdAt
-    }
+    }`
+
+export const SIGNUP_MUTATION = `mutation signup($email: String!, $password: String!, $displayName: String) {
+  signup(email: $email, password: $password, displayName: $displayName) {${AUTH_RESPONSE_FIELDS}
   }
 }`
 
 export const LOGIN_MUTATION = `mutation login($email: String!, $password: String!) {
-  login(email: $email, password: $password) {
-    token
-    user {
-      id
-      email
-      displayName
-      photoUrl
-      createdAt
-    }
+  login(email: $email, password: $password) {${AUTH_RESPONSE_FIELDS}
   }
 }`
 
 export const LOGIN_GOOGLE_MUTATION = `mutation loginWithGoogle($idToken: String!) {
-  loginWithGoogle(idToken: $idToken) {
-    token
-    user {
-      id
-      email
-      displayName
-      photoUrl
-      createdAt
-    }
+  loginWithGoogle(idToken: $idToken) {${AUTH_RESPONSE_FIELDS}
+  }
+}`
+
+export const LOGIN_CASDOOR_MUTATION = `mutation loginWithCasdoor($code: String!, $redirectUri: String!) {
+  loginWithCasdoor(code: $code, redirectUri: $redirectUri) {${AUTH_RESPONSE_FIELDS}
+  }
+}`
+
+export const REFRESH_TOKEN_MUTATION = `mutation refreshToken($refreshToken: String!) {
+  refreshToken(refreshToken: $refreshToken) {${AUTH_RESPONSE_FIELDS}
+  }
+}`
+
+// These additive-compatibility operations keep explicitly configured local
+// mode usable while an older backend is being rolled forward. They are only
+// used after the richer selection is rejected for an unsupported field.
+export const LEGACY_SIGNUP_MUTATION = `mutation signup($email: String!, $password: String!, $displayName: String) {
+  signup(email: $email, password: $password, displayName: $displayName) {${LEGACY_AUTH_RESPONSE_FIELDS}
+  }
+}`
+
+export const LEGACY_LOGIN_MUTATION = `mutation login($email: String!, $password: String!) {
+  login(email: $email, password: $password) {${LEGACY_AUTH_RESPONSE_FIELDS}
+  }
+}`
+
+export const LEGACY_LOGIN_GOOGLE_MUTATION = `mutation loginWithGoogle($idToken: String!) {
+  loginWithGoogle(idToken: $idToken) {${LEGACY_AUTH_RESPONSE_FIELDS}
   }
 }`
 
@@ -57,6 +87,20 @@ export const RESET_PASSWORD_MUTATION = `mutation resetPassword($token: String!, 
 }`
 
 export const ME_QUERY = `query me {
+  me {
+    id
+    email
+    displayName
+    photoUrl
+    createdAt
+    subject
+    organization
+    roles
+    permissions
+  }
+}`
+
+export const LEGACY_ME_QUERY = `query me {
   me {
     id
     email
