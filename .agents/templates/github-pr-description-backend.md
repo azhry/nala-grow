@@ -70,46 +70,112 @@ For a POST or PATCH, the body cell contains only the GraphQL operation document 
 
 ### Manual request/response sequence
 
-[Fixture: real configured fixture or exact command that creates it.]
+Write this as small, copy-pasteable Bash steps in the PR description. Do not
+attach a script file or combine the verification into one bulk script. Use
+real staging data and the documented staging fixture for the issue; do not use
+placeholder values, fake records, or mocks. Never paste credentials, tokens,
+or API keys into the PR.
 
-#### Step 0 — Authenticate and export the session token
+#### Step 0 — Load the verified staging environment
 
-```sh
-set -euo pipefail
-export AUTH_BASE_URL="${AUTH_BASE_URL:-http://127.0.0.1:8080}"
-export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8081}"
-: "${NALA_TEST_USERNAME:?set from the configured test fixture}"
-: "${NALA_TEST_PASSWORD:?set from the configured test fixture}"
-export TOKEN="$(
-  curl --silent --show-error \
-    --header 'Content-Type: application/json' \
-    --data "$(jq -n --arg username "$NALA_TEST_USERNAME" --arg password "$NALA_TEST_PASSWORD" '{username: $username, password: $password}')" \
-    "$AUTH_BASE_URL/api/auth/login" | jq --exit-status --raw-output '.token'
-)"
-export DEPLOYMENT_ID="${DEPLOYMENT_ID:?set to the real persisted deployment fixture}"
+```bash
+set -a
+. .agents/.env
+set +a
+: "${STAGING_AUTH_BASE_URL:?Set this to the verified staging auth URL}"
+: "${STAGING_API_BASE_URL:?Set this to the verified staging API URL}"
+export AUTH_BASE_URL="$STAGING_AUTH_BASE_URL"
+export API_BASE_URL="$STAGING_API_BASE_URL"
+printf 'staging auth: %s\nstaging API: %s\n' "$AUTH_BASE_URL" "$API_BASE_URL"
 ```
 
-Login response:
+Expected response:
+
+```text
+staging auth: https://<verified-staging-auth-host>
+staging API: https://<verified-staging-api-host>
+```
+
+The command must exit 0 and identify the real staging targets without printing
+secret values. Replace the example hosts with the actual targets before
+handoff; do not leave placeholders in the completed PR.
+
+#### Step 1 — Authenticate with the real staging fixture
+
+```bash
+: "${NALA_TEST_USERNAME:?Load the documented staging fixture from .agents/.env}"
+: "${NALA_TEST_PASSWORD:?Load the documented staging fixture from .agents/.env}"
+login_response="$(curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --data "$(jq -n --arg username "$NALA_TEST_USERNAME" --arg password "$NALA_TEST_PASSWORD" \
+    '{username: $username, password: $password}')" \
+  "$AUTH_BASE_URL/api/auth/login")"
+printf '%s\n' "$login_response" | jq 'del(.token)'
+export TOKEN="$(printf '%s' "$login_response" | jq -er '.token')"
+```
+
+Expected response:
 
 ```json
-{"authenticated":true,"token":"<redacted>","user":{"id":"<fixture-user-id>","tier":"<fixture-tier>"}}
+{"authenticated":true,"user":{"id":"<verified-fixture-user-id>","tier":"<verified-fixture-tier>"}}
 ```
 
-#### Step 1 — [behavior under test]
+The command must exit 0, identify the real fixture account, and export `TOKEN`
+only in the current shell.
 
-Request:
+#### Step 2 — Select the real persisted fixture
 
-```sh
-curl \
+```bash
+: "${STAGING_DEPLOYMENT_ID:?Set this to the documented persisted staging deployment}"
+export DEPLOYMENT_ID="$STAGING_DEPLOYMENT_ID"
+printf 'deployment fixture: %s\n' "$DEPLOYMENT_ID"
+```
+
+Expected response:
+
+```text
+deployment fixture: <verified-staging-deployment-id>
+```
+
+Replace the example value with the real observed fixture before handoff.
+
+#### Step 3 — [real behavior under test]
+
+Command:
+
+```bash
+curl --fail-with-body --silent --show-error \
   --header "Authorization: Bearer $TOKEN" \
-  "$API_BASE_URL/<path>"
+  "$API_BASE_URL/<documented-staging-path>"
 ```
 
-Response:
+Expected response:
 
 ```json
-[copy-paste response]
+{"<field>":"<verified-staging-value>"}
 ```
+
+Replace the path and response with the real staging operation and observed
+contract. Add one numbered step per meaningful action; each step must include
+its own Bash command and expected response.
+
+#### Step 4 — [required regression, error, or ownership check]
+
+Command:
+
+```bash
+[one Bash command for the real staging boundary case]
+```
+
+Expected response:
+
+```text
+[exact status, response field, or assertion observed in staging]
+```
+
+Record each command's exact exit status and distinguish staging or pre-existing
+failures from regressions introduced by the PR.
 
 ## Known limitations and pre-existing failures
 
