@@ -74,6 +74,12 @@ func (h *Handler) resolveLogin(p graphql.ResolveParams) (interface{}, error) {
 func (h *Handler) resolveLoginWithGoogle(p graphql.ResolveParams) (interface{}, error) {
 	return resolverValue(h.resolveLoginWithGoogleResult(p.Context, p.Args), "loginWithGoogle")
 }
+func (h *Handler) resolveLoginWithCasdoor(p graphql.ResolveParams) (interface{}, error) {
+	return resolverValue(h.resolveLoginWithCasdoorResult(p.Context, p.Args), "loginWithCasdoor")
+}
+func (h *Handler) resolveRefreshToken(p graphql.ResolveParams) (interface{}, error) {
+	return resolverValue(h.resolveRefreshTokenResult(p.Context, p.Args), "refreshToken")
+}
 func (h *Handler) resolveRequestPasswordReset(p graphql.ResolveParams) (interface{}, error) {
 	return resolverValue(h.resolveRequestPasswordResetResult(p.Context, p.Args), "requestPasswordReset")
 }

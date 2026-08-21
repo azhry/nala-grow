@@ -30,19 +30,28 @@ func newGraphTypes() graphTypes {
 	user := graphql.NewObject(graphql.ObjectConfig{
 		Name: "User",
 		Fields: graphql.Fields{
-			"id":          stringField(),
-			"email":       stringField(),
-			"displayName": stringField(),
-			"photoUrl":    stringField(),
-			"createdAt":   stringField(),
+			"id":             stringField(),
+			"email":          stringField(),
+			"displayName":    stringField(),
+			"photoUrl":       stringField(),
+			"createdAt":      stringField(),
+			"subject":        stringField(),
+			"organization":   stringField(),
+			"casdoorSubject": stringField(),
+			"casdoorOwner":   stringField(),
+			"roles":          &graphql.Field{Type: graphql.NewList(graphql.String)},
+			"permissions":    &graphql.Field{Type: graphql.NewList(graphql.String)},
+			"authProvider":   stringField(),
 		},
 	})
 
 	authResponse := graphql.NewObject(graphql.ObjectConfig{
 		Name: "AuthResponse",
 		Fields: graphql.Fields{
-			"token": stringField(),
-			"user":  &graphql.Field{Type: user},
+			"token":        stringField(),
+			"refreshToken": stringField(),
+			"expiresIn":    &graphql.Field{Type: graphql.Int},
+			"user":         &graphql.Field{Type: user},
 		},
 	})
 
