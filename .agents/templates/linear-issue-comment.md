@@ -127,4 +127,3 @@ Before handoff, update this agent comment or add a concise completion comment, a
 - [ ] Delivery mode, handoff artifact, merge vehicle, and paired issue are explicit and consistent.
 - [ ] Exact verification commands and exit statuses are recorded; failures are not described as passes.
 - [ ] The final diff, commit, PR, and tracker state contain only this issue's intended work.
-
