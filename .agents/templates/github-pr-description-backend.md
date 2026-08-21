@@ -31,6 +31,7 @@ The PR description is the review and handoff record. Do not claim a check passed
 ## Review and merge order
 
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
+- PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]

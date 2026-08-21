@@ -30,6 +30,7 @@ The PR must record observable browser evidence, not only component names or scre
 ## Review and merge order
 
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
+- PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]
@@ -100,6 +101,8 @@ No-op decisions:
 Keep generated screenshots and browser traces outside the repository unless the issue explicitly requires committed fixtures.
 
 ## Verification
+
+Automated tests, typechecks, lint, and builds are supporting checks. They do not replace interactive browser evidence against the real configured application, and fake records or mock endpoints must not be presented as live acceptance.
 
 | Command or browser flow | Exit/result | Evidence or assertions |
 | --- | ---: | --- |
