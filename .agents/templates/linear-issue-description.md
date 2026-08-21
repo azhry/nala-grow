@@ -14,6 +14,56 @@ The issue description is the implementation contract. Put all information requir
 - Put API contracts, affected flows, dependencies, and mandatory checks in the description. A comment is not a substitute.
 - Re-read the saved issue and perform the Completion self-audit before moving it out of backlog/todo or beginning implementation.
 
+## Visual reference diagrams (when applicable)
+
+When the issue includes a process flow or before/after visual, publish all three rendered SVGs inline: Process Flow, Before, and After. Keep the exact SVG source used for each image in a native Linear collapsible block with an `xml` fence. Do not use a `mermaid` fence for SVG source; Linear renders that fence as a diagram.
+
+### Process Flow
+
+![Rendered Process Flow](<uploaded Linear SVG asset URL>)
+
++++ Diagram source
+
+~~~xml
+<svg>
+[paste the exact SVG source used for the inline image]
+</svg>
+~~~
+
++++
+
+### Before-After
+
+#### Before
+
+![Rendered Before diagram](<uploaded Linear SVG asset URL>)
+
++++ Before diagram source
+
+~~~xml
+<svg>
+[paste the exact SVG source used for the inline image]
+</svg>
+~~~
+
++++
+
+#### After
+
+![Rendered After diagram](<uploaded Linear SVG asset URL>)
+
++++ After diagram source
+
+~~~xml
+<svg>
+[paste the exact SVG source used for the inline image]
+</svg>
+~~~
+
++++
+
+After saving, reopen the issue in Linear and visually verify that all three images render inline, each source block is collapsed by default, and expanding a source shows literal SVG/XML text. API text counts alone do not establish this acceptance criterion.
+
 ## Category
 
 **[Bug | Feature | Refactor | Chore | Research] — [short category qualifier].**
