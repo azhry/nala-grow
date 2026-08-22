@@ -31,6 +31,7 @@ The PR description is the review and handoff record. Do not claim a check passed
 ## Review and merge order
 
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
+- PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]
@@ -67,6 +68,10 @@ For a POST or PATCH, the body cell contains only the GraphQL operation document 
 | `[GraphQL operation or HTTP method/path]` | `[GraphQL: <pre><code class="language-gql">[operation document]</code></pre>; REST/JSON: <pre><code class="language-json">[request body schema]</code></pre>; bodyless: <pre><code class="language-json">null</code></pre>]` | <pre><code class="language-json">[path/query/header schemas]</code></pre> | <pre><code class="language-json">[response schema]</code></pre> | <pre><code class="language-json">[error schemas]</code></pre> | <pre><code class="language-json">[authentication and ownership schema]</code></pre> |
 
 ## Verification
+
+### Automated code checks (supporting only)
+
+Record exact unfiltered commands and exit statuses here. Unit tests, integration tests, lint, builds, mocks, and local protocol checks are regression evidence at a code seam; they do not prove live API, authentication, PostgreSQL, Vault, Casdoor, migration, or ownership behavior.
 
 ### Manual request/response sequence
 
@@ -195,4 +200,6 @@ failures from regressions introduced by the PR.
 - [ ] Success, validation, unauthenticated, cross-user, absent-resource, and persistence-error paths are covered where applicable.
 - [ ] Exact unfiltered commands and exit statuses are recorded.
 - [ ] Generated coverage, logs, dumps, credentials, and unrelated files are absent from the diff.
+- [ ] Automated checks are clearly separated from manual acceptance evidence and are not presented as proof that the live work is complete.
+- [ ] For API work, the PR body includes a copy-paste manual request/response sequence using real configured fixtures; automated tests alone do not satisfy this check.
 - [ ] The linked Linear issue and dependencies reflect the actual handoff state.
