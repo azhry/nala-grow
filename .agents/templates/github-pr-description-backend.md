@@ -69,6 +69,10 @@ For a POST or PATCH, the body cell contains only the GraphQL operation document 
 
 ## Verification
 
+### Automated code checks (supporting only)
+
+Record exact unfiltered commands and exit statuses here. Unit tests, integration tests, lint, builds, mocks, and local protocol checks are regression evidence at a code seam; they do not prove live API, authentication, PostgreSQL, Vault, Casdoor, migration, or ownership behavior.
+
 ### Manual request/response sequence
 
 Write this as small, copy-pasteable Bash steps in the PR description. Do not
@@ -196,4 +200,6 @@ failures from regressions introduced by the PR.
 - [ ] Success, validation, unauthenticated, cross-user, absent-resource, and persistence-error paths are covered where applicable.
 - [ ] Exact unfiltered commands and exit statuses are recorded.
 - [ ] Generated coverage, logs, dumps, credentials, and unrelated files are absent from the diff.
+- [ ] Automated checks are clearly separated from manual acceptance evidence and are not presented as proof that the live work is complete.
+- [ ] For API work, the PR body includes a copy-paste manual request/response sequence using real configured fixtures; automated tests alone do not satisfy this check.
 - [ ] The linked Linear issue and dependencies reflect the actual handoff state.
