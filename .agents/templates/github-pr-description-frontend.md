@@ -101,6 +101,12 @@ Keep generated screenshots and browser traces outside the repository unless the 
 
 ## Verification
 
+Manual browser/setup commands run in the reviewer's interactive shell. Keep
+them terminal-safe: do not use `set -e`, `set -u`, `set -o pipefail`, or
+`set -euo pipefail`; do not use `exit`, `exit 1`, or cleanup traps that call
+`exit`. Use explicit checks that print failures and leave the terminal open.
+Manual browser evidence must remain separate from automated checks.
+
 | Command or browser flow | Exit/result | Evidence or assertions |
 | --- | ---: | --- |
 | [Unit/component command] | [0/nonzero/not run] | [Assertions] |

@@ -76,6 +76,12 @@ real staging data and the documented staging fixture for the issue; do not use
 placeholder values, fake records, or mocks. Never paste credentials, tokens,
 or API keys into the PR.
 
+Manual blocks run in the reviewer's interactive shell. Do not use `set -e`,
+`set -u`, `set -o pipefail`, or `set -euo pipefail`; do not use `exit`, `exit 1`,
+or cleanup traps that call `exit`. Use explicit `if`/`case` checks and print a
+failure message so a failed check does not close the terminal. Keep each block
+independently pasteable and leave the shell available for the next step.
+
 #### Step 0 — Load the verified staging environment
 
 ```bash
