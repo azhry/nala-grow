@@ -35,6 +35,8 @@ For a request containing a Linear issue ID such as `AZH-385`:
 9. The Linear update is a hard readiness gate: private reasoning, a todo list, a chat summary, or a code comment does not satisfy it. Verify the tracker mutation succeeded and re-read the description before creating a branch, editing implementation files, moving the issue active, or delegating implementation.
 10. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
 
+- For visual-reference work, the readiness re-read must confirm the saved tracker rendering itself, exact inline-asset/source pairing, and that each artifact's diagram type and notation match the source request and repository template. If the request says UML sequence, verify actors/participants are lifelines with directional messages and return/activation markers; do not substitute a generic architecture, box, or flowchart diagram. API or text-presence counts alone do not satisfy the gate.
+
 ## Credentials and delivery preflight
 
 - Never print, echo, commit, or transmit `.agents/config.md` or any secret value.
@@ -49,5 +51,5 @@ For a request containing a Linear issue ID such as `AZH-385`:
 - If authentication or repository access fails, stop before implementation, record the blocker in Linear, and tell the user exactly which credential/integration must be fixed.
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
 - Do not write, edit, generate, or stage implementation files until the GitHub delivery preflight succeeds and a `task/<topic>` branch has been created from `main`. If unrelated work makes that unsafe, use an isolated worktree or stop and report the blocker.
-- Never report a check as passed, a build as successful, or a task as complete unless the recorded command exited successfully. State pre-existing failures separately with the exact command and affected path; do not describe a partial compile or filtered output as a successful build.
+- Never report a check as passed, a build as successful, or a task as complete unless the recorded target command exited successfully. For compound command blocks, capture and report each target command's immediate exit status; the wrapper's final exit code is not evidence for an earlier command. State pre-existing failures separately with the exact command and affected path; do not describe a partial compile or filtered output as a successful build.
 - Before staging and again before handoff, inspect `git status --short` and preserve unrelated files. Put generated screenshots, browser traces, lint captures, and other diagnostics outside the repository or in an ignored temporary directory; remove only artifacts created by the current task.
