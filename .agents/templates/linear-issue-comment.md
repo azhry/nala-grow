@@ -1,80 +1,30 @@
-# Linear issue description template
+# Linear agent comment template
 
-Use this template when creating a task or when an existing task is too incomplete for another agent to implement safely. Replace every bracketed placeholder. Remove a conditional section only when it genuinely does not apply.
+Use this template after the human-readable Linear issue description has been created or updated. Fill it out and post the completed content as an agent-facing Linear comment before implementation begins. Replace every bracketed placeholder. Remove a conditional section only when it genuinely does not apply.
 
-The issue description is the implementation contract. Put all information required to execute and verify the task in the description itself, not only in comments, private reasoning, a parent issue, or a PR. Comments may record progress, but an agent must be able to implement the issue correctly from its description plus the repository instructions.
+The human-readable issue description is the concise entry point. This agent comment carries the detailed implementation contract: analysis, scope, dependencies, plan, acceptance criteria, verification, and execution controls. An agent must be able to implement the issue correctly from the human description, this completed comment, and the repository instructions.
 
 ## Authoring and readiness gate
 
-- Read the complete source request, parent issue, linked references, comments, relevant code, and tests before finalizing this description.
+- Read the complete human issue description, source request, parent issue, linked references, existing comments, relevant code, and tests before finalizing this comment.
 - Translate every source requirement into an explicit, independently checkable item below. Do not replace literal requirements with a shorter summary.
 - Preserve user-supplied reference material verbatim.
 - If several symptoms share one root cause, one issue may cover them only when every affected surface, reproduction path, and acceptance check is enumerated.
 - If a source task requires one issue or dependency pair per operation/work item, create them literally. Do not silently aggregate operations.
-- Put API contracts, affected flows, dependencies, and mandatory checks in the description. A comment is not a substitute.
-- Re-read the saved issue and perform the Completion self-audit before moving it out of backlog/todo or beginning implementation.
-
-## Visual reference diagrams (when applicable)
-
-When the issue includes a process flow or before/after visual, publish all three rendered SVGs inline: Process Flow, Before, and After. Keep the exact SVG source used for each image in a native Linear collapsible block with an `xml` fence. Do not use a `mermaid` fence for SVG source; Linear renders that fence as a diagram.
-
-### Process Flow
-
-![Rendered Process Flow](<uploaded Linear SVG asset URL>)
-
-+++ Diagram source
-
-~~~xml
-<svg>
-[paste the exact SVG source used for the inline image]
-</svg>
-~~~
-
-+++
-
-### Before-After
-
-#### Before
-
-![Rendered Before diagram](<uploaded Linear SVG asset URL>)
-
-+++ Before diagram source
-
-~~~xml
-<svg>
-[paste the exact SVG source used for the inline image]
-</svg>
-~~~
-
-+++
-
-#### After
-
-![Rendered After diagram](<uploaded Linear SVG asset URL>)
-
-+++ After diagram source
-
-~~~xml
-<svg>
-[paste the exact SVG source used for the inline image]
-</svg>
-~~~
-
-+++
-
-After saving, reopen the issue in Linear and visually verify that all three images render inline, each source block is collapsed by default, and expanding a source shows literal SVG/XML text. API text counts alone do not establish this acceptance criterion.
+- Put API contracts, affected flows, dependencies, and mandatory checks in this comment. Do not overload the human-readable description with the agent execution contract.
+- Re-read both the saved human description and the saved agent comment, then perform the Completion self-audit before moving the issue out of backlog/todo or beginning implementation.
 
 ## Category
 
 **[Bug | Feature | Refactor | Chore | Research] — [short category qualifier].**
 
-> Readiness rule: a design reference, comment, private plan, or parent issue by itself is incomplete. Before implementation begins, this description must contain every applicable heading in this template with evidence-based content.
+> Readiness rule: a human-readable description, design reference, private plan, or parent issue by itself is incomplete. Before implementation begins, the agent comment must contain every applicable heading in this template with evidence-based content.
 
 ## Problem analysis
 
 ### Reference material
 
-- Preserve any user-supplied HTML, mockups, screenshots, and example data below this section verbatim. Treat it as the visual/behavioral source of truth unless the issue explicitly says otherwise.
+- Identify the user-supplied HTML, mockups, screenshots, and example data preserved verbatim in the human issue description. Treat it as the visual/behavioral source of truth unless the issue explicitly says otherwise.
 - Parent/source issue: [exact issue ID and the inherited requirements this issue must satisfy].
 
 ### Confirmed findings
@@ -158,16 +108,16 @@ For an intentional-red test issue, keep its PR and the paired production PR sepa
 
 ## Required execution protocol
 
-1. Read this entire description and the repository instructions before changing code.
+1. Read the human issue description, this entire agent comment, and the repository instructions before changing code.
 2. Treat every enumerated surface, operation, field, state, viewport, and acceptance criterion as required scope. Do not silently omit, combine, or substitute items.
 3. Respect the dependency start gate above. A blocked implementation issue must not begin before its prerequisite delivers the specified evidence.
-4. Keep required contract information in this description. If new evidence changes the contract, update and re-read the description before continuing.
+4. Keep required implementation-contract information in this comment. If new evidence changes the contract, update and re-read the comment before continuing; update the human description too when its summary, flow, before/after behavior, or manual verification changes.
 5. Do not move the issue to review until the Completion self-audit is recorded with evidence.
 6. For paired red-test delivery, keep the issues and PRs separate: merge the explicitly authorized test-only PR first, then start the implementation issue from updated `main` and make that test green.
 
 ## Completion self-audit
 
-Before handoff, record the completed checklist in the issue or PR and link the evidence:
+Before handoff, update this agent comment or add a concise completion comment, and link the PR evidence:
 
 - [ ] Every in-scope requirement and every source/parent requirement is mapped to an implemented outcome or an explicit blocker.
 - [ ] Every affected surface and normal navigation path was exercised where applicable.

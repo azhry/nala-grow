@@ -3,6 +3,8 @@
 ## Required first steps
 
 - Before any task action, load only the immediately required allowlisted key from `.agents/config.md` through a non-printing loader. Never call a generic read tool on this file or render, print, commit, or transmit its contents.
+- Read the relevant files under `.agents/knowledge/` before making assumptions about runtime accounts, providers, roles, tiers, endpoints, or test fixtures. Keep secret values out of transcripts and handoff records.
+- Write verification scripts and verification command blocks in Bash (`bash`/`sh`) by default, including on Windows. Use PowerShell only when the user explicitly requests it or when the verification cannot run in Bash; document that exception.
 - Make sure all the necessary tools and credentials work before taking task actions.
 - Do one task at a time. A task is complete only after implementation, verification, commit, push, PR handoff, and relevant tracker update are complete.
 - Preserve unrelated dirty files. Never stage, modify, discard, or overwrite another person's work.
@@ -13,6 +15,15 @@
 - Start new work from `main` on a `task/<topic>` branch.
 - For a fix to an existing PR, branch from that PR's branch and update the existing PR; do not open a duplicate unless asked.
 - Commit, push, and open a PR without requesting permission when the repository/remote is in scope. Use a draft PR unless asked for ready review.
+
+## Human reviewability and PR sequencing
+
+- Treat human attention as a finite review budget. Each PR must represent one coherent behavior or one independently verifiable delivery unit that a human can understand, test, and manually verify in one focused review.
+- Apply a hard split when a change contains multiple independent outcomes, crosses unrelated product areas, combines separate migration/behavior or infrastructure/application concerns, or cannot be explained and verified as one focused unit. Do not use an arbitrary line-count threshold as a substitute for review judgment.
+- Before implementation, write the PR shape: each PR's focused scope, base branch, review position, dependency chain, merge condition, and manual verification boundary.
+- Use stacked PRs when a later review unit depends on an earlier one. State the review and merge order explicitly, keep each branch based on its predecessor, and merge from the bottom of the stack upward.
+- Use parallel PRs only when the units have no required dependency or conflicting shared change. Give the group a shared label/order and state that its members may be reviewed or merged independently.
+- Every PR description must include a `Review and merge order` section identifying this PR's position, base/dependencies, parallel group, merge conditions, and the human-verification focus. Keep unrelated cleanup out of the review unit.
 
 ## Routing
 
@@ -33,8 +44,11 @@ For a request containing a Linear issue ID such as `AZH-385`:
 6. If the description is incomplete, analyze it first and update it with the human-readable [Linear issue-description template](.agents/templates/linear-issue-description.md). Keep its top-level structure limited to TL;DR, Process Flow, Before-After, and Implementation Manual Test and Verification. Treat that template as a closed heading schema: copy only its headings in the same order; do not add headings or import sections from another template or repository. Put extra implementation detail in prose or lists under an existing heading, or in the agent-facing comment.
 7. A mockup, full HTML file, screenshot, or one-line request is reference material, not an implementation-ready task description. Before implementation, add the template's Category, confirmed code-backed analysis, scope boundaries, implementation plan, Definition of Done, and correctness checks to the Linear description.
 8. Preserve user-supplied reference material (including HTML, screenshots, designs, and examples) verbatim. Add the implementation contract around it; never replace, trim, or paraphrase the reference unless the user explicitly asks.
-9. The Linear update is a hard readiness gate: private reasoning, a todo list, a chat summary, or a code comment does not satisfy it. Verify the tracker mutation succeeded and re-read the description before creating a branch, editing implementation files, moving the issue active, or delegating implementation.
-10. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
+9. After the human description is saved, inspect the relevant code and tests, complete the [Linear agent-comment template](.agents/templates/linear-issue-comment.md), and post it as an agent-facing comment. A mockup, full HTML file, screenshot, or one-line request is reference material, not an implementation-ready contract; the comment must add Category, confirmed code-backed analysis, scope boundaries, implementation plan, Definition of Done, correctness checks, and execution controls.
+10. The two Linear updates are a hard readiness gate: private reasoning, a todo list, a chat summary, or a code comment does not satisfy it. Verify both tracker mutations succeeded, then re-read the saved human description and agent comment before creating a branch, editing implementation files, moving the issue active, or delegating implementation.
+11. Treat the completed human description and agent comment together as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
+
+- For visual-reference work, the readiness re-read must confirm the saved tracker rendering itself and the exact pairing between each inline asset and its source. API or text-presence counts alone do not satisfy the gate.
 
 - For visual-reference work, UML sequence diagrams are the default for Process Flow, Before, and After. The readiness re-read must confirm the saved tracker rendering itself, exact inline-asset/source pairing, and that each artifact uses UML sequence notation with actors/participants as lifelines, directional messages, and return/activation markers. Only an explicit source request for another diagram type overrides this default; do not substitute a generic architecture, box, or flowchart diagram. API or text-presence counts alone do not satisfy the gate.
 - Manual request/response sections are executable Bash/curl sequences, not prose summaries. Every numbered step must contain its command and expected response; variables must be initialized in the sequence from real configuration, authentication, or a dynamically created persisted fixture. Never publish a bare reviewer-supplied `TOKEN`, `SESSION_ID`, `API_BASE_URL`, or similar placeholder.
@@ -56,4 +70,6 @@ For a request containing a Linear issue ID such as `AZH-385`:
 - Never invoke interactive `gh auth login` in an unattended agent workflow.
 - Do not write, edit, generate, or stage implementation files until the GitHub delivery preflight succeeds and a `task/<topic>` branch has been created from `main`. If unrelated work makes that unsafe, use an isolated worktree or stop and report the blocker.
 - Never report a check as passed, a build as successful, or a task as complete unless the recorded target command exited successfully. For compound command blocks, capture and report each target command's immediate exit status; the wrapper's final exit code is not evidence for an earlier command. State pre-existing failures separately with the exact command and affected path; do not describe a partial compile or filtered output as a successful build.
+- For API, authentication, persistence, migration, or infrastructure work, the handoff must include copy-pasteable manual request/response steps against the real configured service or a command that creates the real fixture. Committed persistence-bound tests must not use fakes, mocks, or in-memory stores as proof of real behavior.
+- Before declaring Vault, Casdoor, PostgreSQL, or another configured runtime dependency unavailable, inspect the relevant project knowledge and use the available read-only `nala-infra` capability when present. Distinguish a rejected credential from an unavailable service and from an undeployed application endpoint.
 - Before staging and again before handoff, inspect `git status --short` and preserve unrelated files. Put generated screenshots, browser traces, lint captures, and other diagnostics outside the repository or in an ignored temporary directory; remove only artifacts created by the current task.

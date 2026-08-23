@@ -27,6 +27,18 @@ The PR must record observable browser evidence, not only component names or scre
 
 - [Nearby behavior intentionally not changed.]
 
+## Review and merge order
+
+- Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
+- PR link: [Direct URL for this pull request]
+- This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
+- Base branch: [main or predecessor branch]
+- Depends on: [PR/commit and the exact delivered behavior, or "None"]
+- Review order: [Exact order, or "Any order within <parallel group>"]
+- Merge order and conditions: [Exact merge sequence and prerequisite checks, or "Any order; all required checks green"]
+- Parallel group: [Group name and independent members, or "None"]
+- Human-verification focus: [The one journey, viewport, or interaction a reviewer should prioritize]
+
 ## Affected journeys
 
 Describe normal in-product navigation. Do not use direct route entry as the only evidence when a normal path should exist.
@@ -89,6 +101,8 @@ No-op decisions:
 Keep generated screenshots and browser traces outside the repository unless the issue explicitly requires committed fixtures.
 
 ## Verification
+
+Automated tests, typechecks, lint, and builds are supporting checks. They do not replace interactive browser evidence against the real configured application, and fake records or mock endpoints must not be presented as live acceptance.
 
 | Command or browser flow | Exit/result | Evidence or assertions |
 | --- | ---: | --- |
