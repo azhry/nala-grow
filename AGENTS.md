@@ -6,6 +6,7 @@
 - Make sure all the necessary tools and credentials work before taking task actions.
 - Do one task at a time. A task is complete only after implementation, verification, commit, push, PR handoff, and relevant tracker update are complete.
 - Preserve unrelated dirty files. Never stage, modify, discard, or overwrite another person's work.
+- Write verification scripts and verification command blocks in Bash (`bash`/`sh`) by default, including on Windows. Use Git Bash or WSL when available. Use PowerShell only when the user explicitly requests it or when the verification cannot run in Bash; document that exception. Manual verification must not use `set -o pipefail`, `set -e`, `set -Eeuo pipefail`, or another fail-fast wrapper that can terminate the interactive shell. Run steps independently, capture and print each target command's immediate exit status, and do not treat a wrapper's final exit code as evidence for an earlier command. Leave the terminal open after failures.
 
 ## Branches and publication
 
@@ -29,13 +30,15 @@ For a request containing a Linear issue ID such as `AZH-385`:
 3. Use the connected Linear tool such as Linear MCP. If it is not immediately visible, discover the available tools first.
 4. If the connected Linear tool is genuinely unavailable after discovery, immediately use the documented Linear API fallback. Use the official schema or documentation, load only the required credential without output, and never guess requests or bypass an authorization failure.
 5. Read the issue, relations, comments, project, and valid team statuses.
-6. If the description is incomplete, analyze it first and update it with the [Linear issue-description template](.agents/templates/linear-issue-description.md).
+6. If the description is incomplete, analyze it first and update it with the human-readable [Linear issue-description template](.agents/templates/linear-issue-description.md). Keep its top-level structure limited to TL;DR, Process Flow, Before-After, and Implementation Manual Test and Verification. Treat that template as a closed heading schema: copy only its headings in the same order; do not add headings or import sections from another template or repository. Put extra implementation detail in prose or lists under an existing heading, or in the agent-facing comment.
 7. A mockup, full HTML file, screenshot, or one-line request is reference material, not an implementation-ready task description. Before implementation, add the template's Category, confirmed code-backed analysis, scope boundaries, implementation plan, Definition of Done, and correctness checks to the Linear description.
 8. Preserve user-supplied reference material (including HTML, screenshots, designs, and examples) verbatim. Add the implementation contract around it; never replace, trim, or paraphrase the reference unless the user explicitly asks.
 9. The Linear update is a hard readiness gate: private reasoning, a todo list, a chat summary, or a code comment does not satisfy it. Verify the tracker mutation succeeded and re-read the description before creating a branch, editing implementation files, moving the issue active, or delegating implementation.
 10. Treat the completed issue description as the implementation contract. Only then begin implementation. For frontend work, also follow the frontend workflow and its delegation requirement.
 
 - For visual-reference work, UML sequence diagrams are the default for Process Flow, Before, and After. The readiness re-read must confirm the saved tracker rendering itself, exact inline-asset/source pairing, and that each artifact uses UML sequence notation with actors/participants as lifelines, directional messages, and return/activation markers. Only an explicit source request for another diagram type overrides this default; do not substitute a generic architecture, box, or flowchart diagram. API or text-presence counts alone do not satisfy the gate.
+- Before the readiness gate passes, validate the saved description against every heading and instruction in `.agents/templates/linear-issue-description.md`: require exactly the four top-level headings in the template's order, Step 0–4 under Implementation Manual Test and Verification, separate Bash verification blocks with per-step exit statuses, no bracketed placeholders/fake records/mocks, and explicit limitations for unrun live flows. API/text-presence counts alone do not establish template compliance.
+- Cross-repository guardrails do not transfer automatically: when a recommendation changes agent behavior, apply the equivalent local rule to this repository's `AGENTS.md` before the next task, or record an explicit exception and verify that the active repository already has an equivalent rule.
 
 ## Credentials and delivery preflight
 
