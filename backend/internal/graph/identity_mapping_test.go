@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
-	"github.com/google/uuid"
+	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEnsurePrincipalUserPersistsExternalIdentitySeparately(t *testing.T) {
-	userID := uuid.NewString()
+	userID := gouuid.NewString()
 	_, err := testPool.Exec(t.Context(), `INSERT INTO users (id, email, password_hash, display_name)
 		VALUES ($1, $2, $3, $4)`, userID, "identity-mapping@example.test", "legacy-hash", "")
 	require.NoError(t, err)
