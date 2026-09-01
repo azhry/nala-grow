@@ -8,6 +8,7 @@ type storedUser struct {
 	DisplayName    string
 	PhotoURL       string
 	CreatedAt      string
+	CasdoorIssuer  string
 	CasdoorSubject string
 	CasdoorOwner   string
 	Roles          []string

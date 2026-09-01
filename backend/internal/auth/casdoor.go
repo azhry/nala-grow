@@ -57,6 +57,7 @@ type CasdoorToken struct {
 // CasdoorPrincipal is the normalized identity and IAM data emitted by a
 // validated Casdoor token.
 type CasdoorPrincipal struct {
+	Issuer        string
 	Subject       string
 	Email         string
 	Name          string
@@ -509,6 +510,7 @@ func (c *CasdoorClient) ValidateAccessToken(ctx context.Context, rawToken string
 		return nil, ErrCasdoorTokenInvalid
 	}
 	principal := principalFromClaims(claims)
+	principal.Issuer = c.config.Issuer
 	if principal.Subject == "" || principal.Email == "" || !hasAnyClaim(claims, "roles", "Roles", "groups", "Groups", "permissions", "Permissions") {
 		discovery, discoveryErr := c.discoveryDocument(ctx)
 		if discoveryErr == nil && discovery.UserInfoEndpoint != "" {
@@ -516,10 +518,15 @@ func (c *CasdoorClient) ValidateAccessToken(ctx context.Context, rawToken string
 			if userinfoErr == nil {
 				claims = mergeClaims(claims, userinfo)
 				principal = principalFromClaims(claims)
+				principal.Issuer = c.config.Issuer
 			}
 		}
 	}
 	if principal.Subject == "" || principal.Email == "" || principal.IsForbidden {
+		return nil, ErrCasdoorTokenInvalid
+	}
+	if expectedOwner := strings.TrimSpace(c.config.Organization); expectedOwner != "" &&
+		principal.Owner != expectedOwner && principal.Organization != expectedOwner {
 		return nil, ErrCasdoorTokenInvalid
 	}
 	return principal, nil
