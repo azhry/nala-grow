@@ -54,12 +54,19 @@ BEGIN
     END IF;
 END $$;
 
-UPDATE public.users AS user_row
-SET casdoor_subject = identity.subject
-FROM public.user_identities AS identity
-WHERE identity.provider = 'casdoor'
-  AND identity.user_id = user_row.id
-  AND NULLIF(user_row.casdoor_subject, '') IS NULL;
+DO $$
+BEGIN
+    IF to_regclass('public.user_identities') IS NOT NULL THEN
+        EXECUTE $migration$
+            UPDATE public.users AS user_row
+            SET casdoor_subject = identity.subject
+            FROM public.user_identities AS identity
+            WHERE identity.provider = 'casdoor'
+              AND identity.user_id = user_row.id
+              AND NULLIF(user_row.casdoor_subject, '') IS NULL
+        $migration$;
+    END IF;
+END $$;
 
 DO $$
 BEGIN
