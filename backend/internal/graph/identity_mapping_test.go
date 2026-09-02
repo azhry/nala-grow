@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEnsurePrincipalUserPersistsExternalIdentitySeparately(t *testing.T) {
+func TestEnsurePrincipalUserPersistsCasdoorIdentityOnUser(t *testing.T) {
 	userID := gouuid.NewString()
 	_, err := testPool.Exec(t.Context(), `INSERT INTO users (id, email, password_hash, display_name)
 		VALUES ($1, $2, $3, $4)`, userID, "identity-mapping@example.test", "legacy-hash", "")
@@ -35,18 +35,23 @@ func TestEnsurePrincipalUserPersistsExternalIdentitySeparately(t *testing.T) {
 	require.Equal(t, "NalaGrow", mapped.CasdoorOwner)
 
 	var identityCount int
-	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM user_identities
-		WHERE user_id = $1 AND provider = 'casdoor' AND issuer = $2 AND subject = $3`,
-		userID, principal.Issuer, principal.Subject).Scan(&identityCount)
+	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM users
+		WHERE id = $1 AND casdoor_subject = $2`, userID, principal.Subject).Scan(&identityCount)
 	require.NoError(t, err)
 	require.Equal(t, 1, identityCount)
 
 	var directColumnCount int
 	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'public' AND table_name = 'users'
-		AND column_name IN ('casdoor_subject', 'casdoor_owner', 'roles', 'permissions', 'auth_provider')`).Scan(&directColumnCount)
+		AND column_name = 'casdoor_subject'`).Scan(&directColumnCount)
 	require.NoError(t, err)
-	require.Equal(t, 0, directColumnCount)
+	require.Equal(t, 1, directColumnCount)
+
+	var identityTableCount int
+	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name = 'user_identities'`).Scan(&identityTableCount)
+	require.NoError(t, err)
+	require.Equal(t, 0, identityTableCount)
 
 	principal.Roles = []string{"Admin"}
 	principal.Permissions = []string{"nala-grow-access", "admin:read"}
@@ -56,8 +61,8 @@ func TestEnsurePrincipalUserPersistsExternalIdentitySeparately(t *testing.T) {
 	require.Equal(t, []string{"Admin"}, mapped.Roles)
 	require.Equal(t, []string{"nala-grow-access", "admin:read"}, mapped.Permissions)
 
-	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM user_identities
-		WHERE user_id = $1 AND provider = 'casdoor' AND issuer = $2`, userID, principal.Issuer).Scan(&identityCount)
+	err = testPool.QueryRow(t.Context(), `SELECT count(*) FROM users
+		WHERE id = $1 AND casdoor_subject = $2`, userID, principal.Subject).Scan(&identityCount)
 	require.NoError(t, err)
 	require.Equal(t, 1, identityCount)
 }
