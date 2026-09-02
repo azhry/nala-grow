@@ -9,13 +9,19 @@
 export interface AuthUser {
   id: string
   email: string
-  displayName: string
-  photoUrl: string
-  createdAt: string
+  displayName?: string
+  photoUrl?: string
+  createdAt?: string
+  subject?: string | null
+  organization?: string | null
+  roles?: string[]
+  permissions?: string[]
 }
 
 export interface AuthResponse {
   token: string
+  refreshToken?: string | null
+  expiresIn?: number | null
   user: AuthUser
 }
 
