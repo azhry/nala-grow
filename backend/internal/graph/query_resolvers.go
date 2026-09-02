@@ -11,7 +11,7 @@ func (h *Handler) resolveHealthResult(context.Context, map[string]interface{}) E
 }
 
 func (h *Handler) resolveMeResult(ctx context.Context, _ map[string]interface{}) ExecResult {
-	userID, _, authResult := authenticatedPrincipal(ctx, h)
+	userID, principal, authResult := authenticatedPrincipal(ctx, h)
 	if authResult.Errors != nil {
 		return authResult
 	}
@@ -23,13 +23,8 @@ func (h *Handler) resolveMeResult(ctx context.Context, _ map[string]interface{})
 	if createdAt == "" {
 		createdAt = time.Now().UTC().Format(time.RFC3339)
 	}
-	return ExecResult{Data: map[string]interface{}{"me": map[string]interface{}{
-		"id": userID, "email": u.Email, "displayName": u.DisplayName,
-		"photoUrl": u.PhotoURL, "createdAt": createdAt,
-		"subject": u.CasdoorSubject, "organization": u.CasdoorOwner,
-		"casdoorSubject": u.CasdoorSubject, "casdoorOwner": u.CasdoorOwner,
-		"roles": u.Roles, "permissions": u.Permissions, "authProvider": u.AuthProvider,
-	}}}
+	u.CreatedAt = createdAt
+	return ExecResult{Data: map[string]interface{}{"me": authUserMap(userID, u, principal)}}
 }
 
 func (h *Handler) resolveBabiesResult(ctx context.Context, _ map[string]interface{}) ExecResult {

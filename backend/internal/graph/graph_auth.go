@@ -39,9 +39,9 @@ func loadUserByID(ctx context.Context, pool *pgxpool.Pool, id string) (storedUse
 	var user storedUser
 	err := pool.QueryRow(ctx, userByIDQuery(), id).Scan(
 		&user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
-		&user.CreatedAt, &user.CasdoorIssuer, &user.CasdoorSubject, &user.CasdoorOwner,
-		&user.Roles, &user.Permissions, &user.AuthProvider,
+		&user.CreatedAt, &user.CasdoorSubject,
 	)
+	normalizeStoredUser(&user)
 	return user, err
 }
 
@@ -50,9 +50,9 @@ func loadUserByEmail(ctx context.Context, pool *pgxpool.Pool, email string) (str
 	var user storedUser
 	err := pool.QueryRow(ctx, userByEmailQuery(), email).Scan(
 		&id, &user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
-		&user.CreatedAt, &user.CasdoorIssuer, &user.CasdoorSubject, &user.CasdoorOwner,
-		&user.Roles, &user.Permissions, &user.AuthProvider,
+		&user.CreatedAt, &user.CasdoorSubject,
 	)
+	normalizeStoredUser(&user)
 	return id, user, err
 }
 
@@ -93,23 +93,19 @@ func ensurePrincipalUser(ctx context.Context, h *Handler, principal *auth.Princi
 
 	var userID string
 	var user storedUser
-	query := `SELECT u.id::text, u.email, COALESCE(u.password_hash, ''), u.display_name, u.photo_url,
-		 u.created_at::text, identity.issuer, identity.subject, identity.owner,
-		 COALESCE(identity.roles, ARRAY[]::text[]), COALESCE(identity.permissions, ARRAY[]::text[]), identity.provider
-		FROM user_identities identity
-		JOIN users u ON u.id = identity.user_id
-		WHERE identity.provider = 'casdoor' AND identity.issuer = $1 AND identity.subject = $2
-		FOR UPDATE OF u, identity`
-	err = tx.QueryRow(ctx, query, issuer, principal.Subject).Scan(
+	query := `SELECT id::text, email, COALESCE(password_hash, ''), display_name, photo_url,
+		created_at::text, casdoor_subject
+		FROM users
+		WHERE casdoor_subject = $1
+		FOR UPDATE`
+	err = tx.QueryRow(ctx, query, principal.Subject).Scan(
 		&userID, &user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
-		&user.CreatedAt, &user.CasdoorIssuer, &user.CasdoorSubject, &user.CasdoorOwner,
-		&user.Roles, &user.Permissions, &user.AuthProvider,
+		&user.CreatedAt, &user.CasdoorSubject,
 	)
 	if err == pgx.ErrNoRows {
 		err = tx.QueryRow(ctx, queryForUserByEmail(), strings.ToLower(strings.TrimSpace(principal.Email))).Scan(
 			&userID, &user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
-			&user.CreatedAt, &user.CasdoorIssuer, &user.CasdoorSubject, &user.CasdoorOwner,
-			&user.Roles, &user.Permissions, &user.AuthProvider,
+			&user.CreatedAt, &user.CasdoorSubject,
 		)
 		if err == pgx.ErrNoRows {
 			userID = uuid()
@@ -117,12 +113,12 @@ func ensurePrincipalUser(ctx context.Context, h *Handler, principal *auth.Princi
 			if hashErr != nil {
 				return "", storedUser{}, fmt.Errorf("generate unusable local password: %w", hashErr)
 			}
-			err = tx.QueryRow(ctx, `INSERT INTO users (id, email, password_hash, display_name)
-				VALUES ($1, $2, $3, $4)
-				RETURNING email, password_hash, display_name, photo_url, created_at::text`,
-				userID, strings.ToLower(strings.TrimSpace(principal.Email)), unusableHash, displayName).Scan(
+			err = tx.QueryRow(ctx, `INSERT INTO users (id, email, password_hash, display_name, casdoor_subject)
+				VALUES ($1, $2, $3, $4, $5)
+				RETURNING email, password_hash, display_name, photo_url, created_at::text, casdoor_subject`,
+				userID, strings.ToLower(strings.TrimSpace(principal.Email)), unusableHash, displayName, principal.Subject).Scan(
 				&user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
-				&user.CreatedAt,
+				&user.CreatedAt, &user.CasdoorSubject,
 			)
 		}
 	}
@@ -139,22 +135,7 @@ func ensurePrincipalUser(ctx context.Context, h *Handler, principal *auth.Princi
 		}
 	}
 	if user.CasdoorSubject == "" {
-		_, err = tx.Exec(ctx, `INSERT INTO user_identities
-			(user_id, provider, issuer, subject, owner, email, roles, permissions)
-			VALUES ($1, 'casdoor', $2, $3, $4, $5, $6, $7)`,
-			userID, issuer, principal.Subject, owner, strings.ToLower(strings.TrimSpace(principal.Email)), roles, permissions)
-	} else if user.CasdoorIssuer == "legacy" {
-		_, err = tx.Exec(ctx, `UPDATE user_identities
-			SET issuer = $2, owner = $3, email = $4, roles = $5, permissions = $6, updated_at = NOW()
-			WHERE user_id = $1 AND provider = 'casdoor' AND subject = $7`,
-			userID, issuer, owner, strings.ToLower(strings.TrimSpace(principal.Email)), roles, permissions, principal.Subject)
-	} else if user.CasdoorIssuer == issuer {
-		_, err = tx.Exec(ctx, `UPDATE user_identities
-			SET owner = $2, email = $3, roles = $4, permissions = $5, updated_at = NOW()
-			WHERE user_id = $1 AND provider = 'casdoor' AND issuer = $6 AND subject = $7`,
-			userID, owner, strings.ToLower(strings.TrimSpace(principal.Email)), roles, permissions, issuer, principal.Subject)
-	} else {
-		return "", storedUser{}, fmt.Errorf("email is linked to another identity issuer")
+		_, err = tx.Exec(ctx, `UPDATE users SET casdoor_subject = $2 WHERE id = $1`, userID, principal.Subject)
 	}
 	if err != nil {
 		return "", storedUser{}, err
@@ -194,32 +175,25 @@ func queryForUserByEmail() string {
 }
 
 func userByIDQuery() string {
-	return `SELECT ` + userColumns() + ` FROM users u
-		LEFT JOIN LATERAL (
-			SELECT subject, owner, roles, permissions, provider
-			FROM user_identities
-			WHERE user_id = u.id
-			ORDER BY CASE WHEN provider = 'casdoor' THEN 0 ELSE 1 END, created_at
-			LIMIT 1
-		) identity ON TRUE WHERE u.id = $1`
+	return `SELECT u.email, COALESCE(u.password_hash, ''), u.display_name, u.photo_url,
+		u.created_at::text, u.casdoor_subject FROM users u WHERE u.id = $1`
 }
 
 func userByEmailQuery() string {
-	return `SELECT u.id::text, ` + userColumns() + ` FROM users u
-		LEFT JOIN LATERAL (
-			SELECT subject, owner, roles, permissions, provider
-			FROM user_identities
-			WHERE user_id = u.id
-			ORDER BY CASE WHEN provider = 'casdoor' THEN 0 ELSE 1 END, created_at
-			LIMIT 1
-		) identity ON TRUE WHERE lower(u.email) = lower($1)`
+	return `SELECT u.id::text, u.email, COALESCE(u.password_hash, ''), u.display_name, u.photo_url,
+		u.created_at::text, u.casdoor_subject FROM users u WHERE lower(u.email) = lower($1)`
 }
 
-func userColumns() string {
-	return `u.email, COALESCE(u.password_hash, ''), u.display_name, u.photo_url,
-		u.created_at::text, COALESCE(identity.issuer, ''), COALESCE(identity.subject, ''), COALESCE(identity.owner, ''),
-		COALESCE(identity.roles, ARRAY['Parent']::text[]),
-		COALESCE(identity.permissions, ARRAY[]::text[]), COALESCE(identity.provider, 'local')`
+func normalizeStoredUser(user *storedUser) {
+	if user.CasdoorSubject == "" {
+		user.AuthProvider = "local"
+		user.Roles = []string{"Parent"}
+		user.Permissions = []string{"*"}
+		return
+	}
+	user.AuthProvider = "casdoor"
+	user.Roles = []string{"Parent"}
+	user.Permissions = []string{"*"}
 }
 
 func emailLocalPart(email string) string {
@@ -235,14 +209,39 @@ func authResult(operation, token, refreshToken string, expiresIn int, userID str
 	if createdAt == "" {
 		createdAt = time.Now().UTC().Format(time.RFC3339)
 	}
+	user.CreatedAt = createdAt
 	return ExecResult{Data: map[string]interface{}{operation: map[string]interface{}{
 		"token": token, "refreshToken": refreshToken, "expiresIn": expiresIn,
-		"user": map[string]interface{}{
-			"id": userID, "email": user.Email, "displayName": user.DisplayName,
-			"photoUrl": user.PhotoURL, "createdAt": createdAt,
-			"subject": user.CasdoorSubject, "organization": user.CasdoorOwner,
-			"casdoorSubject": user.CasdoorSubject, "casdoorOwner": user.CasdoorOwner,
-			"roles": user.Roles, "permissions": user.Permissions, "authProvider": user.AuthProvider,
-		},
+		"user": authUserMap(userID, user, nil),
 	}}}
+}
+
+func authUserMap(userID string, user storedUser, principal *auth.Principal) map[string]interface{} {
+	if principal != nil {
+		if principal.Local {
+			user.CasdoorIssuer = ""
+			user.CasdoorSubject = ""
+			user.CasdoorOwner = ""
+			user.Roles = []string{"Parent"}
+			user.Permissions = []string{"*"}
+			user.AuthProvider = "local"
+		} else {
+			user.CasdoorIssuer = principal.Issuer
+			user.CasdoorSubject = principal.Subject
+			user.CasdoorOwner = principal.Owner
+			if user.CasdoorOwner == "" {
+				user.CasdoorOwner = principal.Organization
+			}
+			user.Roles = append([]string(nil), principal.Roles...)
+			user.Permissions = append([]string(nil), principal.Permissions...)
+			user.AuthProvider = "casdoor"
+		}
+	}
+	return map[string]interface{}{
+		"id": userID, "email": user.Email, "displayName": user.DisplayName,
+		"photoUrl": user.PhotoURL, "createdAt": user.CreatedAt,
+		"subject": user.CasdoorSubject, "organization": user.CasdoorOwner,
+		"casdoorSubject": user.CasdoorSubject, "casdoorOwner": user.CasdoorOwner,
+		"roles": user.Roles, "permissions": user.Permissions, "authProvider": user.AuthProvider,
+	}
 }
