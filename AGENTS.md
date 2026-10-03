@@ -86,3 +86,7 @@ For a request containing a Linear issue ID such as `AZH-385`:
 - For API, authentication, persistence, migration, or infrastructure work, the handoff must include copy-pasteable manual request/response steps against the real configured service or a command that creates the real fixture. Committed persistence-bound tests must not use fakes, mocks, or in-memory stores as proof of real behavior.
 - Before declaring Vault, Casdoor, PostgreSQL, or another configured runtime dependency unavailable, inspect the relevant project knowledge and use the available read-only `nala-infra` capability when present. Distinguish a rejected credential from an unavailable service and from an undeployed application endpoint.
 - Before staging and again before handoff, inspect `git status --short` and preserve unrelated files. Put generated screenshots, browser traces, lint captures, and other diagnostics outside the repository or in an ignored temporary directory; remove only artifacts created by the current task.
+
+## Log diagnostics
+
+When diagnosing NalaGrow failures, inspect the current application log and rotated backups described in [logging knowledge](.agents/knowledge/logging.md). Check the process working directory and NALA_LOG_FILE if the default file is missing. Do not add tokens, authorization headers, command arguments, or request bodies to logs.
