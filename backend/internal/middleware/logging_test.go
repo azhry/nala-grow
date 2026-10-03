@@ -110,9 +110,7 @@ func TestRequestLoggerCorrelatesErrorAndOmitsConcretePathAndQuery(t *testing.T) 
 		t.Fatalf("request ID was missing or accepted from the client: %q", requestID)
 	}
 	var record map[string]any
-	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &record); err != nil {
-		t.Fatalf("request log is not valid JSON: %v (%q)", err, output.String())
-	}
+	record = lastMiddlewareLogRecord(t, output.String())
 	if record["request_id"] != requestID || record["route"] != "/items/{id}" || record["method"] != http.MethodGet {
 		t.Fatalf("correlation fields = %#v", record)
 	}
@@ -141,10 +139,21 @@ func TestRequestLoggerClassifiesGraphQLErrorsWithHTTP200(t *testing.T) {
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/graphql", nil))
 
 	var record map[string]any
-	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &record); err != nil {
-		t.Fatalf("request log is not valid JSON: %v (%q)", err, output.String())
-	}
+	record = lastMiddlewareLogRecord(t, output.String())
 	if record["status"] != float64(http.StatusOK) || record["graphql_error_count"] != float64(2) || record["error_class"] != "graphql_operation_error" {
 		t.Fatalf("GraphQL diagnostic fields = %#v", record)
 	}
+}
+
+func lastMiddlewareLogRecord(t *testing.T, output string) map[string]any {
+	t.Helper()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		t.Fatalf("structured log record is missing: %q", output)
+	}
+	var record map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &record); err != nil {
+		t.Fatalf("last request log is not a JSON record: %v (%q)", err, output)
+	}
+	return record
 }

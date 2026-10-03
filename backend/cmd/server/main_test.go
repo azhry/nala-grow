@@ -188,7 +188,10 @@ func TestGraphQLEndpointLogsMalformedBodyWithoutRawRequest(t *testing.T) {
 	rawBody := `{"query":"query Health { health }","password":"raw-password"}`
 	req := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(rawBody[:len(rawBody)-1]))
 	recorder := httptest.NewRecorder()
-	graphqlEndpoint(graph.NewHandler(nil, auth.NewService("test-secret"))).ServeHTTP(recorder, req)
+	router := chi.NewRouter()
+	router.Use(middleware.RequestLogger)
+	router.Post("/graphql", graphqlEndpoint(graph.NewHandler(nil, auth.NewService("test-secret"))))
+	router.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)

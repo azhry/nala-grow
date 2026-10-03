@@ -103,8 +103,12 @@ func TestRecoveryLogsCorrelatedPanicTypeWithoutValueOrStack(t *testing.T) {
 		t.Fatalf("panic response status = %d", response.Code)
 	}
 	var record map[string]any
-	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &record); err != nil {
-		t.Fatalf("panic log is not valid JSON: %v (%q)", err, output.String())
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) == 0 || lines[len(lines)-1] == "" {
+		t.Fatalf("panic request log is missing: %q", output.String())
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &record); err != nil {
+		t.Fatalf("last panic log is not valid JSON: %v (%q)", err, output.String())
 	}
 	if record["status"] != float64(http.StatusInternalServerError) || record["error_code"] != "panic" || record["panic_type"] != "string" {
 		t.Fatalf("panic fields = %#v", record)

@@ -25,6 +25,7 @@ func graphqlEndpoint(handler *graph.Handler) http.HandlerFunc {
 		}
 		if r.Method != http.MethodPost {
 			middleware.SetErrorCode(r.Context(), "method_not_allowed")
+			middleware.LogEndpointFailure(r.Context(), http.StatusMethodNotAllowed, "method_dispatch", "method_not_allowed", "client_error", "")
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 			return
 		}
@@ -32,15 +33,15 @@ func graphqlEndpoint(handler *graph.Handler) http.HandlerFunc {
 		var req graphqlRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			middleware.SetErrorCode(r.Context(), "invalid_request_body")
-			slog.WarnContext(r.Context(), "GraphQL request rejected",
-				"request_id", middleware.RequestIDFromContext(r.Context()),
-				"error_code", "invalid_request_body",
-			)
+			middleware.LogEndpointFailure(r.Context(), http.StatusBadRequest, "request_decode", "invalid_request_body", "client_error", "")
 			writeError(w, "invalid request body")
 			return
 		}
 
 		result := handler.Execute(r.Context(), req.Query, req.Variables)
+		if len(result.Errors) > 0 && !middleware.EndpointFailureLogged(r.Context()) {
+			middleware.LogEndpointFailure(r.Context(), http.StatusOK, "graphql_execution", "graphql_operation_failed", "graphql_operation_error", "")
+		}
 		logGraphQLRequest(r.Context(), req.Query, result)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -63,7 +64,11 @@ func logGraphQLRequest(ctx context.Context, query string, response graph.ExecRes
 		attrs = append(attrs, "request_id", requestID)
 	}
 	if errorCount > 0 {
-		attrs = append(attrs, "error_class", "graphql_operation_error")
+		attrs = append(attrs,
+			"error_class", "graphql_operation_error",
+			"failure_stage", "graphql_execution",
+			"error_code", "graphql_operation_failed",
+		)
 		slog.ErrorContext(ctx, "graphql request", attrs...)
 		return
 	}

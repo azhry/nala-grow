@@ -16,10 +16,12 @@ import (
 type requestDiagnosticKey struct{}
 
 type requestDiagnosticState struct {
-	requestID     string
-	errorCode     string
-	panicType     string
-	graphqlErrors int
+	requestID             string
+	method                string
+	errorCode             string
+	panicType             string
+	graphqlErrors         int
+	endpointFailureLogged atomic.Bool
 }
 
 type responseWriter struct {
@@ -59,7 +61,7 @@ func (rw *responseWriter) Flush() {
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
-		state := &requestDiagnosticState{requestID: newRequestID()}
+		state := &requestDiagnosticState{requestID: newRequestID(), method: r.Method}
 		ctx := context.WithValue(r.Context(), requestDiagnosticKey{}, state)
 		r = r.WithContext(ctx)
 		rw := &responseWriter{ResponseWriter: w}
@@ -69,6 +71,13 @@ func RequestLogger(next http.Handler) http.Handler {
 		status := rw.status
 		if status == 0 {
 			status = http.StatusOK
+		}
+		if status >= http.StatusBadRequest && !state.endpointFailureLogged.Load() {
+			code := state.errorCode
+			if code == "" {
+				code = fallbackErrorCode(status)
+			}
+			LogEndpointFailure(r.Context(), status, fallbackFailureStage(status, code), code, errorClassForStatus(status), "")
 		}
 		route := routeTemplate(r.Context())
 		attrs := []any{
@@ -106,11 +115,48 @@ func RequestLogger(next http.Handler) http.Handler {
 	})
 }
 
+// LogEndpointFailure records safe diagnostics at a handler or resolver error
+// boundary. It intentionally omits request values, query text, and raw errors.
+func LogEndpointFailure(ctx context.Context, status int, stage, code, errorClass, field string) {
+	state, ok := ctx.Value(requestDiagnosticKey{}).(*requestDiagnosticState)
+	if !ok || state == nil {
+		return
+	}
+	state.endpointFailureLogged.Store(true)
+	attrs := []any{
+		"event", "endpoint_error",
+		"request_id", state.requestID,
+		"method", state.method,
+		"route", routeTemplate(ctx),
+		"status", status,
+		"failure_stage", stage,
+		"error_class", errorClass,
+	}
+	if safeCode := safeDiagnosticCode(code); safeCode != "" {
+		attrs = append(attrs, "error_code", safeCode)
+	}
+	if safeField := safeDiagnosticCode(field); safeField != "" {
+		attrs = append(attrs, "field", safeField)
+	}
+	if status >= http.StatusInternalServerError || errorClass == "resolver_error" || errorClass == "dependency_error" || status < http.StatusBadRequest {
+		slog.ErrorContext(ctx, "API endpoint failed", attrs...)
+		return
+	}
+	slog.WarnContext(ctx, "API endpoint failed", attrs...)
+}
+
 func RequestIDFromContext(ctx context.Context) string {
 	if state, ok := ctx.Value(requestDiagnosticKey{}).(*requestDiagnosticState); ok && state != nil {
 		return state.requestID
 	}
 	return ""
+}
+
+func EndpointFailureLogged(ctx context.Context) bool {
+	if state, ok := ctx.Value(requestDiagnosticKey{}).(*requestDiagnosticState); ok && state != nil {
+		return state.endpointFailureLogged.Load()
+	}
+	return false
 }
 
 func SetErrorCode(ctx context.Context, code string) {
@@ -163,6 +209,45 @@ func safePanicType(value string) string {
 		}
 	}
 	return value
+}
+
+func errorClassForStatus(status int) string {
+	if status >= http.StatusInternalServerError {
+		return "server_error"
+	}
+	return "client_error"
+}
+
+func fallbackErrorCode(status int) string {
+	switch status {
+	case http.StatusNotFound:
+		return "route_not_found"
+	case http.StatusMethodNotAllowed:
+		return "method_not_allowed"
+	default:
+		return "http_error"
+	}
+}
+
+func fallbackFailureStage(status int, code string) string {
+	switch {
+	case code == "panic":
+		return "panic_recovery"
+	case status == http.StatusUnauthorized:
+		return "authentication"
+	case status == http.StatusForbidden:
+		return "authorization"
+	case status == http.StatusNotFound:
+		return "route_dispatch"
+	case status == http.StatusMethodNotAllowed:
+		return "method_dispatch"
+	case status == http.StatusBadRequest:
+		return "request_validation"
+	case status >= http.StatusInternalServerError:
+		return "server_operation"
+	default:
+		return "endpoint_response"
+	}
 }
 
 var fallbackRequestID atomic.Uint64
