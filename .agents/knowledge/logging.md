@@ -4,7 +4,8 @@
 
 - Default: logs/nala-grow.log.
 - NALA_LOG_FILE overrides the default path.
-- Backend log paths are relative to the process working directory and are mirrored to stdout. Request records include method, path, status, and duration; GraphQL fields are sanitized before logging.
+- Backend log paths are relative to the process working directory and are mirrored to stdout. Every HTTP request gets a server-generated `X-Request-ID` and a JSON trace with `request_id`, `method`, matched `route` template, `status`, `duration_ms`, and `response_bytes`. Error traces include safe `error_code` or `error_class`; panic traces include only the panic type.
+- GraphQL events share the HTTP request ID and include operation type/name, `error_count`, and whether data was returned. Use the response's `X-Request-ID` to correlate both records. Logs omit query text, variables, response data, credentials, raw error values, panic values, and stack traces.
 
 
 ## Rotation

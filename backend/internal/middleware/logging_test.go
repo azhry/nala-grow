@@ -1,14 +1,24 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRequestLogger(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
 	t.Run("logs and passes through to handler", func(t *testing.T) {
 		var handlerCalled bool
 		handler := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,4 +86,65 @@ func TestRequestLogger(t *testing.T) {
 		rw.WriteHeader(http.StatusTeapot)
 		assert.Equal(t, http.StatusTeapot, rw.status)
 	})
+}
+
+func TestRequestLoggerCorrelatesErrorAndOmitsConcretePathAndQuery(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Get("/items/{id}", func(w http.ResponseWriter, r *http.Request) {
+		SetErrorCode(r.Context(), "item_not_found")
+		http.Error(w, "not found", http.StatusNotFound)
+	})
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/items/private-id?access_token=private-token", nil)
+	request.Header.Set("X-Request-ID", "client-supplied-id")
+	router.ServeHTTP(response, request)
+
+	requestID := response.Header().Get("X-Request-ID")
+	if requestID == "" || requestID == "client-supplied-id" {
+		t.Fatalf("request ID was missing or accepted from the client: %q", requestID)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &record); err != nil {
+		t.Fatalf("request log is not valid JSON: %v (%q)", err, output.String())
+	}
+	if record["request_id"] != requestID || record["route"] != "/items/{id}" || record["method"] != http.MethodGet {
+		t.Fatalf("correlation fields = %#v", record)
+	}
+	if record["status"] != float64(http.StatusNotFound) || record["error_code"] != "item_not_found" || record["error_class"] != "client_error" {
+		t.Fatalf("error fields = %#v", record)
+	}
+	if record["duration_ms"] == nil || record["response_bytes"] == nil {
+		t.Fatalf("duration/response size missing: %#v", record)
+	}
+	if strings.Contains(output.String(), "private-id") || strings.Contains(output.String(), "access_token") || strings.Contains(output.String(), "private-token") {
+		t.Fatalf("concrete path or query data leaked into log: %q", output.String())
+	}
+}
+
+func TestRequestLoggerClassifiesGraphQLErrorsWithHTTP200(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	handler := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		SetGraphQLErrorCount(r.Context(), 2)
+		w.WriteHeader(http.StatusOK)
+	}))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/graphql", nil))
+
+	var record map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &record); err != nil {
+		t.Fatalf("request log is not valid JSON: %v (%q)", err, output.String())
+	}
+	if record["status"] != float64(http.StatusOK) || record["graphql_error_count"] != float64(2) || record["error_class"] != "graphql_operation_error" {
+		t.Fatalf("GraphQL diagnostic fields = %#v", record)
+	}
 }

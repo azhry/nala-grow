@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azhry/nala-grow/backend/internal/middleware"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -396,7 +397,11 @@ func (h *Handler) resolveCreateFeedingSessionResult(ctx context.Context, variabl
 	}
 	session := FeedingSession{ID: uuid(), BabyID: babyID, FeedType: feedType, StartedAt: feedingStartedAt(variables), EndedAt: getVar(variables, "endedAt"), LeftDurationSec: getVarInt(variables, "leftDurationSec"), RightDurationSec: getVarInt(variables, "rightDurationSec"), AmountML: getVarFloat(variables, "amountMl"), MilkType: getVar(variables, "milkType"), FoodName: getVar(variables, "foodName"), Reaction: getVar(variables, "reaction"), Temperature: feedingString(variables, "temperature"), Quantity: feedingQuantity(variables), QuantityUnit: feedingString(variables, "quantityUnit"), Notes: getVar(variables, "notes"), CreatedAt: time.Now().UTC().Format(time.RFC3339)}
 	if err := insertFeedingSession(ctx, h.db, session); err != nil {
-		slog.Error("could not save feeding session", "error", err)
+		slog.ErrorContext(ctx, "GraphQL resolver failed",
+			"request_id", middleware.RequestIDFromContext(ctx),
+			"operation", "create_feeding_session",
+			"error_class", "persistence_failure",
+		)
 		return ExecResult{Errors: []GraphQLError{{Message: "could not save feeding session"}}}
 	}
 	return ExecResult{Data: map[string]interface{}{"createFeedingSession": feedingSessionToMap(session)}}
