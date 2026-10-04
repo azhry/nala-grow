@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/azhry/nala-grow/backend/internal/db"
 	"github.com/azhry/nala-grow/backend/internal/graph"
 	"github.com/azhry/nala-grow/backend/internal/health"
+	"github.com/azhry/nala-grow/backend/internal/logging"
 	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
@@ -28,7 +31,10 @@ import (
 const defaultListenHost = "0.0.0.0"
 
 func main() {
-	logger := slog.New(newGraphQLLogHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	rotatingWriter := logging.NewWriter(filepath.Join("logs", "nala-grow.log"))
+	defer rotatingWriter.Close()
+	output := io.MultiWriter(os.Stdout, rotatingWriter)
+	logger := slog.New(newGraphQLLogHandler(output, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	cfg, err := loadRuntimeConfig()

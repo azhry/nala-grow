@@ -4,16 +4,17 @@ go 1.25.0
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/graphql-go/graphql v0.8.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/google/uuid v1.6.0
+	github.com/graphql-go/graphql v0.8.1
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/rs/cors v1.11.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	golang.org/x/crypto v0.53.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

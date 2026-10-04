@@ -1,21 +1,46 @@
 package graph
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
-func resolverValue(result ExecResult, field string) (interface{}, error) {
+func resolverValue(ctx context.Context, result ExecResult, field string) (interface{}, error) {
 	if len(result.Errors) > 0 {
-		return nil, errors.New(result.Errors[0].Message)
+		message := result.Errors[0].Message
+		stage, code, class := resolverFailureDiagnostics(message)
+		middleware.LogEndpointFailure(ctx, http.StatusOK, stage, code, class, field)
+		return nil, errors.New(message)
 	}
 	if data, ok := result.Data.(map[string]interface{}); ok {
 		return data[field], nil
 	}
 	return result.Data, nil
+}
+
+func resolverFailureDiagnostics(message string) (string, string, string) {
+	message = strings.ToLower(message)
+	switch {
+	case strings.Contains(message, "not authenticated") || strings.Contains(message, "invalid email or password"):
+		return "authentication", "authentication_failed", "client_error"
+	case strings.Contains(message, "required") || strings.Contains(message, "invalid") || strings.Contains(message, "unsupported"):
+		return "request_validation", "resolver_input_invalid", "client_error"
+	case strings.Contains(message, "not found"):
+		return "resource_lookup", "resource_not_found", "client_error"
+	case strings.Contains(message, "unavailable"):
+		return "dependency", "dependency_unavailable", "dependency_error"
+	case strings.Contains(message, "could not") || strings.Contains(message, "failed"):
+		return "resolver_operation", "resolver_operation_failed", "dependency_error"
+	default:
+		return "resolver", "resolver_failed", "resolver_error"
+	}
 }
 
 func normalizeGraphQLData(value interface{}) interface{} {

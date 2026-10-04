@@ -1,19 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
-	"unicode"
 
 	"github.com/azhry/nala-grow/backend/internal/graph"
-)
-
-const (
-	graphqlLogMaxStringLength = 4096
-	graphqlLogTruncation      = "...[truncated]"
-	graphqlLogRedacted        = "[REDACTED]"
+	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
 type graphqlRequest struct {
@@ -29,34 +24,55 @@ func graphqlEndpoint(handler *graph.Handler) http.HandlerFunc {
 			return
 		}
 		if r.Method != http.MethodPost {
+			middleware.SetErrorCode(r.Context(), "method_not_allowed")
+			middleware.LogEndpointFailure(r.Context(), http.StatusMethodNotAllowed, "method_dispatch", "method_not_allowed", "client_error", "")
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 			return
 		}
 
 		var req graphqlRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			slog.Warn("graphql request", "error", "invalid request body")
+			middleware.SetErrorCode(r.Context(), "invalid_request_body")
+			middleware.LogEndpointFailure(r.Context(), http.StatusBadRequest, "request_decode", "invalid_request_body", "client_error", "")
 			writeError(w, "invalid request body")
 			return
 		}
 
 		result := handler.Execute(r.Context(), req.Query, req.Variables)
-		logGraphQLRequest(req.Query, req.Variables, result)
+		if len(result.Errors) > 0 && !middleware.EndpointFailureLogged(r.Context()) {
+			middleware.LogEndpointFailure(r.Context(), http.StatusOK, "graphql_execution", "graphql_operation_failed", "graphql_operation_error", "")
+		}
+		logGraphQLRequest(r.Context(), req.Query, result)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
-func logGraphQLRequest(query string, variables map[string]interface{}, response graph.ExecResult) {
+func logGraphQLRequest(ctx context.Context, query string, response graph.ExecResult) {
 	operationType, operationName := graphqlOperationMetadata(query)
-	slog.Info("graphql request",
+	errorCount := len(response.Errors)
+	middleware.SetGraphQLErrorCount(ctx, errorCount)
+
+	attrs := []any{
 		"operation_type", operationType,
 		"operation_name", operationName,
-		"query", sanitizeGraphQLQuery(query),
-		"variables", sanitizeGraphQLLogValue(variables),
-		"response", sanitizeGraphQLLogValue(response),
-	)
+		"error_count", errorCount,
+		"has_data", response.Data != nil,
+	}
+	if requestID := middleware.RequestIDFromContext(ctx); requestID != "" {
+		attrs = append(attrs, "request_id", requestID)
+	}
+	if errorCount > 0 {
+		attrs = append(attrs,
+			"error_class", "graphql_operation_error",
+			"failure_stage", "graphql_execution",
+			"error_code", "graphql_operation_failed",
+		)
+		slog.ErrorContext(ctx, "graphql request", attrs...)
+		return
+	}
+	slog.InfoContext(ctx, "graphql request", attrs...)
 }
 
 func graphqlOperationMetadata(query string) (string, string) {
@@ -105,107 +121,4 @@ func isGraphQLNameStart(char byte) bool {
 
 func isGraphQLNameContinue(char byte) bool {
 	return isGraphQLNameStart(char) || char >= '0' && char <= '9'
-}
-
-func sanitizeGraphQLQuery(query string) string {
-	var sanitized strings.Builder
-	for index := 0; index < len(query); {
-		switch {
-		case query[index] == '#':
-			sanitized.WriteString("# [REDACTED]")
-			for index < len(query) && query[index] != '\n' {
-				index++
-			}
-		case strings.HasPrefix(query[index:], `"""`):
-			sanitized.WriteString(`"""[REDACTED]"""`)
-			index += 3
-			for index < len(query) && !strings.HasPrefix(query[index:], `"""`) {
-				index++
-			}
-			if index < len(query) {
-				index += 3
-			}
-		case query[index] == '"':
-			sanitized.WriteString(`"[REDACTED]"`)
-			index++
-			for index < len(query) {
-				if query[index] == '\\' {
-					index += 2
-					continue
-				}
-				if query[index] == '"' {
-					index++
-					break
-				}
-				index++
-			}
-		default:
-			sanitized.WriteByte(query[index])
-			index++
-		}
-	}
-	return truncateGraphQLString(sanitized.String())
-}
-
-func sanitizeGraphQLLogValue(value interface{}) interface{} {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return "[UNSERIALIZABLE]"
-	}
-
-	var normalized interface{}
-	if err := json.Unmarshal(encoded, &normalized); err != nil {
-		return "[UNSERIALIZABLE]"
-	}
-	return sanitizeGraphQLJSONValue(normalized)
-}
-
-func sanitizeGraphQLJSONValue(value interface{}) interface{} {
-	switch value := value.(type) {
-	case map[string]interface{}:
-		sanitized := make(map[string]interface{}, len(value))
-		for key, nested := range value {
-			if isSensitiveGraphQLKey(key) {
-				sanitized[key] = graphqlLogRedacted
-				continue
-			}
-			sanitized[key] = sanitizeGraphQLJSONValue(nested)
-		}
-		return sanitized
-	case []interface{}:
-		sanitized := make([]interface{}, len(value))
-		for index, nested := range value {
-			sanitized[index] = sanitizeGraphQLJSONValue(nested)
-		}
-		return sanitized
-	case string:
-		return truncateGraphQLString(value)
-	default:
-		return value
-	}
-}
-
-func isSensitiveGraphQLKey(key string) bool {
-	var normalized strings.Builder
-	for _, char := range strings.ToLower(key) {
-		if unicode.IsLetter(char) {
-			normalized.WriteRune(char)
-		}
-	}
-	key = normalized.String()
-	for _, sensitivePart := range []string{"password", "token", "secret", "authorization", "cookie"} {
-		if strings.Contains(key, sensitivePart) {
-			return true
-		}
-	}
-	return false
-}
-
-func truncateGraphQLString(value string) string {
-	runes := []rune(value)
-	if len(runes) <= graphqlLogMaxStringLength {
-		return value
-	}
-	limit := graphqlLogMaxStringLength - len([]rune(graphqlLogTruncation))
-	return string(runes[:limit]) + graphqlLogTruncation
 }
