@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestGraphQLResolverFailureLogsCorrelatedFieldWithoutQueryData(t *testing.T) {
+func TestGraphQLResolverFailureLogsCorrelatedFieldWithSafeResponseDetails(t *testing.T) {
 	var output bytes.Buffer
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -57,8 +57,14 @@ func TestGraphQLResolverFailureLogsCorrelatedFieldWithoutQueryData(t *testing.T)
 	if failure["status"] != float64(http.StatusOK) || failure["failure_stage"] != "authentication" || failure["error_code"] != "authentication_failed" || failure["error_class"] != "client_error" {
 		t.Fatalf("resolver failure fields = %#v", failure)
 	}
-	if strings.Contains(output.String(), "private-body-canary") || strings.Contains(output.String(), "accessToken") || strings.Contains(output.String(), "not authenticated") || strings.Contains(output.String(), "query BabyList") {
-		t.Fatalf("GraphQL request or error data leaked into diagnostics: %q", output.String())
+	if !strings.Contains(output.String(), `"variables":"[redacted]"`) {
+		t.Fatalf("redacted GraphQL variables missing from diagnostics: %q", output.String())
+	}
+	if strings.Contains(output.String(), "private-body-canary") || strings.Contains(output.String(), "query BabyList") {
+		t.Fatalf("GraphQL secret or query text leaked into diagnostics: %q", output.String())
+	}
+	if !strings.Contains(output.String(), "not authenticated") {
+		t.Fatalf("safe GraphQL response error missing from diagnostics: %q", output.String())
 	}
 }
 
@@ -94,7 +100,7 @@ func TestGraphQLMalformedBodyLogsEndpointFailure(t *testing.T) {
 	}
 }
 
-func TestGraphQLValidationFailureLogsEndpointFailureWithoutQueryData(t *testing.T) {
+func TestGraphQLValidationFailureLogsEndpointFailureWithSanitizedResponseDetails(t *testing.T) {
 	var output bytes.Buffer
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -128,7 +134,7 @@ func TestGraphQLValidationFailureLogsEndpointFailureWithoutQueryData(t *testing.
 	if failure == nil || failure["request_id"] != response.Header().Get("X-Request-ID") || failure["route"] != "/graphql" || failure["status"] != float64(http.StatusOK) || failure["failure_stage"] != "graphql_execution" || failure["error_code"] != "graphql_operation_failed" {
 		t.Fatalf("validation failure event = %#v (%q)", failure, output.String())
 	}
-	if strings.Contains(output.String(), query) || strings.Contains(output.String(), "privateUnknownField") {
-		t.Fatalf("GraphQL query leaked into diagnostics: %q", output.String())
+	if strings.Contains(output.String(), query) || !strings.Contains(output.String(), "Cannot query field") || !strings.Contains(output.String(), "privateUnknownField") {
+		t.Fatalf("GraphQL query source or sanitized response error missing from diagnostics: %q", output.String())
 	}
 }

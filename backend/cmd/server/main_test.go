@@ -139,10 +139,13 @@ func TestGraphQLEndpointLogsRequestAndPreservesResponse(t *testing.T) {
 	if requestEvent["request_id"] != requestID || requestEvent["route"] != "/graphql" || requestEvent["status"] != float64(http.StatusOK) || requestEvent["response_bytes"] == nil {
 		t.Fatalf("HTTP trace metadata = %v", requestEvent)
 	}
-	for _, privateValue := range []string{"query Health", "plain-password", "plain-token", `"variables":`, `"response":`} {
+	for _, privateValue := range []string{"query Health", "plain-password", "plain-token", `"response":`} {
 		if strings.Contains(logs.String(), privateValue) {
 			t.Fatalf("GraphQL log contains %q: %s", privateValue, logs.String())
 		}
+	}
+	if !strings.Contains(logs.String(), `"variables":"[redacted]"`) {
+		t.Fatalf("redacted GraphQL body context missing: %s", logs.String())
 	}
 }
 

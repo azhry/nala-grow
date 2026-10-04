@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -88,7 +89,7 @@ func TestRequestLogger(t *testing.T) {
 	})
 }
 
-func TestRequestLoggerCorrelatesErrorAndOmitsConcretePathAndQuery(t *testing.T) {
+func TestRequestLoggerCorrelatesErrorAndRedactsQueryValue(t *testing.T) {
 	var output bytes.Buffer
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -120,8 +121,69 @@ func TestRequestLoggerCorrelatesErrorAndOmitsConcretePathAndQuery(t *testing.T) 
 	if record["duration_ms"] == nil || record["response_bytes"] == nil {
 		t.Fatalf("duration/response size missing: %#v", record)
 	}
-	if strings.Contains(output.String(), "private-id") || strings.Contains(output.String(), "access_token") || strings.Contains(output.String(), "private-token") {
-		t.Fatalf("concrete path or query data leaked into log: %q", output.String())
+	if record["request_path"] != "/items/private-id" || !strings.Contains(output.String(), `"access_token":"[redacted]"`) {
+		t.Fatalf("request context missing from log: %#v", record)
+	}
+	if strings.Contains(output.String(), "private-token") {
+		t.Fatalf("query secret leaked into log: %q", output.String())
+	}
+}
+
+func TestRequestLoggerCapturesBoundedRequestAndResponseDetails(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Post("/items/{id}", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"sample-item","token":"response-secret"}`))
+	})
+	request := httptest.NewRequest(http.MethodPost, "/items/private-id?page=2", strings.NewReader(`{"name":"sample-item","password":"request-secret"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Diagnostic-Flag", "enabled")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	record := lastMiddlewareLogRecord(t, output.String())
+	if record["request_path"] != "/items/private-id" || record["query"].(map[string]any)["page"] != float64(2) {
+		t.Fatalf("request context is missing: %#v", record)
+	}
+	if record["request_headers"].(map[string]any)["X-Diagnostic-Flag"].([]any)[0] != "enabled" {
+		t.Fatalf("safe request header is missing: %#v", record["request_headers"])
+	}
+	requestBody := record["request_body"].(map[string]any)["json"].(map[string]any)
+	responseBody := record["response_body"].(map[string]any)["json"].(map[string]any)
+	if requestBody["name"] != "sample-item" || requestBody["password"] != "[redacted]" || responseBody["name"] != "sample-item" || responseBody["token"] != "[redacted]" {
+		t.Fatalf("body details were missing or unsafe: %#v", record)
+	}
+	if strings.Contains(output.String(), "request-secret") || strings.Contains(output.String(), "response-secret") {
+		t.Fatalf("secret entered request log: %q", output.String())
+	}
+}
+
+func TestRecoveryIncludesSanitizedPanicValueAndStack(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Use(Recovery)
+	router.Get("/panic", func(http.ResponseWriter, *http.Request) { panic("failure token=panic-secret") })
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/panic", nil))
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("panic response status = %d", response.Code)
+	}
+	record := lastMiddlewareLogRecord(t, output.String())
+	if record["panic_value"] != "failure token=[redacted]" || len(record["panic_stack"].([]any)) == 0 || strings.Contains(output.String(), "panic-secret") {
+		t.Fatalf("panic details are missing or unsafe: %#v", record)
 	}
 }
 

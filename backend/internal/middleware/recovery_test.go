@@ -84,7 +84,7 @@ func TestRecovery(t *testing.T) {
 	})
 }
 
-func TestRecoveryLogsCorrelatedPanicTypeWithoutValueOrStack(t *testing.T) {
+func TestRecoveryLogsCorrelatedSanitizedPanicValueAndStack(t *testing.T) {
 	var output bytes.Buffer
 	previousLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -94,7 +94,7 @@ func TestRecoveryLogsCorrelatedPanicTypeWithoutValueOrStack(t *testing.T) {
 	router.Use(RequestLogger)
 	router.Use(Recovery)
 	router.Get("/items/{id}", func(http.ResponseWriter, *http.Request) {
-		panic("private panic value")
+		panic("failure token=private-panic-secret")
 	})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/items/1", nil))
@@ -116,7 +116,7 @@ func TestRecoveryLogsCorrelatedPanicTypeWithoutValueOrStack(t *testing.T) {
 	if record["route"] != "/items/{id}" || response.Header().Get("X-Request-ID") != record["request_id"] {
 		t.Fatalf("panic correlation fields = %#v header=%q", record, response.Header().Get("X-Request-ID"))
 	}
-	if strings.Contains(output.String(), "private panic value") || strings.Contains(output.String(), "goroutine") {
-		t.Fatalf("panic value or stack leaked into log: %q", output.String())
+	if record["panic_value"] != "failure token=[redacted]" || len(record["panic_stack"].([]any)) == 0 || strings.Contains(output.String(), "private-panic-secret") {
+		t.Fatalf("panic diagnostics are missing or unsafe: %q", output.String())
 	}
 }

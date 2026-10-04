@@ -20,6 +20,8 @@ type requestDiagnosticState struct {
 	method                string
 	errorCode             string
 	panicType             string
+	panicValue            string
+	panicStack            []string
 	graphqlErrors         int
 	endpointFailureLogged atomic.Bool
 }
@@ -28,6 +30,7 @@ type responseWriter struct {
 	http.ResponseWriter
 	status    int
 	bytes     int
+	body      bodyCapture
 	wroteHead bool
 }
 
@@ -46,6 +49,7 @@ func (rw *responseWriter) Write(body []byte) (int, error) {
 	}
 	written, err := rw.ResponseWriter.Write(body)
 	rw.bytes += written
+	rw.body.add(body[:written])
 	return written, err
 }
 
@@ -61,6 +65,10 @@ func (rw *responseWriter) Flush() {
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
+		var requestBody bodyCapture
+		if r.Body != nil {
+			r.Body = &capturingBody{ReadCloser: r.Body, capture: &requestBody}
+		}
 		state := &requestDiagnosticState{requestID: newRequestID(), method: r.Method}
 		ctx := context.WithValue(r.Context(), requestDiagnosticKey{}, state)
 		r = r.WithContext(ctx)
@@ -85,6 +93,12 @@ func RequestLogger(next http.Handler) http.Handler {
 			"request_id", state.requestID,
 			"method", r.Method,
 			"route", route,
+			"request_path", sanitizeDiagnosticText(r.URL.Path),
+			"query", diagnosticQuery(r.URL.Query()),
+			"request_headers", diagnosticHeaders(r.Header),
+			"request_body", requestBody.summary(),
+			"response_headers", diagnosticHeaders(rw.Header()),
+			"response_body", rw.body.summary(),
 			"status", status,
 			"duration_ms", float64(time.Since(started).Microseconds()) / 1000,
 			"response_bytes", rw.bytes,
@@ -93,7 +107,7 @@ func RequestLogger(next http.Handler) http.Handler {
 			attrs = append(attrs, "error_code", state.errorCode)
 		}
 		if state.panicType != "" {
-			attrs = append(attrs, "panic_type", state.panicType)
+			attrs = append(attrs, "panic_type", state.panicType, "panic_value", state.panicValue, "panic_stack", state.panicStack)
 		}
 		if state.graphqlErrors > 0 {
 			attrs = append(attrs, "graphql_error_count", state.graphqlErrors)
@@ -165,10 +179,12 @@ func SetErrorCode(ctx context.Context, code string) {
 	}
 }
 
-func SetPanic(ctx context.Context, panicType string) {
+func SetPanic(ctx context.Context, panicType, panicValue string) {
 	if state, ok := ctx.Value(requestDiagnosticKey{}).(*requestDiagnosticState); ok && state != nil {
 		state.errorCode = "panic"
 		state.panicType = safePanicType(panicType)
+		state.panicValue = sanitizeDiagnosticText(panicValue)
+		state.panicStack = diagnosticStack()
 	}
 }
 
