@@ -1,14 +1,25 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRequestLogger(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
 	t.Run("logs and passes through to handler", func(t *testing.T) {
 		var handlerCalled bool
 		handler := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,4 +87,135 @@ func TestRequestLogger(t *testing.T) {
 		rw.WriteHeader(http.StatusTeapot)
 		assert.Equal(t, http.StatusTeapot, rw.status)
 	})
+}
+
+func TestRequestLoggerCorrelatesErrorAndRedactsQueryValue(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Get("/items/{id}", func(w http.ResponseWriter, r *http.Request) {
+		SetErrorCode(r.Context(), "item_not_found")
+		http.Error(w, "not found", http.StatusNotFound)
+	})
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/items/private-id?access_token=private-token", nil)
+	request.Header.Set("X-Request-ID", "client-supplied-id")
+	router.ServeHTTP(response, request)
+
+	requestID := response.Header().Get("X-Request-ID")
+	if requestID == "" || requestID == "client-supplied-id" {
+		t.Fatalf("request ID was missing or accepted from the client: %q", requestID)
+	}
+	var record map[string]any
+	record = lastMiddlewareLogRecord(t, output.String())
+	if record["request_id"] != requestID || record["route"] != "/items/{id}" || record["method"] != http.MethodGet {
+		t.Fatalf("correlation fields = %#v", record)
+	}
+	if record["status"] != float64(http.StatusNotFound) || record["error_code"] != "item_not_found" || record["error_class"] != "client_error" {
+		t.Fatalf("error fields = %#v", record)
+	}
+	if record["duration_ms"] == nil || record["response_bytes"] == nil {
+		t.Fatalf("duration/response size missing: %#v", record)
+	}
+	if record["request_path"] != "/items/private-id" || !strings.Contains(output.String(), `"access_token":"[redacted]"`) {
+		t.Fatalf("request context missing from log: %#v", record)
+	}
+	if strings.Contains(output.String(), "private-token") {
+		t.Fatalf("query secret leaked into log: %q", output.String())
+	}
+}
+
+func TestRequestLoggerCapturesBoundedRequestAndResponseDetails(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Post("/items/{id}", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"sample-item","token":"response-secret"}`))
+	})
+	request := httptest.NewRequest(http.MethodPost, "/items/private-id?page=2", strings.NewReader(`{"name":"sample-item","password":"request-secret"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Diagnostic-Flag", "enabled")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	record := lastMiddlewareLogRecord(t, output.String())
+	if record["request_path"] != "/items/private-id" || record["query"].(map[string]any)["page"] != float64(2) {
+		t.Fatalf("request context is missing: %#v", record)
+	}
+	if record["request_headers"].(map[string]any)["X-Diagnostic-Flag"].([]any)[0] != "enabled" {
+		t.Fatalf("safe request header is missing: %#v", record["request_headers"])
+	}
+	requestBody := record["request_body"].(map[string]any)["json"].(map[string]any)
+	responseBody := record["response_body"].(map[string]any)["json"].(map[string]any)
+	if requestBody["name"] != "sample-item" || requestBody["password"] != "[redacted]" || responseBody["name"] != "sample-item" || responseBody["token"] != "[redacted]" {
+		t.Fatalf("body details were missing or unsafe: %#v", record)
+	}
+	if strings.Contains(output.String(), "request-secret") || strings.Contains(output.String(), "response-secret") {
+		t.Fatalf("secret entered request log: %q", output.String())
+	}
+}
+
+func TestRecoveryIncludesSanitizedPanicValueAndStack(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Use(Recovery)
+	router.Get("/panic", func(http.ResponseWriter, *http.Request) { panic("failure token=panic-secret") })
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/panic", nil))
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("panic response status = %d", response.Code)
+	}
+	record := lastMiddlewareLogRecord(t, output.String())
+	if record["panic_value"] != "failure token=[redacted]" || len(record["panic_stack"].([]any)) == 0 || strings.Contains(output.String(), "panic-secret") {
+		t.Fatalf("panic details are missing or unsafe: %#v", record)
+	}
+}
+
+func TestRequestLoggerClassifiesGraphQLErrorsWithHTTP200(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	handler := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		SetGraphQLErrorCount(r.Context(), 2)
+		w.WriteHeader(http.StatusOK)
+	}))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/graphql", nil))
+
+	var record map[string]any
+	record = lastMiddlewareLogRecord(t, output.String())
+	if record["status"] != float64(http.StatusOK) || record["graphql_error_count"] != float64(2) || record["error_class"] != "graphql_operation_error" {
+		t.Fatalf("GraphQL diagnostic fields = %#v", record)
+	}
+}
+
+func lastMiddlewareLogRecord(t *testing.T, output string) map[string]any {
+	t.Helper()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		t.Fatalf("structured log record is missing: %q", output)
+	}
+	var record map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &record); err != nil {
+		t.Fatalf("last request log is not a JSON record: %v (%q)", err, output)
+	}
+	return record
 }

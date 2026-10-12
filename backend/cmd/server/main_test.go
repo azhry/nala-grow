@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/azhry/nala-grow/backend/internal/graph"
+	"github.com/azhry/nala-grow/backend/internal/middleware"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestLoadConfigDefaultsToFrontendDevOrigin(t *testing.T) {
@@ -86,58 +89,19 @@ func TestGraphQLOperationMetadata(t *testing.T) {
 	}
 }
 
-func TestSanitizeGraphQLLogValueRedactsNestedSensitiveFieldsAndBoundsStrings(t *testing.T) {
-	value := map[string]interface{}{
-		"password": "plain-password",
-		"nested": map[string]interface{}{
-			"access_token": "plain-token",
-			"safe":         strings.Repeat("x", graphqlLogMaxStringLength+10),
-		},
-		"items": []interface{}{map[string]interface{}{"cookie": "session-cookie"}},
-	}
-
-	sanitized, ok := sanitizeGraphQLLogValue(value).(map[string]interface{})
-	if !ok {
-		t.Fatalf("sanitized value has type %T, want map[string]interface{}", sanitizeGraphQLLogValue(value))
-	}
-	if sanitized["password"] != graphqlLogRedacted {
-		t.Fatalf("password = %v, want redaction", sanitized["password"])
-	}
-	nested := sanitized["nested"].(map[string]interface{})
-	if nested["access_token"] != graphqlLogRedacted {
-		t.Fatalf("access_token = %v, want redaction", nested["access_token"])
-	}
-	bounded := nested["safe"].(string)
-	if len([]rune(bounded)) != graphqlLogMaxStringLength || !strings.HasSuffix(bounded, graphqlLogTruncation) {
-		t.Fatalf("bounded string length/suffix = (%d, %q), want %d and %q", len([]rune(bounded)), bounded[len(bounded)-len(graphqlLogTruncation):], graphqlLogMaxStringLength, graphqlLogTruncation)
-	}
-	items := sanitized["items"].([]interface{})
-	if items[0].(map[string]interface{})["cookie"] != graphqlLogRedacted {
-		t.Fatal("nested cookie should be redacted")
-	}
-}
-
-func TestSanitizeGraphQLQueryRedactsInlineLiteralsAndComments(t *testing.T) {
-	query := `mutation Login { login(email: "parent@example.com", password: "inline-password") { token } } # inline-token`
-	sanitized := sanitizeGraphQLQuery(query)
-	if strings.Contains(sanitized, "parent@example.com") || strings.Contains(sanitized, "inline-password") || strings.Contains(sanitized, "inline-token") {
-		t.Fatalf("sanitized query contains an inline secret: %q", sanitized)
-	}
-	if !strings.Contains(sanitized, `mutation Login`) || !strings.Contains(sanitized, `login`) {
-		t.Fatalf("sanitized query lost operation context: %q", sanitized)
-	}
-}
-
 func TestGraphQLEndpointLogsRequestAndPreservesResponse(t *testing.T) {
 	var logs bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
 	handler := graph.NewHandler(nil, auth.NewService("test-secret"))
 	req := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(`{"query":"query Health { health { ok timestamp version } }","variables":{"password":"plain-password","nested":{"accessToken":"plain-token"},"safe":"value"}}`))
 	recorder := httptest.NewRecorder()
-	graphqlEndpoint(handler).ServeHTTP(recorder, req)
+	router := chi.NewRouter()
+	router.Use(middleware.RequestLogger)
+	router.Post("/graphql", graphqlEndpoint(handler))
+	router.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -151,18 +115,70 @@ func TestGraphQLEndpointLogsRequestAndPreservesResponse(t *testing.T) {
 		t.Fatalf("response = %v, want healthy response", response)
 	}
 
+	requestID := recorder.Header().Get("X-Request-ID")
+	if requestID == "" {
+		t.Fatal("X-Request-ID header is missing")
+	}
+	lines := strings.Split(strings.TrimSpace(logs.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d log events, want GraphQL and HTTP traces: %s", len(lines), logs.String())
+	}
+	var graphqlEvent, requestEvent map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[0]), &graphqlEvent); err != nil {
+		t.Fatalf("decode GraphQL log event: %v; log = %s", err, lines[0])
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &requestEvent); err != nil {
+		t.Fatalf("decode HTTP log event: %v; log = %s", err, lines[1])
+	}
+	if graphqlEvent["msg"] != "graphql request" || graphqlEvent["request_id"] != requestID || graphqlEvent["operation_type"] != "query" || graphqlEvent["operation_name"] != "Health" {
+		t.Fatalf("GraphQL correlation/metadata = %v", graphqlEvent)
+	}
+	if graphqlEvent["error_count"] != float64(0) || graphqlEvent["has_data"] != true {
+		t.Fatalf("GraphQL result metadata = %v", graphqlEvent)
+	}
+	if requestEvent["request_id"] != requestID || requestEvent["route"] != "/graphql" || requestEvent["status"] != float64(http.StatusOK) || requestEvent["response_bytes"] == nil {
+		t.Fatalf("HTTP trace metadata = %v", requestEvent)
+	}
+	for _, privateValue := range []string{"query Health", "plain-password", "plain-token", `"response":`} {
+		if strings.Contains(logs.String(), privateValue) {
+			t.Fatalf("GraphQL log contains %q: %s", privateValue, logs.String())
+		}
+	}
+	if !strings.Contains(logs.String(), `"variables":"[redacted]"`) {
+		t.Fatalf("redacted GraphQL body context missing: %s", logs.String())
+	}
+}
+
+func TestGraphQLEndpointLogsOperationFailureWithoutErrorTextOrPayload(t *testing.T) {
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	requestBody := `{"query":"query MissingField { fieldThatDoesNotExist }","variables":{"note":"private-note"}}`
+	recorder := httptest.NewRecorder()
+	graphqlEndpoint(graph.NewHandler(nil, auth.NewService("test-secret"))).ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(requestBody)),
+	)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GraphQL execution status = %d, want %d", recorder.Code, http.StatusOK)
+	}
 	var event map[string]interface{}
 	if err := json.Unmarshal(logs.Bytes(), &event); err != nil {
-		t.Fatalf("decode log event: %v; logs = %s", err, logs.String())
+		t.Fatalf("decode GraphQL error log: %v; logs = %s", err, logs.String())
 	}
-	if event["msg"] != "graphql request" || event["operation_type"] != "query" || event["operation_name"] != "Health" {
-		t.Fatalf("log metadata = %v, want graphql request/query/Health", event)
+	if event["level"] != "ERROR" || event["operation_name"] != "MissingField" || event["error_class"] != "graphql_operation_error" {
+		t.Fatalf("GraphQL error metadata = %v", event)
 	}
-	if !strings.Contains(event["query"].(string), "query Health") {
-		t.Fatalf("query log = %q, want operation context", event["query"])
+	if event["error_count"].(float64) <= 0 {
+		t.Fatalf("error_count = %v, want a positive count", event["error_count"])
 	}
-	if strings.Contains(logs.String(), "plain-password") || strings.Contains(logs.String(), "plain-token") {
-		t.Fatalf("log contains a sensitive value: %s", logs.String())
+	for _, privateValue := range []string{"fieldThatDoesNotExist", "private-note", "Cannot query field", "variables", "response"} {
+		if strings.Contains(logs.String(), privateValue) {
+			t.Fatalf("GraphQL error log contains %q: %s", privateValue, logs.String())
+		}
 	}
 }
 
@@ -175,13 +191,16 @@ func TestGraphQLEndpointLogsMalformedBodyWithoutRawRequest(t *testing.T) {
 	rawBody := `{"query":"query Health { health }","password":"raw-password"}`
 	req := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(rawBody[:len(rawBody)-1]))
 	recorder := httptest.NewRecorder()
-	graphqlEndpoint(graph.NewHandler(nil, auth.NewService("test-secret"))).ServeHTTP(recorder, req)
+	router := chi.NewRouter()
+	router.Use(middleware.RequestLogger)
+	router.Post("/graphql", graphqlEndpoint(graph.NewHandler(nil, auth.NewService("test-secret"))))
+	router.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
 	}
-	if strings.Contains(logs.String(), "raw-password") || !strings.Contains(logs.String(), "invalid request body") {
-		t.Fatalf("malformed request log = %s, want warning without raw body", logs.String())
+	if strings.Contains(logs.String(), "raw-password") || !strings.Contains(logs.String(), "invalid_request_body") {
+		t.Fatalf("malformed request log = %s, want safe error code without raw body", logs.String())
 	}
 }
 
@@ -191,13 +210,9 @@ func TestGraphQLLogOutputIsIndentedAndStillValidJSON(t *testing.T) {
 	slog.SetDefault(slog.New(newGraphQLLogHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
-	logGraphQLRequest(
-		"query Health { health { ok timestamp version } }",
-		map[string]interface{}{"password": "plain-password"},
-		graph.ExecResult{Data: map[string]interface{}{"health": map[string]interface{}{"ok": true}}},
-	)
+	logGraphQLRequest(context.Background(), "query Health { health { ok timestamp version } }", graph.ExecResult{Data: map[string]interface{}{"health": map[string]interface{}{"ok": true}}})
 
-	if !strings.Contains(logs.String(), "\n  \"response\": {\n") {
+	if !strings.Contains(logs.String(), "\n  \"operation_name\": \"Health\",\n") {
 		t.Fatalf("GraphQL log is not indented for human readability: %s", logs.String())
 	}
 	var event map[string]interface{}
@@ -207,8 +222,13 @@ func TestGraphQLLogOutputIsIndentedAndStillValidJSON(t *testing.T) {
 	if event["msg"] != "graphql request" {
 		t.Fatalf("event message = %v, want graphql request", event["msg"])
 	}
-	if strings.Contains(logs.String(), "plain-password") {
-		t.Fatalf("formatted GraphQL log contains a sensitive value: %s", logs.String())
+	if event["operation_type"] != "query" || event["operation_name"] != "Health" || event["error_count"] != float64(0) {
+		t.Fatalf("GraphQL metadata = %v", event)
+	}
+	for _, forbiddenField := range []string{"query", "variables", "response"} {
+		if _, ok := event[forbiddenField]; ok {
+			t.Fatalf("GraphQL event includes payload field %q: %v", forbiddenField, event)
+		}
 	}
 }
 
