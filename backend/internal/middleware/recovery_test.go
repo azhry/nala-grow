@@ -1,10 +1,15 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,4 +82,41 @@ func TestRecovery(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		assert.JSONEq(t, `{"error":"internal server error","code":"PANIC"}`, rec.Body.String())
 	})
+}
+
+func TestRecoveryLogsCorrelatedSanitizedPanicValueAndStack(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	router := chi.NewRouter()
+	router.Use(RequestLogger)
+	router.Use(Recovery)
+	router.Get("/items/{id}", func(http.ResponseWriter, *http.Request) {
+		panic("failure token=private-panic-secret")
+	})
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/items/1", nil))
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("panic response status = %d", response.Code)
+	}
+	var record map[string]any
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) == 0 || lines[len(lines)-1] == "" {
+		t.Fatalf("panic request log is missing: %q", output.String())
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &record); err != nil {
+		t.Fatalf("last panic log is not valid JSON: %v (%q)", err, output.String())
+	}
+	if record["status"] != float64(http.StatusInternalServerError) || record["error_code"] != "panic" || record["panic_type"] != "string" {
+		t.Fatalf("panic fields = %#v", record)
+	}
+	if record["route"] != "/items/{id}" || response.Header().Get("X-Request-ID") != record["request_id"] {
+		t.Fatalf("panic correlation fields = %#v header=%q", record, response.Header().Get("X-Request-ID"))
+	}
+	if record["panic_value"] != "failure token=[redacted]" || len(record["panic_stack"].([]any)) == 0 || strings.Contains(output.String(), "private-panic-secret") {
+		t.Fatalf("panic diagnostics are missing or unsafe: %q", output.String())
+	}
 }

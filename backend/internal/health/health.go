@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/azhry/nala-grow/backend/internal/middleware"
 )
 
 const DefaultTimeout = 2 * time.Second
@@ -172,6 +174,8 @@ func Handler(checker *Checker) http.HandlerFunc {
 		statusCode := http.StatusServiceUnavailable
 		if response.Status == StatusOK {
 			statusCode = http.StatusOK
+		} else {
+			middleware.LogEndpointFailure(request.Context(), statusCode, "dependency_health", "dependency_unavailable", "dependency_error", "")
 		}
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(statusCode)

@@ -24,3 +24,6 @@ backend/nala-grow-backend.exe
 !.codex/agents/
 !.codex/agents/**
 .playwright-mcp/
+
+# Application logs
+logs/
