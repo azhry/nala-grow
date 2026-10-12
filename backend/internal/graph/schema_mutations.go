@@ -30,6 +30,21 @@ func newMutationFields(h *Handler, types graphTypes) graphql.Fields {
 			},
 			Resolve: h.resolveLoginWithGoogle,
 		},
+		"loginWithCasdoor": {
+			Type: types.authResponse,
+			Args: graphql.FieldConfigArgument{
+				"code":        requiredStringArg(),
+				"redirectUri": requiredStringArg(),
+			},
+			Resolve: h.resolveLoginWithCasdoor,
+		},
+		"refreshToken": {
+			Type: types.authResponse,
+			Args: graphql.FieldConfigArgument{
+				"refreshToken": requiredStringArg(),
+			},
+			Resolve: h.resolveRefreshToken,
+		},
 		"requestPasswordReset": {
 			Type:    graphql.String,
 			Args:    graphql.FieldConfigArgument{"email": requiredStringArg()},

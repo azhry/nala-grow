@@ -3,9 +3,17 @@ package graph
 import "time"
 
 type storedUser struct {
-	Email        string
-	PasswordHash string
-	DisplayName  string
+	Email          string
+	PasswordHash   string
+	DisplayName    string
+	PhotoURL       string
+	CreatedAt      string
+	CasdoorIssuer  string
+	CasdoorSubject string
+	CasdoorOwner   string
+	Roles          []string
+	Permissions    []string
+	AuthProvider   string
 }
 
 type BabyProfile struct {

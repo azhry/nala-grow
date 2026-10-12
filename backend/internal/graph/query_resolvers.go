@@ -11,25 +11,20 @@ func (h *Handler) resolveHealthResult(context.Context, map[string]interface{}) E
 }
 
 func (h *Handler) resolveMeResult(ctx context.Context, _ map[string]interface{}) ExecResult {
-	token, _ := ctx.Value("raw_token").(string)
-	if token == "" {
-		return ExecResult{Errors: []GraphQLError{{Message: "not authenticated"}}}
+	userID, principal, authResult := authenticatedPrincipal(ctx, h)
+	if authResult.Errors != nil {
+		return authResult
 	}
-	if h.auth == nil {
-		return ExecResult{Errors: []GraphQLError{{Message: "invalid token"}}}
-	}
-	claims, err := h.auth.JWT.ValidateToken(token)
-	if err != nil || claims == nil {
-		return ExecResult{Errors: []GraphQLError{{Message: "invalid token"}}}
-	}
-	u, err := loadUserByID(ctx, h.db, claims.UserID)
+	u, err := loadUserByID(ctx, h.db, userID)
 	if err != nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "user not found"}}}
 	}
-	return ExecResult{Data: map[string]interface{}{"me": map[string]interface{}{
-		"id": claims.UserID, "email": u.Email, "displayName": u.DisplayName,
-		"photoUrl": "", "createdAt": time.Now().UTC().Format(time.RFC3339),
-	}}}
+	createdAt := u.CreatedAt
+	if createdAt == "" {
+		createdAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	u.CreatedAt = createdAt
+	return ExecResult{Data: map[string]interface{}{"me": authUserMap(userID, u, principal)}}
 }
 
 func (h *Handler) resolveBabiesResult(ctx context.Context, _ map[string]interface{}) ExecResult {

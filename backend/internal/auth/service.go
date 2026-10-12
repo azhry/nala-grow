@@ -19,6 +19,7 @@ type Service struct {
 // not need provider-specific authorization branches.
 type Principal struct {
 	LocalUserID   string
+	Issuer        string
 	Subject       string
 	Email         string
 	DisplayName   string
@@ -78,6 +79,7 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*Principal
 			return nil, err
 		}
 		return &Principal{
+			Issuer:        casdoorPrincipal.Issuer,
 			Subject:       casdoorPrincipal.Subject,
 			Email:         casdoorPrincipal.Email,
 			DisplayName:   casdoorPrincipal.DisplayName,
