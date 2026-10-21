@@ -1,0 +1,9 @@
+projects:
+  backend:
+    cwd: backend
+    run: go run ./cmd/server
+    port: 4000
+  frontend:
+    cwd: frontend
+    run: npm run dev
+    port: 3000
