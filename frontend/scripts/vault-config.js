@@ -3,11 +3,23 @@
 const fs = require("node:fs")
 const path = require("node:path")
 
-const PUBLIC_ENV_KEYS = [
+const REQUIRED_PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_API_URL",
   "NEXT_PUBLIC_GRAPHQL_URL",
   "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
 ]
+
+// Casdoor public configuration is optional, but it must come from Vault.
+const OPTIONAL_PUBLIC_ENV_KEYS = [
+  "NEXT_PUBLIC_CASDOOR_ISSUER",
+  "NEXT_PUBLIC_CASDOOR_CLIENT_ID",
+  "NEXT_PUBLIC_CASDOOR_ORGANIZATION",
+  "NEXT_PUBLIC_CASDOOR_APPLICATION",
+  "NEXT_PUBLIC_CASDOOR_REDIRECT_URI",
+  "NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL",
+]
+
+const PUBLIC_ENV_KEYS = [...REQUIRED_PUBLIC_ENV_KEYS, ...OPTIONAL_PUBLIC_ENV_KEYS]
 
 const VAULT_CONFIG_KEYS = [
   "VAULT_ADDR",
@@ -28,7 +40,9 @@ function hasValue(value) {
 
 function getPublicProcessEnv(env) {
   return Object.fromEntries(
-    PUBLIC_ENV_KEYS.filter((key) => env[key] !== undefined).map((key) => [key, env[key]]),
+    PUBLIC_ENV_KEYS
+      .filter((key) => !key.startsWith("NEXT_PUBLIC_CASDOOR_") && env[key] !== undefined)
+      .map((key) => [key, env[key]]),
   )
 }
 
@@ -74,7 +88,9 @@ function readVaultConfig(startDirectory = process.cwd()) {
 }
 
 function mergeVaultConfig(env, fileValues) {
-  const merged = { ...env }
+  const merged = Object.fromEntries(
+    VAULT_CONFIG_KEYS.filter((key) => env[key] !== undefined).map((key) => [key, env[key]]),
+  )
 
   for (const key of VAULT_CONFIG_KEYS) {
     if (merged[key] === undefined && fileValues[key] !== undefined) {
@@ -207,17 +223,22 @@ async function loadVaultPublicEnv(env = process.env, fetchImpl, startDirectory =
     throw new Error("Vault JSON error while reading the Vault KV v2 secret: missing data object.")
   }
 
-  const missingKeys = PUBLIC_ENV_KEYS.filter((key) => !hasValue(values[key]))
+  const missingKeys = REQUIRED_PUBLIC_ENV_KEYS.filter((key) => !hasValue(values[key]))
   if (missingKeys.length > 0) {
     throw new Error(`Vault configuration error: missing required public key(s): ${missingKeys.join(", ")}.`)
   }
 
-  return Object.fromEntries(PUBLIC_ENV_KEYS.map((key) => [key, values[key]]))
+  return Object.fromEntries(
+    PUBLIC_ENV_KEYS
+      .filter((key) => values[key] !== undefined && (REQUIRED_PUBLIC_ENV_KEYS.includes(key) || hasValue(values[key])))
+      .map((key) => [key, values[key]]),
+  )
 }
 
 module.exports = {
   DEFAULT_KV_MOUNT,
   DEFAULT_KV_PATH,
+  OPTIONAL_PUBLIC_ENV_KEYS,
   PUBLIC_ENV_KEYS,
   loadVaultPublicEnv,
 }

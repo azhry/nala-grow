@@ -2,7 +2,22 @@ const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
 
-const { loadVaultPublicEnv } = require("./vault-config")
+const {
+  loadVaultPublicEnv: loadVaultPublicEnvFromVault,
+  PUBLIC_ENV_KEYS,
+} = require("./vault-config")
+
+const isolatedStartDirectory = fs.mkdtempSync(
+  path.join(os.tmpdir(), "nala-grow-vault-test-")
+)
+
+afterAll(() => {
+  fs.rmSync(isolatedStartDirectory, { recursive: true, force: true })
+})
+
+function loadVaultPublicEnv(env, fetchImpl, startDirectory = isolatedStartDirectory) {
+  return loadVaultPublicEnvFromVault(env, fetchImpl, startDirectory)
+}
 
 function jsonResponse(body, status = 200) {
   return {
@@ -13,12 +28,18 @@ function jsonResponse(body, status = 200) {
 }
 
 describe("loadVaultPublicEnv", () => {
-  test("preserves process-env fallback and filters it when Vault is disabled", async () => {
+  test("preserves non-Casdoor process-env fallback and ignores process-env Casdoor values when Vault is disabled", async () => {
     const fetchImpl = jest.fn()
     const env = {
       NEXT_PUBLIC_API_URL: "http://localhost:8000/api/v1",
       NEXT_PUBLIC_GRAPHQL_URL: "http://localhost:4000/graphql",
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+      NEXT_PUBLIC_CASDOOR_ISSUER: "https://env-casdoor.example.test",
+      NEXT_PUBLIC_CASDOOR_CLIENT_ID: "env-casdoor-client-id",
+      NEXT_PUBLIC_CASDOOR_ORGANIZATION: "env-nala-grow",
+      NEXT_PUBLIC_CASDOOR_APPLICATION: "env-nala-grow-web",
+      NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "http://localhost:3000/env-auth/callback",
+      NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://env-casdoor.example.test/login/oauth/authorize",
       VAULT_TOKEN: "do-not-return",
       DATABASE_URL: "postgres://backend-secret",
       UNEXPECTED_PUBLIC_VALUE: "do-not-return",
@@ -47,6 +68,12 @@ describe("loadVaultPublicEnv", () => {
               NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
               NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
               NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+              NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+              NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+              NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
+              NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
+              NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
+              NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
             },
           },
         }),
@@ -56,6 +83,12 @@ describe("loadVaultPublicEnv", () => {
         NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
         NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+        NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+        NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+        NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
+        NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
+        NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
+        NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
       })
       expect(fetchImpl).toHaveBeenCalledWith(
         "https://vault.example.test/v1/secret/data/apps/nala-grow",
@@ -74,13 +107,29 @@ describe("loadVaultPublicEnv", () => {
             NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
             NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
             NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+            NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+            NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+            NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
+            NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
+            NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
+            NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
             DATABASE_URL: "postgres://backend-secret",
             GOOGLE_CLIENT_SECRET: "backend-secret",
+            CASDOOR_CLIENT_SECRET: "backend-secret",
           },
         },
       }),
     )
-    const env = { VAULT_ADDR: "https://vault.example.test/", VAULT_TOKEN: "vault-token" }
+    const env = {
+      VAULT_ADDR: "https://vault.example.test/",
+      VAULT_TOKEN: "vault-token",
+      NEXT_PUBLIC_CASDOOR_ISSUER: "https://env-casdoor.example.test",
+      NEXT_PUBLIC_CASDOOR_CLIENT_ID: "env-casdoor-client-id",
+      NEXT_PUBLIC_CASDOOR_ORGANIZATION: "env-nala-grow",
+      NEXT_PUBLIC_CASDOOR_APPLICATION: "env-nala-grow-web",
+      NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://env-app.example.test/auth/callback",
+      NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://env-casdoor.example.test/login/oauth/authorize",
+    }
 
     const publicEnv = await loadVaultPublicEnv(env, fetchImpl)
 
@@ -92,6 +141,12 @@ describe("loadVaultPublicEnv", () => {
       NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
       NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+      NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+      NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+      NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
+      NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
+      NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
+      NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
     })
     expect(JSON.stringify(publicEnv)).not.toContain("vault-token")
     expect(JSON.stringify(publicEnv)).not.toContain("backend-secret")
@@ -215,9 +270,15 @@ test("Next config exposes only the public allowlist", async () => {
     NEXT_PUBLIC_API_URL: "http://localhost:8000/api/v1",
     NEXT_PUBLIC_GRAPHQL_URL: "http://localhost:4000/graphql",
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
+    NEXT_PUBLIC_CASDOOR_ISSUER: "https://casdoor.example.test",
+    NEXT_PUBLIC_CASDOOR_CLIENT_ID: "casdoor-client-id",
+    NEXT_PUBLIC_CASDOOR_ORGANIZATION: "nala-grow",
+    NEXT_PUBLIC_CASDOOR_APPLICATION: "nala-grow-web",
+    NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "http://localhost:3000/auth/callback",
+    NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://casdoor.example.test/login/oauth/authorize",
     DATABASE_URL: "backend-secret",
+    VAULT_ADDR: "",
   }
-  delete process.env.VAULT_ADDR
 
   jest.resetModules()
   const nextConfig = require("../next.config")
@@ -231,4 +292,18 @@ test("Next config exposes only the public allowlist", async () => {
   expect(JSON.stringify(resolvedConfig)).not.toContain("backend-secret")
 
   process.env = originalEnv
+})
+
+test("includes only the Casdoor public runtime keys in the allowlist", () => {
+  expect(PUBLIC_ENV_KEYS).toEqual([
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_GRAPHQL_URL",
+    "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    "NEXT_PUBLIC_CASDOOR_ISSUER",
+    "NEXT_PUBLIC_CASDOOR_CLIENT_ID",
+    "NEXT_PUBLIC_CASDOOR_ORGANIZATION",
+    "NEXT_PUBLIC_CASDOOR_APPLICATION",
+    "NEXT_PUBLIC_CASDOOR_REDIRECT_URI",
+    "NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL",
+  ])
 })
