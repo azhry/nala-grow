@@ -37,7 +37,7 @@ func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	t.Setenv("HEALTHCHECK_TIMEOUT", "750ms")
 
 	config := loadConfig()
-	if config.Health.CasdoorIssuer != "https://casdoor.example" || config.Health.VaultAddress != "https://vault.example" {
+	if config.Health.CasdoorIssuer != "" || config.Health.VaultAddress != "https://vault.example" {
 		t.Fatalf("HTTP health settings = %+v", config.Health)
 	}
 	if config.Health.MongoAddress != "mongo.example:27017" || config.Health.MongoURI != "mongodb://mongo.example/nalagrow" {
@@ -54,7 +54,7 @@ func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	}
 }
 
-func TestConfigReadsCasdoorSettingsAndRequiresCompleteConfiguration(t *testing.T) {
+func TestConfigIgnoresCasdoorSettingsFromProcessEnvironment(t *testing.T) {
 	config := configFromEnvironment(map[string]string{
 		"CASDOOR_ENABLED":       "true",
 		"CASDOOR_ISSUER":        "https://casdoor.example",
@@ -66,15 +66,12 @@ func TestConfigReadsCasdoorSettingsAndRequiresCompleteConfiguration(t *testing.T
 		"CASDOOR_REDIRECT_URI":  "http://localhost:3000/auth/callback",
 		"CASDOOR_ADMIN_TOKEN":   "admin-token",
 	})
-	if !config.Casdoor.Enabled || config.Casdoor.Issuer != "https://casdoor.example" || config.Casdoor.Audience != "nala-grow-api" {
-		t.Fatalf("Casdoor config = %+v", config.Casdoor)
-	}
-
-	incomplete := configFromEnvironment(map[string]string{
-		"CASDOOR_ISSUER": "https://casdoor.example",
-	})
-	if incomplete.Casdoor.Enabled {
-		t.Fatal("Casdoor should remain disabled when only the health issuer is configured")
+	if config.Casdoor.Enabled ||
+		config.Casdoor.Issuer != "" ||
+		config.Casdoor.ClientID != "" ||
+		config.Casdoor.ClientSecret != "" ||
+		config.Casdoor.AdminToken != "" {
+		t.Fatal("Casdoor configuration must not be read from process environment")
 	}
 }
 

@@ -77,7 +77,12 @@ func loadRuntimeConfigFromEnvironment(environment map[string]string, workingDir 
 			environment[key] = value
 		}
 	}
-	return configFromEnvironment(environment), nil
+	config := configFromEnvironment(environment)
+	if vaultEnabled {
+		config.Casdoor = casdoorConfigFromVault(vaultValues)
+		config.Health.CasdoorIssuer = config.Casdoor.Issuer
+	}
+	return config, nil
 }
 
 func environmentMap() map[string]string {

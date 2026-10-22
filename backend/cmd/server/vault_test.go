@@ -75,10 +75,19 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"data": map[string]any{
 				"data": map[string]string{
-					"DATABASE_URL":        "postgres://vault.example/nalagrow",
-					"JWT_SECRET":          "vault-jwt-secret",
-					"GOOGLE_CLIENT_ID":    "vault-google-client",
-					"HEALTHCHECK_TIMEOUT": "750ms",
+					"DATABASE_URL":          "postgres://vault.example/nalagrow",
+					"JWT_SECRET":            "vault-jwt-secret",
+					"GOOGLE_CLIENT_ID":      "vault-google-client",
+					"CASDOOR_ENABLED":       "true",
+					"CASDOOR_ISSUER":        "https://casdoor.vault.example",
+					"CASDOOR_CLIENT_ID":     "vault-casdoor-client",
+					"CASDOOR_CLIENT_SECRET": "vault-casdoor-secret",
+					"CASDOOR_ORGANIZATION":  "NalaGrow",
+					"CASDOOR_APPLICATION":   "nala-grow",
+					"CASDOOR_AUDIENCE":      "vault-casdoor-audience",
+					"CASDOOR_REDIRECT_URI":  "https://app.vault.example/auth/callback",
+					"CASDOOR_ADMIN_TOKEN":   "vault-casdoor-admin-token",
+					"HEALTHCHECK_TIMEOUT":   "750ms",
 				},
 			},
 		})
@@ -95,6 +104,13 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 	t.Setenv("JWT_SECRET", "process-jwt-secret")
 	t.Setenv("GOOGLE_CLIENT_ID", "process-google-client")
 	t.Setenv("PORT", "4555")
+	t.Setenv("CASDOOR_ENABLED", "false")
+	t.Setenv("CASDOOR_ISSUER", "https://casdoor.process.example")
+	t.Setenv("CASDOOR_CLIENT_ID", "process-casdoor-client")
+	t.Setenv("CASDOOR_CLIENT_SECRET", "process-casdoor-secret")
+	t.Setenv("CASDOOR_ORGANIZATION", "ProcessOrg")
+	t.Setenv("CASDOOR_APPLICATION", "process-app")
+	t.Setenv("CASDOOR_ADMIN_TOKEN", "process-casdoor-admin-token")
 
 	config, err := loadRuntimeConfigWithClient(server.Client())
 	if err != nil {
@@ -108,6 +124,17 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 	}
 	if config.Port != "4555" {
 		t.Fatalf("Port = %q, want process value for key absent from Vault", config.Port)
+	}
+	if !config.Casdoor.Enabled ||
+		config.Casdoor.Issuer != "https://casdoor.vault.example" ||
+		config.Casdoor.ClientID != "vault-casdoor-client" ||
+		config.Casdoor.ClientSecret != "vault-casdoor-secret" ||
+		config.Casdoor.Organization != "NalaGrow" ||
+		config.Casdoor.Application != "nala-grow" ||
+		config.Casdoor.Audience != "vault-casdoor-audience" ||
+		config.Casdoor.AdminToken != "vault-casdoor-admin-token" ||
+		config.Health.CasdoorIssuer != "https://casdoor.vault.example" {
+		t.Fatal("Casdoor settings were not loaded exclusively from Vault")
 	}
 	if config.Health.Timeout != 750*time.Millisecond {
 		t.Fatalf("Healthcheck timeout = %s, want 750ms", config.Health.Timeout)
@@ -190,6 +217,11 @@ func TestLoadRuntimeConfigWithoutVaultUsesProcessEnvironment(t *testing.T) {
 	t.Setenv("VAULT_ROLE_ID", "")
 	t.Setenv("VAULT_SECRET_ID", "")
 	t.Setenv("DATABASE_URL", "postgres://process.example/nalagrow")
+	t.Setenv("CASDOOR_ENABLED", "true")
+	t.Setenv("CASDOOR_ISSUER", "https://casdoor.process.example")
+	t.Setenv("CASDOOR_CLIENT_ID", "process-casdoor-client")
+	t.Setenv("CASDOOR_CLIENT_SECRET", "process-casdoor-secret")
+	t.Setenv("CASDOOR_ADMIN_TOKEN", "process-casdoor-admin-token")
 
 	config, err := loadRuntimeConfigWithClient(nil)
 	if err != nil {
@@ -197,6 +229,13 @@ func TestLoadRuntimeConfigWithoutVaultUsesProcessEnvironment(t *testing.T) {
 	}
 	if config.DatabaseURL != "postgres://process.example/nalagrow" {
 		t.Fatalf("DatabaseURL = %q, want process environment value", config.DatabaseURL)
+	}
+	if config.Casdoor.Enabled ||
+		config.Casdoor.Issuer != "" ||
+		config.Casdoor.ClientID != "" ||
+		config.Casdoor.ClientSecret != "" ||
+		config.Casdoor.AdminToken != "" {
+		t.Fatal("Casdoor configuration must remain disabled without a Vault record")
 	}
 }
 
