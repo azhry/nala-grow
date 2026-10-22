@@ -5,7 +5,10 @@ Apply this workflow to Linear, GitHub, issue, pull-request, and release work.
 ## Linear
 
 - Treat an issue identifier (for example, `AZH-385`) as a Linear task. Use the connected Linear app to read it; if the tool is not immediately visible, discover available tools before selecting any fallback.
-- Do not use direct HTTP, `curl`, guessed GraphQL queries, or credentials from project configuration for Linear while the connected app is available. If the connector is genuinely unavailable after discovery, immediately use the documented API fallback with the official schema or documentation; load only the required credential without output, and report authorization failures rather than bypassing them.
+- Prefer the connected Linear operation when it is callable. Discover the active tool list and use the exact advertised name and argument schema; do not guess GraphQL fields or entity references.
+- If an operation is absent or dispatch returns `Tool <name> not found`, treat that operation as unavailable even if other Linear operations work. Immediately use the documented API fallback for the underlying records it supports.
+- Correct schema or entity-reference errors using the current tool schema before classifying the operation as unavailable. For a 401/403 authorization failure, report it and do not switch credentials or bypass the denial.
+- If a connector-only feature has no documented API equivalent, do not invent one. Use supported issue/project/document records and record that specific capability gap.
 - Read the named issue before changing it; verify its team, project, state, relations, and constraints.
 - Read its comments and the team's valid statuses before mutation. Read related issues and project context when they affect scope or sequencing.
 - Before implementation, assess whether the issue has a sufficient human-readable description. When it is empty or ambiguous, update it first using the [issue-description template](../templates/linear-issue-description.md), whose top-level structure is limited to TL;DR, Process Flow, Before-After, and Implementation Manual Test and Verification.
@@ -68,4 +71,6 @@ main ── red-test PR merge (documented test command remains intentionally red
 - Push and create/update the PR without asking for confirmation when this repository is in scope. Include summary, verification, limitations, and linked issue reference.
 - Keep every manual step short and independently pasteable for a human: put the command in the issue or PR description, use at most one simple request (normally one `curl`) and one concise expected response per numbered step, keep setup/auth separate, and avoid helper functions, loops, generated fixtures, and bulk scripts. Never create or attach a verification script as the manual handoff; if the live flow was not run, record the exact limitation instead of inventing an observed response.
 - Preserve an existing ready-for-review state; do not convert it back to draft unless the user explicitly asks.
-- Prefer connected integration tools; use an authenticated CLI when necessary. Do not expose credentials or bypass authorization failures.
+- Prefer connected integration tools and use their exact active operation signatures. A missing operation or dispatch-time `Tool <name> not found` is a capability failure; use the documented authenticated CLI fallback when the repository's preflight permits it.
+- Distinguish an explicit integration-scoped denial (for example, GitHub's `Resource not accessible by integration`) from a denial by the configured user account. After the required official CLI preflight succeeds for the same repository, use that same configured CLI identity for the integration-scoped failure.
+- If the CLI itself returns 401/403, the preflight fails, or the denial is not clearly integration-scoped, stop and report it. Never change identities, expose credentials, or use another credential to evade an authorization failure.

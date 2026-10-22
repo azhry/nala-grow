@@ -16,22 +16,24 @@ Linear manages issues (individual work items), projects (grouped outcomes), cycl
 
 ## Workflow
 
-1. Confirm Linear tools exist; if absent, ask the user to connect Linear.
-2. If the Linear MCP connector is unavailable, use the HTTP API fallback scripts at `.agents/skills/linear/scripts/linear_tooling.py`. Run each operation as a subcommand: `py linear_tooling.py <command> --help`. See TOOLING.md for the full operation mapping.
-3. Read the target first and derive its team, project, valid states, and conventions from actual workspace data—never hard-code a project.
-4. Search/list to resolve ambiguous names, then mutate with an exact ID.
-5. Report changed fields, created links, and any remaining blocker.
+1. Discover the active Linear operations and call the exact advertised tool with its current argument schema. Prefer the dedicated issue tool for an issue ID; use a generic entity fetch only with the entity-reference syntax in its schema.
+2. If an operation is absent, or dispatch returns `Tool <name> not found` after discovery, treat that operation as unavailable and immediately use the documented API fallback for the underlying Linear data it supports. Other Linear operations may still work; do not ask the user to reconnect the whole integration for one missing operation.
+3. If the tool returns a schema or entity-reference error, check its current schema and correct the arguments once before classifying it as unavailable. For a 401/403 authorization response, report the failure and do not switch credentials or bypass the denial.
+4. A connector-only operation such as synthesized agent context may not have an equivalent public Linear API operation. Do not invent an endpoint or query. Use documented issue/project/document API operations for the underlying records, continue from verified repository evidence when safe, and state that the connector-only context was unavailable.
+5. Read the target first and derive its team, project, valid states, and conventions from actual workspace data—never hard-code a project. Search/list to resolve ambiguous names, then mutate with an exact ID.
+6. Report changed fields, created links, and any remaining blocker.
 
 Read [TOOLING.md](TOOLING.md) before making calls; it maps Linear operations to connector tools and API equivalents.
 
 ## HTTP API fallback
 
-When the Linear MCP connector is not available, use the scripts in `.agents/skills/linear/scripts/linear_tooling.py`. These scripts read the API key from the `LINEAR_API_KEY` environment variable and never log or emit it. Set the environment variable before running:
+When the connector or the specific operation is unavailable, use the supported operations in `.agents/skills/linear/scripts/linear_tooling.py` (check the operation's `--help`). The script reads `LINEAR_API_KEY` from the process environment. Load it only through the repository's approved non-printing secret loader or the runtime secret store; never type a literal token, print the variable, or place it in a prompt, command transcript, or file. For example, after the approved loader has populated the environment (use `py` on Windows only when `python` is unavailable):
 
-```powershell
-$env:LINEAR_API_KEY = "<your-api-key>"
-py .agents/skills/linear/scripts/linear_tooling.py read-issue --id AZH-417
+```sh
+python .agents/skills/linear/scripts/linear_tooling.py read-issue --id AZH-417
 ```
+
+If the helper does not implement the requested API operation, consult the official Linear schema/documentation before using another operation. A missing connector-only feature is not permission to guess a GraphQL field.
 
 ## Delivery handoff
 
