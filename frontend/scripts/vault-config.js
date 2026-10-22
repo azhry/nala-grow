@@ -9,9 +9,7 @@ const REQUIRED_PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
 ]
 
-// Casdoor is a separately enabled auth provider. Keep its public identifiers
-// available to Next.js when configured, but do not make legacy/local Vault
-// deployments fail merely because Casdoor has not been enabled yet.
+// Casdoor public configuration is optional, but it must come from Vault.
 const OPTIONAL_PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_CASDOOR_ISSUER",
   "NEXT_PUBLIC_CASDOOR_CLIENT_ID",
@@ -42,7 +40,9 @@ function hasValue(value) {
 
 function getPublicProcessEnv(env) {
   return Object.fromEntries(
-    PUBLIC_ENV_KEYS.filter((key) => env[key] !== undefined).map((key) => [key, env[key]]),
+    PUBLIC_ENV_KEYS
+      .filter((key) => !key.startsWith("NEXT_PUBLIC_CASDOOR_") && env[key] !== undefined)
+      .map((key) => [key, env[key]]),
   )
 }
 
@@ -88,7 +88,9 @@ function readVaultConfig(startDirectory = process.cwd()) {
 }
 
 function mergeVaultConfig(env, fileValues) {
-  const merged = { ...env }
+  const merged = Object.fromEntries(
+    VAULT_CONFIG_KEYS.filter((key) => env[key] !== undefined).map((key) => [key, env[key]]),
+  )
 
   for (const key of VAULT_CONFIG_KEYS) {
     if (merged[key] === undefined && fileValues[key] !== undefined) {
