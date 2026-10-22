@@ -67,6 +67,9 @@ func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables ma
 	if h.auth == nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
 	}
+	if h.auth.Casdoor != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "Google sign-in must use the Casdoor authorization flow"}}}
+	}
 	googleUser, err := h.googleVerifier.VerifyIDToken(idToken, h.googleClientID)
 	if err != nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "invalid Google token: " + err.Error()}}}
@@ -81,9 +84,8 @@ func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables ma
 		if displayName == "" {
 			displayName = googleUser.Email[:strings.Index(googleUser.Email, "@")]
 		}
-		placeholderHash, _ := h.auth.Password.Hash(uuid() + uuid())
-		found = storedUser{Email: googleUser.Email, PasswordHash: placeholderHash, DisplayName: displayName}
-		if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)", foundID, found.Email, found.PasswordHash, found.DisplayName); err != nil {
+		found = storedUser{Email: googleUser.Email, DisplayName: displayName}
+		if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, display_name) VALUES ($1, $2, $3)", foundID, found.Email, found.DisplayName); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
 		}
 	}

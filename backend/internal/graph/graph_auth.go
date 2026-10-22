@@ -109,14 +109,10 @@ func ensurePrincipalUser(ctx context.Context, h *Handler, principal *auth.Princi
 		)
 		if err == pgx.ErrNoRows {
 			userID = uuid()
-			unusableHash, hashErr := h.auth.Password.Hash(uuid() + uuid())
-			if hashErr != nil {
-				return "", storedUser{}, fmt.Errorf("generate unusable local password: %w", hashErr)
-			}
-			err = tx.QueryRow(ctx, `INSERT INTO users (id, email, password_hash, display_name, casdoor_subject)
-				VALUES ($1, $2, $3, $4, $5)
-				RETURNING email, password_hash, display_name, photo_url, created_at::text, casdoor_subject`,
-				userID, strings.ToLower(strings.TrimSpace(principal.Email)), unusableHash, displayName, principal.Subject).Scan(
+			err = tx.QueryRow(ctx, `INSERT INTO users (id, email, display_name, casdoor_subject)
+				VALUES ($1, $2, $3, $4)
+				RETURNING email, COALESCE(password_hash, ''), display_name, photo_url, created_at::text, casdoor_subject`,
+				userID, strings.ToLower(strings.TrimSpace(principal.Email)), displayName, principal.Subject).Scan(
 				&user.Email, &user.PasswordHash, &user.DisplayName, &user.PhotoURL,
 				&user.CreatedAt, &user.CasdoorSubject,
 			)
@@ -134,13 +130,11 @@ func ensurePrincipalUser(ctx context.Context, h *Handler, principal *auth.Princi
 			return "", storedUser{}, err
 		}
 	}
-	if user.CasdoorSubject == "" {
-		_, err = tx.Exec(ctx, `UPDATE users SET casdoor_subject = $2 WHERE id = $1`, userID, principal.Subject)
-	}
-	if err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE users SET casdoor_subject = $2, password_hash = NULL WHERE id = $1`, userID, principal.Subject); err != nil {
 		return "", storedUser{}, err
 	}
 	user.CasdoorSubject = principal.Subject
+	user.PasswordHash = ""
 	user.CasdoorIssuer = issuer
 	user.CasdoorOwner = owner
 	user.Roles = roles
