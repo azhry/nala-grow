@@ -37,7 +37,7 @@ func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	t.Setenv("HEALTHCHECK_TIMEOUT", "750ms")
 
 	config := loadConfig()
-	if config.Health.CasdoorIssuer != "https://casdoor.example" || config.Health.VaultAddress != "https://vault.example" {
+	if config.Health.CasdoorIssuer != "" || config.Health.VaultAddress != "https://vault.example" {
 		t.Fatalf("HTTP health settings = %+v", config.Health)
 	}
 	if config.Health.MongoAddress != "mongo.example:27017" || config.Health.MongoURI != "mongodb://mongo.example/nalagrow" {
@@ -51,6 +51,27 @@ func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	}
 	if config.Health.Timeout != 750*time.Millisecond {
 		t.Fatalf("health timeout = %s, want 750ms", config.Health.Timeout)
+	}
+}
+
+func TestConfigIgnoresCasdoorSettingsFromProcessEnvironment(t *testing.T) {
+	config := configFromEnvironment(map[string]string{
+		"CASDOOR_ENABLED":       "true",
+		"CASDOOR_ISSUER":        "https://casdoor.example",
+		"CASDOOR_CLIENT_ID":     "nala-grow-web",
+		"CASDOOR_CLIENT_SECRET": "client-secret",
+		"CASDOOR_ORGANIZATION":  "NalaGrow",
+		"CASDOOR_APPLICATION":   "nala-grow-web",
+		"CASDOOR_AUDIENCE":      "nala-grow-api",
+		"CASDOOR_REDIRECT_URI":  "http://localhost:3000/auth/callback",
+		"CASDOOR_ADMIN_TOKEN":   "admin-token",
+	})
+	if config.Casdoor.Enabled ||
+		config.Casdoor.Issuer != "" ||
+		config.Casdoor.ClientID != "" ||
+		config.Casdoor.ClientSecret != "" ||
+		config.Casdoor.AdminToken != "" {
+		t.Fatal("Casdoor configuration must not be read from process environment")
 	}
 }
 

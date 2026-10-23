@@ -18,20 +18,28 @@ const (
 )
 
 var vaultConfigKeys = map[string]struct{}{
-	"HOST":                {},
-	"PORT":                {},
-	"DATABASE_URL":        {},
-	"ALLOWED_ORIGIN":      {},
-	"JWT_SECRET":          {},
-	"GOOGLE_CLIENT_ID":    {},
-	"CASDOOR_ISSUER":      {},
-	"MONGODB_ADDR":        {},
-	"MONGODB_URI":         {},
-	"REDIS_ADDR":          {},
-	"REDIS_URL":           {},
-	"KAFKA_ADDR":          {},
-	"KAFKA_BROKERS":       {},
-	"HEALTHCHECK_TIMEOUT": {},
+	"HOST":                  {},
+	"PORT":                  {},
+	"DATABASE_URL":          {},
+	"ALLOWED_ORIGIN":        {},
+	"JWT_SECRET":            {},
+	"GOOGLE_CLIENT_ID":      {},
+	"CASDOOR_ENABLED":       {},
+	"CASDOOR_ISSUER":        {},
+	"CASDOOR_CLIENT_ID":     {},
+	"CASDOOR_CLIENT_SECRET": {},
+	"CASDOOR_ORGANIZATION":  {},
+	"CASDOOR_APPLICATION":   {},
+	"CASDOOR_AUDIENCE":      {},
+	"CASDOOR_REDIRECT_URI":  {},
+	"CASDOOR_ADMIN_TOKEN":   {},
+	"MONGODB_ADDR":          {},
+	"MONGODB_URI":           {},
+	"REDIS_ADDR":            {},
+	"REDIS_URL":             {},
+	"KAFKA_ADDR":            {},
+	"KAFKA_BROKERS":         {},
+	"HEALTHCHECK_TIMEOUT":   {},
 }
 
 type vaultKVResponse struct {
@@ -69,7 +77,12 @@ func loadRuntimeConfigFromEnvironment(environment map[string]string, workingDir 
 			environment[key] = value
 		}
 	}
-	return configFromEnvironment(environment), nil
+	config := configFromEnvironment(environment)
+	if vaultEnabled {
+		config.Casdoor = casdoorConfigFromVault(vaultValues)
+		config.Health.CasdoorIssuer = config.Casdoor.Issuer
+	}
+	return config, nil
 }
 
 func environmentMap() map[string]string {
