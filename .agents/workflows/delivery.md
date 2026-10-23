@@ -29,6 +29,7 @@ Apply this workflow to Linear, GitHub, issue, pull-request, and release work.
 - Use a stack when a later unit depends on an earlier unit. Later branches must name their predecessor as the base, and PRs must be reviewed and merged from the bottom of the stack upward.
 - Use parallel PRs only when units have no required dependency or conflicting shared change. State the parallel group and that its members are independently reviewable and mergeable.
 - Every PR body must contain the `Review and merge order` section from the applicable PR template. It is the handoff contract for reviewer focus, stack order, dependencies, parallelism, merge conditions, and manual verification.
+- Set each manual step’s `Scope` to the PR(s) that implement the behavior being tested. Check the PR changes before assigning scope.
 
 ### Paired red-test delivery
 
