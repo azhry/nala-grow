@@ -32,6 +32,7 @@ The PR must record observable browser evidence, not only component names or scre
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
 - PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
+- Stack size: [1-3 open PRs in this dependent chain | Not stacked | disclose a pre-existing over-limit stack]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]
 - Review order: [Exact order, or "Any order within <parallel group>"]
@@ -104,6 +105,19 @@ Keep generated screenshots and browser traces outside the repository unless the 
 
 Automated tests, typechecks, lint, and builds are supporting checks. They do not replace interactive browser evidence against the real configured application, and fake records or mock endpoints must not be presented as live acceptance.
 
+### Complete manual flow
+
+For a stacked feature with HTTP/API behavior, put the same complete, ordered
+end-to-end curl/request-response sequence here and in every stack PR, as if all
+changes were integrated in one PR. Tag each behavior step `Scope: #NN` with its
+owning PR, identify this PR's steps, and retain predecessor/later-PR steps as
+context without claiming unmerged behavior as implemented or observed. If the
+feature has no HTTP/API boundary, put the complete browser journey here instead
+and mark the interactions this PR changes. Keep each request independently
+pasteable with one expected response; report observed results separately.
+
+[Paste the complete ordered sequence or browser journey here.]
+
 | Command or browser flow | Exit/result | Evidence or assertions |
 | --- | ---: | --- |
 | [Unit/component command] | [0/nonzero/not run] | [Assertions] |
@@ -131,5 +145,7 @@ Automated tests, typechecks, lint, and builds are supporting checks. They do not
 - [ ] Loading, empty, error, success, and state-changing outcomes are covered where applicable.
 - [ ] The rendered result was compared with every applicable reference requirement.
 - [ ] Exact unfiltered commands and exit statuses are recorded.
+- [ ] Stacked HTTP/API work includes the same complete request/response sequence in every PR, with per-step PR ownership and this PR's scope marked.
+- [ ] The active dependent stack contains no more than three open PRs, or the body identifies a pre-existing over-limit stack that is not being extended.
 - [ ] Screenshots, traces, logs, and unrelated user files are absent from the diff.
 - [ ] The linked Linear issue contains the completed evidence and correct handoff state.

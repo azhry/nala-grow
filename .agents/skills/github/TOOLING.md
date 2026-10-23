@@ -1,6 +1,6 @@
 # GitHub operations
 
-Use Git for local history, a connected GitHub app for GitHub actions, and an authenticated `gh` CLI when the connector is unavailable or lacks a needed feature.
+Use Git for local history, a connected GitHub app for GitHub actions, and the authenticated official `gh` CLI when the connector operation is unavailable or lacks a needed feature. Discover the active tool list and use the exact operation signature; do not infer that a listed operation is callable merely because it appears in documentation.
 
 ## Git commands
 
@@ -13,7 +13,7 @@ git commit -m "feat(scope): summary"
 git push -u origin <topic-branch>
 ```
 
-Run the push only after the user authorizes external publication.
+Follow the repository's publication instructions. Do not ask for duplicate approval when the task is in scope and those instructions authorize routine publication. Do not merge unless the user or repository workflow explicitly authorizes it.
 
 ## Connected GitHub app calls
 
@@ -22,8 +22,9 @@ Discover the exact callable names from the active tool list; Codex commonly expo
 | Intent | Connector call |
 | --- | --- |
 | Create PR | `mcp__codex_apps__github_create_pull_request({ repository_full_name, head, base, title, body, draft })` |
-| Inspect PR | `mcp__codex_apps__github_get_pr_info({ repo_full_name, pr_number })` |
-| Find PRs | `mcp__codex_apps__github_search_prs({ repo_full_name, query })` |
+| Inspect PR | `mcp__codex_apps__github_get_pr_info({ repository_full_name, pr_number })` |
+| Update PR metadata/body/base/state | `mcp__codex_apps__github_update_pull_request({ repository_full_name, pr_number, title?, body?, base_branch?, state?, maintainer_can_modify? })` |
+| Find PRs | `mcp__codex_apps__github_search_prs({ repository_full_name, query })` |
 | Fetch complete PR discussion | `mcp__codex_apps__github_fetch_pr_comments({ repo_full_name, pr_number })` |
 | Fetch resolved/unresolved inline threads | `mcp__codex_apps__github_list_pull_request_review_threads({ repo_full_name, pr_number })` |
 | Inspect commit metadata/diff | `mcp__codex_apps__github_fetch_commit({ repo_full_name, commit_sha })` |
@@ -37,7 +38,7 @@ Use `github_fetch_pr_comments` for a chronological discussion timeline and `gith
 
 ### Resolve and preflight the official CLI
 
-Do this before any source edit, branch creation, commit, push, or PR command. Do not assume that `gh` on PATH is the GitHub CLI: Node/npm packages can shadow it and may prompt for an interactive login.
+Do this before any source edit, branch creation, commit, push, or PR command when required by repository instructions. Do not assume that `gh` on PATH is the GitHub CLI: Node/npm packages can shadow it and may prompt for an interactive login. Run the checks in the current supported execution environment; do not request sandbox escalation or claim a keyring/network limitation without an observed failure.
 
 On PowerShell, prefer a real `gh.exe` outside Node/npm paths, then retain its full path for every subsequent call:
 
@@ -61,7 +62,7 @@ gh_bin="$(command -v gh)"
 "$gh_bin" repo view OWNER/REPO --json nameWithOwner,viewerPermission
 ```
 
-The preflight passes only when all three commands succeed and the repository result identifies the intended repository. Do not continue with a different `gh`, an interactive `gh auth login`, `GH_TOKEN` populated from a project config file, or a direct HTTP request containing a project token. Use a connected GitHub app if available; otherwise record the blocker and stop.
+The preflight passes only when all three commands succeed and the repository result identifies the intended repository. Do not continue with a different `gh`, an interactive `gh auth login`, `GH_TOKEN` populated from a project config file, or a direct HTTP request containing a project token. If repository instructions make this preflight a hard gate and it fails, stop before edits and report the blocker.
 
 The bundled preflight helper performs those checks atomically:
 
@@ -82,6 +83,13 @@ gh pr view <number> --repo OWNER/REPO --json url,state,isDraft,mergeable,statusC
 Use the resolved full executable path in place of `gh` in those commands. Merge only when the user explicitly asks, after confirming the PR is mergeable and reporting its check state.
 
 If `gh` is not authenticated, report that blocker instead of starting an interactive login in an unattended workflow.
+
+## Connector errors and authorization
+
+- If an operation is absent or dispatch returns `Tool <name> not found`, treat that operation as unavailable and use the documented CLI/API fallback after the required `gh` preflight. Do not retry it under a guessed tool name.
+- If a connector returns the explicit GitHub error `Resource not accessible by integration`, classify it as an integration-scoped permission failure. When the required preflight has already succeeded for the same repository using the official CLI and the current configured account, that CLI is the documented fallback for the requested operation. Keep the same account; do not load another token, change identity, request broader scopes, or use a project secret to evade the integration denial.
+- If the configured `gh` CLI itself returns 401/403, the preflight fails, or the error does not identify an integration-scoped denial, stop and report the authorization blocker. Do not try another identity or credential source.
+- For argument/schema errors, check the active tool signature and correct the request once before falling back. A missing capability and an authorization denial are different conditions.
 
 ### Discussion and commit-comment fallback
 
