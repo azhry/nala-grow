@@ -20,7 +20,9 @@ Choose exactly one outcome mode:
 ## Review and merge order
 
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
+- PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
+- Stack size: [1-3 open PRs in this dependent chain | Not stacked | disclose a pre-existing over-limit stack]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]
 - Review order: [Exact order, or "Any order within <parallel group>"]
@@ -67,6 +69,19 @@ Remove only when the task has no database or API behavior.
 - Persistence boundary: [Write/create → new request/client/process → read/reload]
 - Ownership/isolation: [Cross-user/resource cases]
 - Cleanup evidence: [Container/pool termination, including failure path]
+
+If this PR belongs to a stacked HTTP/API feature, include the same complete,
+ordered end-to-end curl/request-response sequence in every stack PR, as if all
+changes were integrated in one PR. Tag behavior steps `Scope: #NN` with their
+owning PR and identify this PR's test/behavior scope. Keep predecessor and
+later-PR steps for context without claiming unmerged behavior or responses as
+implemented or observed. Use `Not applicable` only when the feature has no
+HTTP/API boundary.
+
+### Complete manual flow
+
+[Paste the full ordered curl/request-response sequence for the integrated
+feature. Tag each behavior step with its owning PR and identify this PR's scope.]
 
 ## Results
 
@@ -133,3 +148,5 @@ Complete this section for green verification or after the paired implementation 
 - [ ] Cleanup and repeat-run evidence are recorded.
 - [ ] No test was weakened, skipped, or made order-dependent to obtain the reported result.
 - [ ] Exact commands, exits, commit/branch, paired issue, and remaining blocker are recorded.
+- [ ] Stacked HTTP/API work includes the same complete request/response sequence in every PR, with per-step PR ownership and this PR's scope marked.
+- [ ] The active dependent stack contains no more than three open PRs, or the body identifies a pre-existing over-limit stack that is not being extended.

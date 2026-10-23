@@ -37,3 +37,5 @@ If the official CLI preflight fails, follow the repository's explicit preflight 
 ## Pull requests
 
 Default to a draft PR unless the user asks for ready review. Include a concise summary, verification performed, known limitations, and an issue reference when one exists.
+
+For dependent work, keep each active PR stack to at most three open PRs, including its root. For HTTP/API behavior, every PR in the stack carries the same complete ordered end-to-end curl/request-response sequence, with each step tagged to its owning PR and this PR's scope identified. Follow the repository delivery workflow and PR template for sequencing, expected-versus-observed responses, and legacy over-limit stacks.
