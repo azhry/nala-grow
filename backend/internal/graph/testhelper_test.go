@@ -23,6 +23,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	testPool = harness.Pool
+	// The Casdoor auth slice depends on AZH-413 migration 009, which allows
+	// profiles managed by Casdoor to have no local password hash.
+	if _, err := testPool.Exec(ctx, "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL"); err != nil {
+		fmt.Fprintln(os.Stderr, "could not prepare the Casdoor-dependent test schema:", err)
+		_ = harness.Close(ctx)
+		os.Exit(1)
+	}
 
 	if _, err := testPool.Exec(ctx, "TRUNCATE TABLE milestones, measurements, sleep_sessions, feeding_sessions, babies, users CASCADE"); err != nil {
 		fmt.Fprintln(os.Stderr, "could not reset graph test database:", err)
