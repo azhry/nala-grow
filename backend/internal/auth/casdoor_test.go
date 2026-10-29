@@ -132,23 +132,89 @@ func TestCasdoorAuthorizationCodeRequiresConfiguredRedirectAndRejectsWrongIssuer
 	}
 }
 
-func TestCasdoorRegisterUserUsesAdminTokenWithoutLoggingCredentials(t *testing.T) {
+func TestCasdoorRegisterUserPrefersClientCredentialsOverAdminToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/add-user" {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]string{
+				"issuer":         "http://" + r.Host,
+				"token_endpoint": "http://" + r.Host + "/oauth/token",
+				"jwks_uri":       "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("parse token request: %v", err)
+				return
+			}
+			if got := r.Form.Get("grant_type"); got != "client_credentials" {
+				t.Errorf("grant_type = %q, want client_credentials", got)
+			}
+			writeJSON(t, w, map[string]string{"access_token": "client-access-token"})
+		case "/api/add-user":
+			if got := r.Header.Get("Authorization"); got != "Bearer client-access-token" {
+				t.Errorf("Authorization = %q, want client credentials token", got)
+			}
+			var payload map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Errorf("decode registration payload: %v", err)
+				return
+			}
+			if payload["email"] != "parent@example.com" || payload["password"] != "secret" {
+				t.Errorf("registration payload = %#v", payload)
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer admin-token" {
-			t.Fatalf("Authorization = %q", got)
+	}))
+	defer server.Close()
+
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled:      true,
+		Issuer:       server.URL,
+		ClientID:     "nala-grow",
+		ClientSecret: "client-secret",
+		Organization: "NalaGrow",
+		Application:  "nala-grow-web",
+		AdminToken:   "stale-admin-token",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	if err := client.RegisterUser(t.Context(), "Parent@Example.com", "secret", "Parent"); err != nil {
+		t.Fatalf("RegisterUser() error = %v", err)
+	}
+}
+
+func TestCasdoorRegisterUserFallsBackToAdminTokenWhenClientTokenUnavailable(t *testing.T) {
+	var tokenRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]string{
+				"issuer":         "http://" + r.Host,
+				"token_endpoint": "http://" + r.Host + "/oauth/token",
+				"jwks_uri":       "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			tokenRequests++
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case "/api/add-user":
+			if got := r.Header.Get("Authorization"); got != "Bearer admin-token" {
+				t.Errorf("Authorization = %q, want configured admin token fallback", got)
+			}
+			var payload map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Errorf("decode registration payload: %v", err)
+				return
+			}
+			if payload["email"] != "parent@example.com" || payload["password"] != "secret" {
+				t.Errorf("registration payload = %#v", payload)
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
+		default:
+			http.NotFound(w, r)
 		}
-		var payload map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode registration payload: %v", err)
-		}
-		if payload["email"] != "parent@example.com" || payload["password"] != "secret" {
-			t.Fatalf("registration payload = %#v", payload)
-		}
-		writeJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
 	}))
 	defer server.Close()
 
@@ -166,6 +232,9 @@ func TestCasdoorRegisterUserUsesAdminTokenWithoutLoggingCredentials(t *testing.T
 	}
 	if err := client.RegisterUser(t.Context(), "Parent@Example.com", "secret", "Parent"); err != nil {
 		t.Fatalf("RegisterUser() error = %v", err)
+	}
+	if tokenRequests != 1 {
+		t.Fatalf("client credential requests = %d, want 1", tokenRequests)
 	}
 }
 

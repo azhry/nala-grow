@@ -396,13 +396,15 @@ func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displ
 	if c == nil {
 		return ErrCasdoorNotConfigured
 	}
-	accessToken := strings.TrimSpace(c.config.AdminToken)
-	if accessToken == "" {
-		token, err := c.clientCredentialsToken(ctx)
-		if err != nil {
+	token, err := c.clientCredentialsToken(ctx)
+	accessToken := ""
+	if err == nil {
+		accessToken = token.AccessToken
+	} else {
+		accessToken = strings.TrimSpace(c.config.AdminToken)
+		if accessToken == "" {
 			return err
 		}
-		accessToken = token.AccessToken
 	}
 	owner := c.config.Organization
 	if owner == "" {
