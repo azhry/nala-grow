@@ -29,6 +29,7 @@ Apply this workflow to Linear, GitHub, issue, pull-request, and release work.
 - Use a stack when a later unit depends on an earlier unit. Later branches must name their predecessor as the base, and PRs must be reviewed and merged from the bottom of the stack upward.
 - Use parallel PRs only when units have no required dependency or conflicting shared change. State the parallel group and that its members are independently reviewable and mergeable.
 - Every PR body must contain the `Review and merge order` section from the applicable PR template. It is the handoff contract for reviewer focus, stack order, dependencies, parallelism, merge conditions, and manual verification.
+- Set each manual step’s `Scope` to the PR(s) that implement the behavior being tested. Check the PR changes before assigning scope.
 
 ### Paired red-test delivery
 
@@ -54,7 +55,8 @@ main ── red-test PR merge (documented test command remains intentionally red
 
 - Inspect `git status --short --branch`, the current branch, remote, and project instructions before editing or staging.
 - For new work, branch from `main`. For work already in a PR, continue from that branch and update the same PR.
-- Complete the GitHub authentication/repository-access preflight and create the required branch before the first implementation write. A later branch creation does not repair edits made on `main`. If the worktree is dirty, preserve it; use an isolated worktree when the task can proceed safely, otherwise report the blocker.
+- For follow-up changes or fixes to the same task in the same active session, reuse the existing task/PR branch; do not create a new branch for each edit, commit, or review iteration. Create another branch only for a distinct independent task or an explicitly requested PR split.
+- Complete the GitHub authentication/repository-access preflight and confirm the required task/PR branch before the first implementation write. Create a branch only for new work that does not already have one. A later branch creation does not repair edits made on `main`. If the worktree is dirty, preserve it; use an isolated worktree when the task can proceed safely, otherwise report the blocker.
 - Stage only intended files. Run proportionate verification and distinguish pre-existing failures from regressions.
 - Before staging and before handoff, inspect `git status --short` and the intended diff. Keep generated diagnostics (screenshots, browser traces, lint logs, downloaded samples) outside the repository or in ignored temporary storage. Clean up only artifacts created by the current task.
 - For visual-reference work, the readiness re-read must confirm the saved tracker rendering itself and the exact pairing between each inline asset and its source. API or text-presence counts alone do not satisfy the gate.
