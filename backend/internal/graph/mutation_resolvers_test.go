@@ -11,29 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSignupReportsCasdoorRegistrationConflictActionably(t *testing.T) {
-	var addUserRequests int
+func TestSignupReportsCasdoorDuplicateActionably(t *testing.T) {
+	var signupRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/.well-known/openid-configuration":
-			writeTestJSON(t, w, map[string]string{
-				"issuer":         "http://" + r.Host,
-				"token_endpoint": "http://" + r.Host + "/oauth/token",
-				"jwks_uri":       "http://" + r.Host + "/jwks",
-			})
-		case "/oauth/token":
-			writeTestJSON(t, w, map[string]string{"access_token": "client-access-token"})
-		case "/api/get-user":
-			writeTestJSON(t, w, map[string]interface{}{
-				"status": "ok",
-				"data":   map[string]string{"name": "parent"},
-			})
-		case "/api/add-user":
-			addUserRequests++
-			writeTestJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
-		default:
+		if r.Method != http.MethodPost || r.URL.Path != "/api/signup" {
+			t.Errorf("request = %s %s, want POST /api/signup", r.Method, r.URL.Path)
 			http.NotFound(w, r)
+			return
 		}
+		signupRequests++
+		writeTestJSON(t, w, map[string]interface{}{"status": "error", "msg": "check:Email already exists"})
 	}))
 	defer server.Close()
 
@@ -58,7 +45,7 @@ func TestSignupReportsCasdoorRegistrationConflictActionably(t *testing.T) {
 
 	require.Len(t, result.Errors, 1)
 	require.Equal(t, "an account with this email already exists; please log in instead", result.Errors[0].Message)
-	require.Zero(t, addUserRequests, "signup must not call add-user for an existing account")
+	require.Equal(t, 1, signupRequests, "Casdoor signup is the authoritative duplicate check")
 }
 
 func writeTestJSON(t *testing.T, w http.ResponseWriter, value interface{}) {

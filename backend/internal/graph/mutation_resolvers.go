@@ -31,14 +31,50 @@ func (h *Handler) resolveSignupResult(ctx context.Context, variables map[string]
 			if errors.Is(err, auth.ErrCasdoorRegistrationConflict) {
 				return ExecResult{Errors: []GraphQLError{{Message: "this signup conflicts with an existing account; log in if you already have an account, or use a different email"}}}
 			}
-			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
-				return ExecResult{Errors: []GraphQLError{{Message: "could not check whether this email is already registered; please try again"}}}
+			if errors.Is(err, auth.ErrCasdoorSignupDisabled) {
+				return ExecResult{Errors: []GraphQLError{{Message: "sign-up is not enabled for this application; contact support"}}}
 			}
-			return ExecResult{Errors: []GraphQLError{{Message: "could not create user in identity provider"}}}
+			if errors.Is(err, auth.ErrCasdoorPasswordRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "password does not meet the identity provider requirements"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorVerificationRequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "email verification is required to create this account"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorSignupRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "identity provider rejected sign-up; check your details or contact support"}}}
+			}
+			return ExecResult{Errors: []GraphQLError{{Message: "identity provider sign-up request failed; please try again"}}}
 		}
 		token, principal, err := h.auth.Casdoor.PasswordGrant(ctx, email, password)
 		if err != nil {
-			return ExecResult{Errors: []GraphQLError{{Message: "could not sign in with identity provider"}}}
+			if errors.Is(err, auth.ErrCasdoorSigninRestricted) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor sign-in policy blocked it; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordTypeUnsupported) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor cannot verify its password configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorMFARequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor requires an additional sign-in step; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorEmailUnverified) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but its email must be verified before sign-in"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorCredentialsRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor rejected the password; try logging in or resetting your password"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordGrantBlocked) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor password sign-in is disabled for this application; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorOAuthClientRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor rejected this application's sign-in configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserNotFound) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor could not find it for sign-in; try logging in or contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor could not verify it for sign-in; try logging in again"}}}
+			}
+			return ExecResult{Errors: []GraphQLError{{Message: "account was created, but automatic sign-in failed; try logging in"}}}
 		}
 		userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
 		if err != nil {
@@ -119,6 +155,30 @@ func (h *Handler) resolveLoginResult(ctx context.Context, variables map[string]i
 	if h.auth.Casdoor != nil {
 		token, principal, err := h.auth.Casdoor.PasswordGrant(ctx, email, password)
 		if err != nil {
+			if errors.Is(err, auth.ErrCasdoorSigninRestricted) {
+				return ExecResult{Errors: []GraphQLError{{Message: "Casdoor sign-in policy blocked this account; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordTypeUnsupported) {
+				return ExecResult{Errors: []GraphQLError{{Message: "Casdoor password configuration is invalid for this account; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorMFARequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "this account requires an additional Casdoor sign-in step"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorEmailUnverified) {
+				return ExecResult{Errors: []GraphQLError{{Message: "verify your email with Casdoor before signing in"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordGrantBlocked) {
+				return ExecResult{Errors: []GraphQLError{{Message: "password sign-in is disabled for this application; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorOAuthClientRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "identity provider rejected this application's sign-in configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserNotFound) {
+				return ExecResult{Errors: []GraphQLError{{Message: "no Casdoor account was found for this email; sign up first"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not verify this account with the identity provider; try again"}}}
+			}
 			return ExecResult{Errors: []GraphQLError{{Message: "invalid email or password"}}}
 		}
 		userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
