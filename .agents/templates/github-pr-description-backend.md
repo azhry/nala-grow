@@ -33,6 +33,7 @@ The PR description is the review and handoff record. Do not claim a check passed
 - Delivery shape: [Single focused PR | Stacked PR | Parallel PR group]
 - PR link: [Direct URL for this pull request]
 - This PR's review position: [Standalone | PR 1 of N | PR N of N | Parallel member A/B]
+- Stack size: [1-3 open PRs in this dependent chain | Not stacked | disclose a pre-existing over-limit stack]
 - Base branch: [main or predecessor branch]
 - Depends on: [PR/commit and the exact delivered behavior, or "None"]
 - Review order: [Exact order, or "Any order within <parallel group>"]
@@ -81,7 +82,16 @@ real staging data and the documented staging fixture for the issue; do not use
 placeholder values, fake records, or mocks. Never paste credentials, tokens,
 or API keys into the PR.
 
-#### Step 0 — Load the verified staging environment
+For a stacked HTTP/API feature, include the same complete, ordered end-to-end
+request/response flow in every stack PR, as if all changes were integrated in
+one PR. Do not reduce it to only the behavior changed by the current PR. Tag
+each behavior step `Scope: #NN` with its owning PR, and identify the steps this
+PR implements in `Human-verification focus`. Keep predecessor and later-PR
+steps in the full sequence for context; mark dependencies and do not claim
+unmerged behavior or responses as implemented or observed. Shared setup can
+use `Scope: Shared setup`.
+
+#### Step 0 — Load the verified staging environment (Scope: Shared setup)
 
 ```bash
 set -a
@@ -105,7 +115,7 @@ The command must exit 0 and identify the real staging targets without printing
 secret values. Replace the example hosts with the actual targets before
 handoff; do not leave placeholders in the completed PR.
 
-#### Step 1 — Authenticate with the real staging fixture
+#### Step 1 — Authenticate with the real staging fixture (Scope: #NN)
 
 ```bash
 : "${NALA_TEST_USERNAME:?Load the documented staging fixture from .agents/.env}"
@@ -129,7 +139,7 @@ Expected response:
 The command must exit 0, identify the real fixture account, and export `TOKEN`
 only in the current shell.
 
-#### Step 2 — Select the real persisted fixture
+#### Step 2 — Select the real persisted fixture (Scope: Shared setup)
 
 ```bash
 : "${STAGING_DEPLOYMENT_ID:?Set this to the documented persisted staging deployment}"
@@ -145,7 +155,7 @@ deployment fixture: <verified-staging-deployment-id>
 
 Replace the example value with the real observed fixture before handoff.
 
-#### Step 3 — [real behavior under test]
+#### Step 3 — [real behavior under test] (Scope: #NN)
 
 Command:
 
@@ -165,7 +175,7 @@ Replace the path and response with the real staging operation and observed
 contract. Add one numbered step per meaningful action; each step must include
 its own Bash command and expected response.
 
-#### Step 4 — [required regression, error, or ownership check]
+#### Step 4 — [required regression, error, or ownership check] (Scope: #NN)
 
 Command:
 
@@ -202,4 +212,6 @@ failures from regressions introduced by the PR.
 - [ ] Generated coverage, logs, dumps, credentials, and unrelated files are absent from the diff.
 - [ ] Automated checks are clearly separated from manual acceptance evidence and are not presented as proof that the live work is complete.
 - [ ] For API work, the PR body includes a copy-paste manual request/response sequence using real configured fixtures; automated tests alone do not satisfy this check.
+- [ ] For stacked HTTP/API work, every stack PR carries the same full end-to-end sequence with each behavior step tagged to its owning PR and this PR's scope identified.
+- [ ] The active dependent stack contains no more than three open PRs, or the body identifies it as a pre-existing over-limit stack that is not being extended.
 - [ ] The linked Linear issue and dependencies reflect the actual handoff state.
