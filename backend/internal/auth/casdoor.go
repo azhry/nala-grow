@@ -19,8 +19,24 @@ import (
 )
 
 var (
-	ErrCasdoorNotConfigured = errors.New("casdoor is not configured")
-	ErrCasdoorTokenInvalid  = errors.New("invalid Casdoor token")
+	ErrCasdoorNotConfigured           = errors.New("casdoor is not configured")
+	ErrCasdoorTokenInvalid            = errors.New("invalid Casdoor token")
+	ErrCasdoorEmailAlreadyExists      = errors.New("Casdoor email is already registered")
+	ErrCasdoorRegistrationConflict    = errors.New("Casdoor user registration conflicts with an existing account")
+	ErrCasdoorUserLookupFailed        = errors.New("could not verify the Casdoor user identity")
+	ErrCasdoorUserNotFound            = errors.New("Casdoor user was not found")
+	ErrCasdoorSignupDisabled          = errors.New("Casdoor signup is disabled for this application")
+	ErrCasdoorPasswordRejected        = errors.New("Casdoor rejected the password")
+	ErrCasdoorVerificationRequired    = errors.New("Casdoor requires email verification")
+	ErrCasdoorSignupRejected          = errors.New("Casdoor rejected the signup")
+	ErrCasdoorCredentialsRejected     = errors.New("Casdoor rejected the username or password")
+	ErrCasdoorPasswordTypeUnsupported = errors.New("Casdoor account has an unsupported password type")
+	ErrCasdoorPasswordGrantBlocked    = errors.New("Casdoor password grant is not available")
+	ErrCasdoorOAuthClientRejected     = errors.New("Casdoor rejected the OAuth client")
+	ErrCasdoorTokenRejected           = errors.New("Casdoor rejected the token request")
+	ErrCasdoorMFARequired             = errors.New("Casdoor requires a second authentication factor")
+	ErrCasdoorEmailUnverified         = errors.New("Casdoor requires a verified email address")
+	ErrCasdoorSigninRestricted        = errors.New("Casdoor sign-in policy blocked this account")
 )
 
 // CasdoorConfig contains non-sensitive identifiers and runtime credentials
@@ -57,6 +73,7 @@ type CasdoorToken struct {
 // CasdoorPrincipal is the normalized identity and IAM data emitted by a
 // validated Casdoor token.
 type CasdoorPrincipal struct {
+	Issuer        string
 	Subject       string
 	Email         string
 	Name          string
@@ -89,15 +106,6 @@ type casdoorJWK struct {
 	Use string `json:"use"`
 	N   string `json:"n"`
 	E   string `json:"e"`
-}
-
-type casdoorUser struct {
-	Owner             string `json:"owner"`
-	Name              string `json:"name"`
-	DisplayName       string `json:"displayName"`
-	Email             string `json:"email"`
-	Password          string `json:"password"`
-	SignupApplication string `json:"signupApplication"`
 }
 
 // CasdoorClient implements the small OAuth/OIDC surface needed by the
@@ -287,29 +295,87 @@ func (c *CasdoorClient) tokenRequest(ctx context.Context, values url.Values) (*C
 		return nil, fmt.Errorf("request Casdoor token: %w", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		_, _ = io.Copy(io.Discard, response.Body)
-		return nil, fmt.Errorf("Casdoor token request returned HTTP %d", response.StatusCode)
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64*1024))
+	if err != nil {
+		return nil, fmt.Errorf("read Casdoor token response: %w", err)
 	}
-	var token CasdoorToken
-	if err := json.NewDecoder(response.Body).Decode(&token); err != nil {
+	var result struct {
+		CasdoorToken
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+	}
+	if err := json.Unmarshal(responseBody, &result); err != nil {
 		return nil, fmt.Errorf("decode Casdoor token response: %w", err)
 	}
-	if token.AccessToken == "" {
-		return nil, fmt.Errorf("Casdoor token response did not include an access token")
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices || result.AccessToken == "" {
+		reason := strings.TrimSpace(result.Error)
+		if reason == "" && strings.HasPrefix(strings.ToLower(result.AccessToken), "error:") {
+			reason = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(result.AccessToken), "error:"))
+		}
+		return nil, classifyCasdoorTokenRejection(reason, result.ErrorDescription, response.StatusCode)
 	}
-	return &token, nil
+	return &result.CasdoorToken, nil
+}
+
+func classifyCasdoorTokenRejection(code, description string, statusCode int) error {
+	code = strings.ToLower(strings.TrimSpace(code))
+	detail := strings.ToLower(strings.TrimSpace(description))
+	reason := code + " " + detail
+	var category error
+	switch {
+	case strings.Contains(reason, "unsupported_grant_type"), strings.Contains(detail, "oauth users cannot use password grant type"), strings.Contains(detail, "password grant") && strings.Contains(detail, "disabled"):
+		category = ErrCasdoorPasswordGrantBlocked
+	case strings.Contains(detail, "mfa") || strings.Contains(detail, "multi-factor"):
+		category = ErrCasdoorMFARequired
+	case strings.Contains(detail, "email") && (strings.Contains(detail, "verified") || strings.Contains(detail, "verification")):
+		category = ErrCasdoorEmailUnverified
+	case strings.Contains(detail, "user does not exist"), strings.Contains(detail, "user doesn't exist"):
+		category = ErrCasdoorUserNotFound
+	case strings.Contains(reason, "invalid_client"), strings.Contains(reason, "invalid client"):
+		category = ErrCasdoorOAuthClientRejected
+	case strings.Contains(detail, "forbidden to sign in"), strings.Contains(detail, "signin policy"), strings.Contains(detail, "sign-in policy"):
+		category = ErrCasdoorSigninRestricted
+	case strings.Contains(detail, "unsupported password type"):
+		category = ErrCasdoorPasswordTypeUnsupported
+	case strings.Contains(detail, "invalid username or password"), strings.Contains(detail, "invalid password"), strings.Contains(detail, "incorrect password"), strings.Contains(detail, "password is invalid"):
+		category = ErrCasdoorCredentialsRejected
+	case strings.Contains(reason, "invalid_grant"):
+		category = ErrCasdoorTokenRejected
+	default:
+		category = ErrCasdoorTokenRejected
+	}
+	if code != "" {
+		return fmt.Errorf("%w (provider code %s)", category, safeOAuthErrorCode(code))
+	}
+	return fmt.Errorf("%w (HTTP %d)", category, statusCode)
+}
+
+func safeOAuthErrorCode(code string) string {
+	code = strings.ToLower(strings.TrimSpace(code))
+	if code == "" || len(code) > 64 {
+		return "unspecified"
+	}
+	for _, character := range code {
+		if !(character >= 'a' && character <= 'z') && !(character >= '0' && character <= '9') && character != '_' && character != '-' {
+			return "unspecified"
+		}
+	}
+	return code
 }
 
 func (c *CasdoorClient) PasswordGrant(ctx context.Context, email, password string) (*CasdoorToken, *CasdoorPrincipal, error) {
 	if c == nil {
 		return nil, nil, ErrCasdoorNotConfigured
 	}
+	username, err := c.casdoorUsernameByEmail(ctx, email)
+	if err != nil {
+		return nil, nil, err
+	}
 	values := url.Values{
 		"grant_type":    {"password"},
 		"client_id":     {c.config.ClientID},
 		"client_secret": {c.config.ClientSecret},
-		"username":      {strings.TrimSpace(strings.ToLower(email))},
+		"username":      {username},
 		"password":      {password},
 		"scope":         {"openid email profile"},
 	}
@@ -324,6 +390,47 @@ func (c *CasdoorClient) PasswordGrant(ctx context.Context, email, password strin
 		return nil, nil, err
 	}
 	return token, principal, nil
+}
+
+func (c *CasdoorClient) casdoorUsernameByEmail(ctx context.Context, email string) (string, error) {
+	if strings.TrimSpace(c.config.Organization) == "" {
+		return "", ErrCasdoorUserLookupFailed
+	}
+	clientToken, err := c.clientCredentialsToken(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%w: Casdoor client authentication failed", ErrCasdoorUserLookupFailed)
+	}
+	query := url.Values{"owner": {c.config.Organization}, "email": {strings.TrimSpace(strings.ToLower(email))}}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.Issuer+"/api/get-user?"+query.Encode(), nil)
+	if err != nil {
+		return "", ErrCasdoorUserLookupFailed
+	}
+	request.Header.Set("Authorization", "Bearer "+clientToken.AccessToken)
+	response, err := c.client.Do(request)
+	if err != nil {
+		return "", fmt.Errorf("%w: Casdoor user lookup request failed", ErrCasdoorUserLookupFailed)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, response.Body)
+		return "", fmt.Errorf("%w: Casdoor user lookup returned HTTP %d", ErrCasdoorUserLookupFailed, response.StatusCode)
+	}
+	var result struct {
+		Status string `json:"status"`
+		Data   *struct {
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 64*1024)).Decode(&result); err != nil || !strings.EqualFold(result.Status, "ok") {
+		return "", ErrCasdoorUserLookupFailed
+	}
+	if result.Data == nil {
+		return "", ErrCasdoorUserNotFound
+	}
+	if strings.TrimSpace(result.Data.Name) == "" {
+		return "", ErrCasdoorUserLookupFailed
+	}
+	return result.Data.Name, nil
 }
 
 func (c *CasdoorClient) AuthorizationCodeGrant(ctx context.Context, code, redirectURI string) (*CasdoorToken, *CasdoorPrincipal, error) {
@@ -388,63 +495,103 @@ func setOptionalTokenValue(values url.Values, key, value string) {
 	}
 }
 
-// RegisterUser uses Casdoor's authenticated Public API. The application
-// client must be granted the required user-management permission in Casdoor;
-// otherwise the operation fails safely and no local account is created.
+// RegisterUser creates an account through Casdoor's public application signup
+// API. Credentials remain owned by Casdoor; the client credentials are used by
+// the subsequent login flow.
 func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displayName string) error {
 	if c == nil {
 		return ErrCasdoorNotConfigured
 	}
-	accessToken := strings.TrimSpace(c.config.AdminToken)
-	if accessToken == "" {
-		token, err := c.clientCredentialsToken(ctx)
-		if err != nil {
-			return err
-		}
-		accessToken = token.AccessToken
+	if strings.TrimSpace(c.config.Organization) == "" || strings.TrimSpace(c.config.Application) == "" {
+		return fmt.Errorf("Casdoor signup requires an organization and application")
 	}
-	owner := c.config.Organization
-	if owner == "" {
-		owner = "built-in"
+	email = strings.TrimSpace(strings.ToLower(email))
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		displayName = casdoorUsername(email)
 	}
-	user := casdoorUser{
-		Owner:             owner,
-		Name:              casdoorUsername(email),
-		DisplayName:       displayName,
-		Email:             strings.TrimSpace(strings.ToLower(email)),
-		Password:          password,
-		SignupApplication: c.config.Application,
+	payload := struct {
+		Type         string `json:"type"`
+		Organization string `json:"organization"`
+		Username     string `json:"username"`
+		Password     string `json:"password"`
+		Name         string `json:"name"`
+		Email        string `json:"email"`
+		Application  string `json:"application"`
+	}{
+		Type:         "signup",
+		Organization: c.config.Organization,
+		Username:     casdoorUsername(email),
+		Password:     password,
+		Name:         displayName,
+		Email:        email,
+		Application:  c.config.Application,
 	}
-	body, err := json.Marshal(user)
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode Casdoor user request: %w", err)
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Issuer+"/api/add-user", strings.NewReader(string(body)))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Issuer+"/api/signup", strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("create Casdoor user request: %w", err)
 	}
-	request.Header.Set("Authorization", "Bearer "+accessToken)
 	request.Header.Set("Content-Type", "application/json")
 	response, err := c.client.Do(request)
 	if err != nil {
 		return fmt.Errorf("request Casdoor user registration: %w", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		_, _ = io.Copy(io.Discard, response.Body)
-		return fmt.Errorf("Casdoor user registration returned HTTP %d", response.StatusCode)
-	}
 	var result struct {
 		Status string `json:"status"`
-		Data   bool   `json:"data"`
+		Msg    string `json:"msg"`
 	}
-	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, 64*1024)).Decode(&result); err != nil {
 		return fmt.Errorf("decode Casdoor user registration response: %w", err)
 	}
-	if strings.EqualFold(result.Status, "error") || !result.Data {
-		return fmt.Errorf("Casdoor user registration was rejected")
+	if response.StatusCode == http.StatusConflict {
+		return ErrCasdoorRegistrationConflict
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("Casdoor signup returned HTTP %d", response.StatusCode)
+	}
+	if !strings.EqualFold(result.Status, "ok") {
+		if isCasdoorEmailConflict(result.Msg) {
+			return ErrCasdoorEmailAlreadyExists
+		}
+		if isCasdoorRegistrationConflict(result.Msg) {
+			return ErrCasdoorRegistrationConflict
+		}
+		return classifyCasdoorSignupRejection(result.Msg)
 	}
 	return nil
+}
+
+func classifyCasdoorSignupRejection(message string) error {
+	message = strings.ToLower(strings.TrimSpace(message))
+	switch {
+	case strings.Contains(message, "does not allow to sign up"), strings.Contains(message, "signup is disabled"), strings.Contains(message, "sign up is disabled"):
+		return ErrCasdoorSignupDisabled
+	case strings.Contains(message, "password"):
+		return ErrCasdoorPasswordRejected
+	case strings.Contains(message, "verification"), strings.Contains(message, "email code"), strings.Contains(message, "emailcode"):
+		return ErrCasdoorVerificationRequired
+	default:
+		return ErrCasdoorSignupRejected
+	}
+}
+
+func isCasdoorRegistrationConflict(message string) bool {
+	message = strings.ToLower(strings.TrimSpace(message))
+	for _, marker := range []string{"already exists", "already registered", "already used", "already taken", "already in use", "has been taken", "duplicate", "unique constraint"} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func isCasdoorEmailConflict(message string) bool {
+	return strings.Contains(strings.ToLower(message), "email") && isCasdoorRegistrationConflict(message)
 }
 
 func casdoorUsername(email string) string {
@@ -509,6 +656,7 @@ func (c *CasdoorClient) ValidateAccessToken(ctx context.Context, rawToken string
 		return nil, ErrCasdoorTokenInvalid
 	}
 	principal := principalFromClaims(claims)
+	principal.Issuer = c.config.Issuer
 	if principal.Subject == "" || principal.Email == "" || !hasAnyClaim(claims, "roles", "Roles", "groups", "Groups", "permissions", "Permissions") {
 		discovery, discoveryErr := c.discoveryDocument(ctx)
 		if discoveryErr == nil && discovery.UserInfoEndpoint != "" {
@@ -516,10 +664,15 @@ func (c *CasdoorClient) ValidateAccessToken(ctx context.Context, rawToken string
 			if userinfoErr == nil {
 				claims = mergeClaims(claims, userinfo)
 				principal = principalFromClaims(claims)
+				principal.Issuer = c.config.Issuer
 			}
 		}
 	}
 	if principal.Subject == "" || principal.Email == "" || principal.IsForbidden {
+		return nil, ErrCasdoorTokenInvalid
+	}
+	if expectedOwner := strings.TrimSpace(c.config.Organization); expectedOwner != "" &&
+		principal.Owner != expectedOwner && principal.Organization != expectedOwner {
 		return nil, ErrCasdoorTokenInvalid
 	}
 	return principal, nil

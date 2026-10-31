@@ -5,8 +5,11 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,7 +21,8 @@ func TestCasdoorPasswordGrantValidatesOIDCTokenAndIAMClaims(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate signing key: %v", err)
 	}
-	var tokenRequests int
+	var passwordTokenRequests int
+	var clientTokenRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
@@ -30,17 +34,40 @@ func TestCasdoorPasswordGrantValidatesOIDCTokenAndIAMClaims(t *testing.T) {
 			})
 		case "/jwks":
 			writeJSON(t, w, map[string]interface{}{"keys": []interface{}{rsaJWK(privateKey)}})
-		case "/oauth/token":
-			tokenRequests++
-			if err := r.ParseForm(); err != nil || r.Form.Get("grant_type") != "password" {
-				t.Fatalf("token grant = %q, want password", r.Form.Get("grant_type"))
+		case "/api/get-user":
+			if r.URL.Query().Get("owner") != "NalaGrow" || r.URL.Query().Get("email") != "parent@example.com" {
+				t.Errorf("user lookup query = %v", r.URL.Query())
 			}
-			writeJSON(t, w, map[string]interface{}{
-				"access_token":  signedCasdoorToken(t, privateKey, "parent-1", "parent@example.com", "Nala Parent", "http://"+r.Host),
-				"refresh_token": "refresh-token",
-				"token_type":    "Bearer",
-				"expires_in":    3600,
-			})
+			if r.Header.Get("Authorization") != "Bearer client-access-token" {
+				t.Errorf("user lookup Authorization = %q, want client token", r.Header.Get("Authorization"))
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": map[string]string{"name": "parent"}})
+		case "/oauth/token":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse token form: %v", err)
+			}
+			switch r.Form.Get("grant_type") {
+			case "client_credentials":
+				clientTokenRequests++
+				writeJSON(t, w, map[string]interface{}{"access_token": "client-access-token"})
+			case "password":
+				passwordTokenRequests++
+				if got := r.Form.Get("username"); got != "parent" {
+					t.Errorf("password grant username = %q, want Casdoor username parent", got)
+				}
+			default:
+				t.Errorf("token grant = %q, want client_credentials or password", r.Form.Get("grant_type"))
+				http.Error(w, "unsupported grant", http.StatusBadRequest)
+				return
+			}
+			if r.Form.Get("grant_type") == "password" {
+				writeJSON(t, w, map[string]interface{}{
+					"access_token":  signedCasdoorToken(t, privateKey, "parent-1", "parent@example.com", "Nala Parent", "http://"+r.Host),
+					"refresh_token": "refresh-token",
+					"token_type":    "Bearer",
+					"expires_in":    3600,
+				})
+			}
 		default:
 			http.NotFound(w, r)
 		}
@@ -52,6 +79,8 @@ func TestCasdoorPasswordGrantValidatesOIDCTokenAndIAMClaims(t *testing.T) {
 		Issuer:       server.URL,
 		ClientID:     "nala-grow",
 		ClientSecret: "client-secret",
+		Organization: "NalaGrow",
+		Application:  "nala-grow-web",
 		Audience:     "nala-grow",
 	})
 	if err != nil {
@@ -70,8 +99,8 @@ func TestCasdoorPasswordGrantValidatesOIDCTokenAndIAMClaims(t *testing.T) {
 	if !contains(principal.Roles, "Parent") || !contains(principal.Permissions, "feeding:write") {
 		t.Fatalf("principal IAM claims = %+v", principal)
 	}
-	if tokenRequests != 1 {
-		t.Fatalf("token requests = %d, want 1", tokenRequests)
+	if passwordTokenRequests != 1 || clientTokenRequests != 1 {
+		t.Fatalf("password token requests = %d, client token requests = %d, want one each", passwordTokenRequests, clientTokenRequests)
 	}
 }
 
@@ -132,40 +161,134 @@ func TestCasdoorAuthorizationCodeRequiresConfiguredRedirectAndRejectsWrongIssuer
 	}
 }
 
-func TestCasdoorRegisterUserUsesAdminTokenWithoutLoggingCredentials(t *testing.T) {
+func TestCasdoorRegisterUserUsesPublicSignupAPI(t *testing.T) {
+	var signupRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/add-user" {
+		if r.URL.Path != "/api/signup" || r.Method != http.MethodPost {
+			t.Errorf("request = %s %s, want POST /api/signup", r.Method, r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer admin-token" {
-			t.Fatalf("Authorization = %q", got)
+		signupRequests++
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("signup Authorization = %q, want no privileged token", got)
 		}
 		var payload map[string]string
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode registration payload: %v", err)
+			t.Errorf("decode signup payload: %v", err)
+			return
 		}
-		if payload["email"] != "parent@example.com" || payload["password"] != "secret" {
-			t.Fatalf("registration payload = %#v", payload)
+		want := map[string]string{
+			"type": "signup", "organization": "NalaGrow", "username": "parent",
+			"password": "secret", "name": "Parent", "email": "parent@example.com",
+			"application": "nala-grow-web",
 		}
-		writeJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
+		if !reflect.DeepEqual(payload, want) {
+			t.Errorf("signup payload = %#v, want %#v", payload, want)
+		}
+		writeJSON(t, w, map[string]interface{}{"status": "ok", "data": map[string]interface{}{}})
 	}))
 	defer server.Close()
 
 	client, err := NewCasdoorClient(CasdoorConfig{
-		Enabled:      true,
-		Issuer:       server.URL,
-		ClientID:     "nala-grow",
-		ClientSecret: "client-secret",
-		Organization: "NalaGrow",
-		Application:  "nala-grow-web",
-		AdminToken:   "admin-token",
+		Enabled: true, Issuer: server.URL, ClientID: "nala-grow",
+		ClientSecret: "client-secret", Organization: "NalaGrow", Application: "nala-grow-web",
 	})
 	if err != nil {
 		t.Fatalf("NewCasdoorClient() error = %v", err)
 	}
 	if err := client.RegisterUser(t.Context(), "Parent@Example.com", "secret", "Parent"); err != nil {
 		t.Fatalf("RegisterUser() error = %v", err)
+	}
+	if signupRequests != 1 {
+		t.Fatalf("signup requests = %d, want 1", signupRequests)
+	}
+}
+
+func TestCasdoorRegisterUserClassifiesSignupRejections(t *testing.T) {
+	cases := []struct {
+		name    string
+		message string
+		want    error
+	}{
+		{name: "email exists", message: "check:Email already exists", want: ErrCasdoorEmailAlreadyExists},
+		{name: "signup disabled", message: "The application does not allow to sign up new account", want: ErrCasdoorSignupDisabled},
+		{name: "password rejected", message: "password is too short", want: ErrCasdoorPasswordRejected},
+		{name: "verification required", message: "email verification code is required", want: ErrCasdoorVerificationRequired},
+		{name: "unknown provider rejection", message: "internal provider error", want: ErrCasdoorSignupRejected},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(t, w, map[string]interface{}{"status": "error", "msg": test.message})
+			}))
+			defer server.Close()
+			client, err := NewCasdoorClient(CasdoorConfig{
+				Enabled: true, Issuer: server.URL, ClientID: "nala-grow", ClientSecret: "client-secret",
+				Organization: "NalaGrow", Application: "nala-grow-web",
+			})
+			if err != nil {
+				t.Fatalf("NewCasdoorClient() error = %v", err)
+			}
+			err = client.RegisterUser(t.Context(), "parent@example.com", "password", "Parent")
+			if !errors.Is(err, test.want) {
+				t.Fatalf("RegisterUser() error = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+func TestCasdoorRegistrationConflictMessageRecognizesDuplicateVariants(t *testing.T) {
+	for _, message := range []string{
+		"email already exists",
+		"email already in use",
+		"username is already registered",
+		"duplicate key value violates unique constraint",
+		"account has been taken",
+	} {
+		if !isCasdoorRegistrationConflict(message) {
+			t.Errorf("isCasdoorRegistrationConflict(%q) = false, want true", message)
+		}
+	}
+	for _, message := range []string{"invalid organization", "permission denied", "password is too short"} {
+		if isCasdoorRegistrationConflict(message) {
+			t.Errorf("isCasdoorRegistrationConflict(%q) = true, want false", message)
+		}
+	}
+}
+
+func TestCasdoorEmailConflictRequiresEmailContext(t *testing.T) {
+	if !isCasdoorEmailConflict("email already exists") {
+		t.Fatal("isCasdoorEmailConflict() = false, want true")
+	}
+	if isCasdoorEmailConflict("username already exists") {
+		t.Fatal("isCasdoorEmailConflict() = true for username conflict, want false")
+	}
+}
+
+func TestCasdoorTokenRejectionsUseSafeFailureCategories(t *testing.T) {
+	cases := []struct {
+		name        string
+		code        string
+		description string
+		want        error
+	}{
+		{name: "missing user", code: "invalid_grant", description: "the user does not exist", want: ErrCasdoorUserNotFound},
+		{name: "wrong password", code: "invalid_grant", description: "invalid username or password: password mismatch", want: ErrCasdoorCredentialsRejected},
+		{name: "unsupported password type", code: "invalid_grant", description: "invalid username or password: unsupported password type: ", want: ErrCasdoorPasswordTypeUnsupported},
+		{name: "mfa required", code: "invalid_grant", description: "the user has MFA enabled", want: ErrCasdoorMFARequired},
+		{name: "oauth account", code: "invalid_grant", description: "OAuth users cannot use password grant type", want: ErrCasdoorPasswordGrantBlocked},
+		{name: "unknown invalid grant", code: "invalid_grant", want: ErrCasdoorTokenRejected},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			err := classifyCasdoorTokenRejection(test.code, test.description, http.StatusBadRequest)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("classifyCasdoorTokenRejection() = %v, want %v", err, test.want)
+			}
+			if test.description != "" && strings.Contains(err.Error(), test.description) {
+				t.Fatal("provider error description escaped into the returned error")
+			}
+		})
 	}
 }
 

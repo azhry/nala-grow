@@ -2,24 +2,85 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handler) resolveSignupResult(ctx context.Context, variables map[string]interface{}) ExecResult {
-	email := getVar(variables, "email")
+	email := strings.ToLower(strings.TrimSpace(getVar(variables, "email")))
 	password := getVar(variables, "password")
 	displayName := getVar(variables, "displayName")
 	if email == "" || password == "" {
 		return ExecResult{Errors: []GraphQLError{{Message: "email and password required"}}}
 	}
 	if displayName == "" {
-		displayName = email[:strings.Index(email, "@")]
+		displayName = emailLocalPart(email)
 	}
 	if h.auth == nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+	}
+	if h.auth.Casdoor != nil {
+		if err := h.auth.Casdoor.RegisterUser(ctx, email, password, displayName); err != nil {
+			if errors.Is(err, auth.ErrCasdoorEmailAlreadyExists) {
+				return ExecResult{Errors: []GraphQLError{{Message: "an account with this email already exists; please log in instead"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorRegistrationConflict) {
+				return ExecResult{Errors: []GraphQLError{{Message: "this signup conflicts with an existing account; log in if you already have an account, or use a different email"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorSignupDisabled) {
+				return ExecResult{Errors: []GraphQLError{{Message: "sign-up is not enabled for this application; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "password does not meet the identity provider requirements"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorVerificationRequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "email verification is required to create this account"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorSignupRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "identity provider rejected sign-up; check your details or contact support"}}}
+			}
+			return ExecResult{Errors: []GraphQLError{{Message: "identity provider sign-up request failed; please try again"}}}
+		}
+		token, principal, err := h.auth.Casdoor.PasswordGrant(ctx, email, password)
+		if err != nil {
+			if errors.Is(err, auth.ErrCasdoorSigninRestricted) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor sign-in policy blocked it; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordTypeUnsupported) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor cannot verify its password configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorMFARequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor requires an additional sign-in step; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorEmailUnverified) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but its email must be verified before sign-in"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorCredentialsRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor rejected the password; try logging in or resetting your password"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordGrantBlocked) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor password sign-in is disabled for this application; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorOAuthClientRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor rejected this application's sign-in configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserNotFound) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor could not find it for sign-in; try logging in or contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
+				return ExecResult{Errors: []GraphQLError{{Message: "account was created, but Casdoor could not verify it for sign-in; try logging in again"}}}
+			}
+			return ExecResult{Errors: []GraphQLError{{Message: "account was created, but automatic sign-in failed; try logging in"}}}
+		}
+		userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not map identity provider user"}}}
+		}
+		return authResult("signup", token.AccessToken, token.RefreshToken, token.ExpiresIn, userID, user)
 	}
 	hash, err := h.auth.Password.Hash(password)
 	if err != nil {
@@ -42,7 +103,7 @@ func (h *Handler) resolveSignupResult(ctx context.Context, variables map[string]
 	if err != nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
 	}
-	return authResult("signup", token, userID, existing)
+	return authResult("signup", token, "", 0, userID, existing)
 }
 
 func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables map[string]interface{}) ExecResult {
@@ -52,6 +113,9 @@ func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables ma
 	}
 	if h.auth == nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+	}
+	if h.auth.Casdoor != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "Google sign-in must use the Casdoor authorization flow"}}}
 	}
 	googleUser, err := h.googleVerifier.VerifyIDToken(idToken, h.googleClientID)
 	if err != nil {
@@ -67,9 +131,8 @@ func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables ma
 		if displayName == "" {
 			displayName = googleUser.Email[:strings.Index(googleUser.Email, "@")]
 		}
-		placeholderHash, _ := h.auth.Password.Hash(uuid() + uuid())
-		found = storedUser{Email: googleUser.Email, PasswordHash: placeholderHash, DisplayName: displayName}
-		if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)", foundID, found.Email, found.PasswordHash, found.DisplayName); err != nil {
+		found = storedUser{Email: googleUser.Email, DisplayName: displayName}
+		if _, err := h.db.Exec(ctx, "INSERT INTO users (id, email, display_name) VALUES ($1, $2, $3)", foundID, found.Email, found.DisplayName); err != nil {
 			return ExecResult{Errors: []GraphQLError{{Message: "could not create user"}}}
 		}
 	}
@@ -77,30 +140,111 @@ func (h *Handler) resolveLoginWithGoogleResult(ctx context.Context, variables ma
 	if err != nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
 	}
-	return authResult("loginWithGoogle", token, foundID, found)
+	return authResult("loginWithGoogle", token, "", 0, foundID, found)
 }
 
 func (h *Handler) resolveLoginResult(ctx context.Context, variables map[string]interface{}) ExecResult {
-	email := getVar(variables, "email")
+	email := strings.ToLower(strings.TrimSpace(getVar(variables, "email")))
 	password := getVar(variables, "password")
 	if email == "" {
 		return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
 	}
-	foundID, found, err := loadUserByEmail(ctx, h.db, email)
-	if err != nil || h.auth == nil || !h.auth.Password.Verify(password, found.PasswordHash) {
-		if h.auth == nil {
-			return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+	if h.auth == nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "auth service unavailable"}}}
+	}
+	if h.auth.Casdoor != nil {
+		token, principal, err := h.auth.Casdoor.PasswordGrant(ctx, email, password)
+		if err != nil {
+			if errors.Is(err, auth.ErrCasdoorSigninRestricted) {
+				return ExecResult{Errors: []GraphQLError{{Message: "Casdoor sign-in policy blocked this account; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordTypeUnsupported) {
+				return ExecResult{Errors: []GraphQLError{{Message: "Casdoor password configuration is invalid for this account; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorMFARequired) {
+				return ExecResult{Errors: []GraphQLError{{Message: "this account requires an additional Casdoor sign-in step"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorEmailUnverified) {
+				return ExecResult{Errors: []GraphQLError{{Message: "verify your email with Casdoor before signing in"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorPasswordGrantBlocked) {
+				return ExecResult{Errors: []GraphQLError{{Message: "password sign-in is disabled for this application; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorOAuthClientRejected) {
+				return ExecResult{Errors: []GraphQLError{{Message: "identity provider rejected this application's sign-in configuration; contact support"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserNotFound) {
+				return ExecResult{Errors: []GraphQLError{{Message: "no Casdoor account was found for this email; sign up first"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not verify this account with the identity provider; try again"}}}
+			}
+			return ExecResult{Errors: []GraphQLError{{Message: "invalid email or password"}}}
 		}
+		userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
+		if err != nil {
+			return ExecResult{Errors: []GraphQLError{{Message: "could not map identity provider user"}}}
+		}
+		return authResult("login", token.AccessToken, token.RefreshToken, token.ExpiresIn, userID, user)
+	}
+	foundID, found, err := loadUserByEmail(ctx, h.db, email)
+	if err != nil || !h.auth.Password.Verify(password, found.PasswordHash) {
 		return ExecResult{Errors: []GraphQLError{{Message: "invalid email or password"}}}
 	}
 	token, err := h.auth.JWT.GenerateToken(foundID, found.Email)
 	if err != nil {
 		return ExecResult{Errors: []GraphQLError{{Message: "failed to generate token"}}}
 	}
-	return authResult("login", token, foundID, found)
+	return authResult("login", token, "", 0, foundID, found)
+}
+
+func (h *Handler) resolveLoginWithCasdoorResult(ctx context.Context, variables map[string]interface{}) ExecResult {
+	code := strings.TrimSpace(getVar(variables, "code"))
+	redirectURI := strings.TrimSpace(getVar(variables, "redirectUri"))
+	if code == "" || redirectURI == "" {
+		return ExecResult{Errors: []GraphQLError{{Message: "code and redirectUri required"}}}
+	}
+	if h.auth == nil || h.auth.Casdoor == nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "Casdoor auth service unavailable"}}}
+	}
+	token, principal, err := h.auth.Casdoor.AuthorizationCodeGrant(ctx, code, redirectURI)
+	if err != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "could not exchange Casdoor authorization code"}}}
+	}
+	userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
+	if err != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "could not map identity provider user"}}}
+	}
+	return authResult("loginWithCasdoor", token.AccessToken, token.RefreshToken, token.ExpiresIn, userID, user)
+}
+
+func (h *Handler) resolveRefreshTokenResult(ctx context.Context, variables map[string]interface{}) ExecResult {
+	refreshToken := strings.TrimSpace(getVar(variables, "refreshToken"))
+	if refreshToken == "" {
+		return ExecResult{Errors: []GraphQLError{{Message: "refreshToken required"}}}
+	}
+	if h.auth == nil || h.auth.Casdoor == nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "Casdoor auth service unavailable"}}}
+	}
+	token, err := h.auth.Casdoor.RefreshToken(ctx, refreshToken)
+	if err != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "could not refresh Casdoor token"}}}
+	}
+	principal, err := h.auth.Casdoor.ValidateAccessToken(ctx, token.AccessToken)
+	if err != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "could not validate refreshed Casdoor token"}}}
+	}
+	userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
+	if err != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "could not map identity provider user"}}}
+	}
+	return authResult("refreshToken", token.AccessToken, token.RefreshToken, token.ExpiresIn, userID, user)
 }
 
 func (h *Handler) resolveRequestPasswordResetResult(ctx context.Context, variables map[string]interface{}) ExecResult {
+	if h.auth != nil && h.auth.Casdoor != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "password reset is managed by Casdoor"}}}
+	}
 	email := getVar(variables, "email")
 	if email == "" {
 		return ExecResult{Errors: []GraphQLError{{Message: "email required"}}}
@@ -117,6 +261,9 @@ func (h *Handler) resolveRequestPasswordResetResult(ctx context.Context, variabl
 }
 
 func (h *Handler) resolveResetPasswordResult(ctx context.Context, variables map[string]interface{}) ExecResult {
+	if h.auth != nil && h.auth.Casdoor != nil {
+		return ExecResult{Errors: []GraphQLError{{Message: "password reset is managed by Casdoor"}}}
+	}
 	token := getVar(variables, "token")
 	newPassword := getVar(variables, "newPassword")
 	if token == "" || newPassword == "" {
