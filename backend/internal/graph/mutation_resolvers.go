@@ -2,9 +2,11 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/azhry/nala-grow/backend/internal/auth"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -23,6 +25,15 @@ func (h *Handler) resolveSignupResult(ctx context.Context, variables map[string]
 	}
 	if h.auth.Casdoor != nil {
 		if err := h.auth.Casdoor.RegisterUser(ctx, email, password, displayName); err != nil {
+			if errors.Is(err, auth.ErrCasdoorEmailAlreadyExists) {
+				return ExecResult{Errors: []GraphQLError{{Message: "an account with this email already exists; please log in instead"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorRegistrationConflict) {
+				return ExecResult{Errors: []GraphQLError{{Message: "this signup conflicts with an existing account; log in if you already have an account, or use a different email"}}}
+			}
+			if errors.Is(err, auth.ErrCasdoorUserLookupFailed) {
+				return ExecResult{Errors: []GraphQLError{{Message: "could not check whether this email is already registered; please try again"}}}
+			}
 			return ExecResult{Errors: []GraphQLError{{Message: "could not create user in identity provider"}}}
 		}
 		token, principal, err := h.auth.Casdoor.PasswordGrant(ctx, email, password)

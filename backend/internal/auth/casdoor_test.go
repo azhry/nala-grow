@@ -5,8 +5,10 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -150,6 +152,14 @@ func TestCasdoorRegisterUserPrefersClientCredentialsOverAdminToken(t *testing.T)
 				t.Errorf("grant_type = %q, want client_credentials", got)
 			}
 			writeJSON(t, w, map[string]string{"access_token": "client-access-token"})
+		case "/api/get-user":
+			if got := r.Header.Get("Authorization"); got != "Bearer client-access-token" {
+				t.Errorf("Authorization = %q, want client credentials token", got)
+			}
+			if r.URL.Query().Get("owner") != "NalaGrow" || r.URL.Query().Get("email") != "parent@example.com" {
+				t.Errorf("user lookup query = %v", r.URL.Query())
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": nil})
 		case "/api/add-user":
 			if got := r.Header.Get("Authorization"); got != "Bearer client-access-token" {
 				t.Errorf("Authorization = %q, want client credentials token", got)
@@ -199,6 +209,11 @@ func TestCasdoorRegisterUserFallsBackToAdminTokenWhenClientTokenUnavailable(t *t
 		case "/oauth/token":
 			tokenRequests++
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case "/api/get-user":
+			if got := r.Header.Get("Authorization"); got != "Bearer admin-token" {
+				t.Errorf("Authorization = %q, want configured admin token fallback", got)
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": nil})
 		case "/api/add-user":
 			if got := r.Header.Get("Authorization"); got != "Bearer admin-token" {
 				t.Errorf("Authorization = %q, want configured admin token fallback", got)
@@ -235,6 +250,160 @@ func TestCasdoorRegisterUserFallsBackToAdminTokenWhenClientTokenUnavailable(t *t
 	}
 	if tokenRequests != 1 {
 		t.Fatalf("client credential requests = %d, want 1", tokenRequests)
+	}
+}
+
+func TestCasdoorRegisterUserReturnsSafeConflictForDuplicateResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]string{
+				"issuer":         "http://" + r.Host,
+				"token_endpoint": "http://" + r.Host + "/oauth/token",
+				"jwks_uri":       "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			writeJSON(t, w, map[string]string{"access_token": "client-access-token"})
+		case "/api/get-user":
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": nil})
+		case "/api/add-user":
+			writeJSON(t, w, map[string]interface{}{
+				"status": "error",
+				"data":   false,
+				"msg":    "email already exists",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled:      true,
+		Issuer:       server.URL,
+		ClientID:     "nala-grow",
+		ClientSecret: "client-secret",
+		Organization: "NalaGrow",
+		Application:  "nala-grow-web",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	err = client.RegisterUser(t.Context(), "parent@example.com", "password", "Parent")
+	if !errors.Is(err, ErrCasdoorEmailAlreadyExists) {
+		t.Fatalf("RegisterUser() error = %v, want existing email", err)
+	}
+	if strings.Contains(err.Error(), "parent@example.com") || strings.Contains(err.Error(), "email already exists") {
+		t.Fatalf("RegisterUser() exposed provider details: %v", err)
+	}
+}
+
+func TestCasdoorRegisterUserRejectsExistingEmailBeforeCreate(t *testing.T) {
+	var addUserRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]string{
+				"issuer":         "http://" + r.Host,
+				"token_endpoint": "http://" + r.Host + "/oauth/token",
+				"jwks_uri":       "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			writeJSON(t, w, map[string]string{"access_token": "client-access-token"})
+		case "/api/get-user":
+			if r.URL.Query().Get("owner") != "NalaGrow" || r.URL.Query().Get("email") != "parent@example.com" {
+				t.Errorf("user lookup query = %v", r.URL.Query())
+			}
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": map[string]string{"name": "parent"}})
+		case "/api/add-user":
+			addUserRequests++
+			writeJSON(t, w, map[string]interface{}{"status": "ok", "data": true})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled:      true,
+		Issuer:       server.URL,
+		ClientID:     "nala-grow",
+		ClientSecret: "client-secret",
+		Organization: "NalaGrow",
+		Application:  "nala-grow-web",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	err = client.RegisterUser(t.Context(), "Parent@Example.com", "password", "Parent")
+	if !errors.Is(err, ErrCasdoorEmailAlreadyExists) {
+		t.Fatalf("RegisterUser() error = %v, want existing email", err)
+	}
+	if addUserRequests != 0 {
+		t.Fatalf("Casdoor add-user requests = %d, want 0 for an existing email", addUserRequests)
+	}
+}
+
+func TestCasdoorUserLookupFailureIsDistinctFromMissingUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]string{
+				"issuer":         "http://" + r.Host,
+				"token_endpoint": "http://" + r.Host + "/oauth/token",
+				"jwks_uri":       "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			writeJSON(t, w, map[string]string{"access_token": "client-access-token"})
+		case "/api/get-user":
+			writeJSON(t, w, map[string]interface{}{"status": "error", "data": nil})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled:      true,
+		Issuer:       server.URL,
+		ClientID:     "nala-grow",
+		ClientSecret: "client-secret",
+		Organization: "NalaGrow",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	err = client.RegisterUser(t.Context(), "parent@example.com", "password", "Parent")
+	if !errors.Is(err, ErrCasdoorUserLookupFailed) {
+		t.Fatalf("RegisterUser() error = %v, want lookup failure", err)
+	}
+}
+
+func TestCasdoorRegistrationConflictMessageRecognizesDuplicateVariants(t *testing.T) {
+	for _, message := range []string{
+		"email already exists",
+		"email already in use",
+		"username is already registered",
+		"duplicate key value violates unique constraint",
+		"account has been taken",
+	} {
+		if !isCasdoorRegistrationConflict(message) {
+			t.Errorf("isCasdoorRegistrationConflict(%q) = false, want true", message)
+		}
+	}
+	for _, message := range []string{"invalid organization", "permission denied", "password is too short"} {
+		if isCasdoorRegistrationConflict(message) {
+			t.Errorf("isCasdoorRegistrationConflict(%q) = true, want false", message)
+		}
+	}
+}
+
+func TestCasdoorEmailConflictRequiresEmailContext(t *testing.T) {
+	if !isCasdoorEmailConflict("email already exists") {
+		t.Fatal("isCasdoorEmailConflict() = false, want true")
+	}
+	if isCasdoorEmailConflict("username already exists") {
+		t.Fatal("isCasdoorEmailConflict() = true for username conflict, want false")
 	}
 }
 

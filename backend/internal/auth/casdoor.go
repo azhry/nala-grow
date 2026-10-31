@@ -19,8 +19,11 @@ import (
 )
 
 var (
-	ErrCasdoorNotConfigured = errors.New("casdoor is not configured")
-	ErrCasdoorTokenInvalid  = errors.New("invalid Casdoor token")
+	ErrCasdoorNotConfigured        = errors.New("casdoor is not configured")
+	ErrCasdoorTokenInvalid         = errors.New("invalid Casdoor token")
+	ErrCasdoorEmailAlreadyExists   = errors.New("Casdoor email is already registered")
+	ErrCasdoorRegistrationConflict = errors.New("Casdoor user registration conflicts with an existing account")
+	ErrCasdoorUserLookupFailed     = errors.New("could not verify whether the Casdoor user already exists")
 )
 
 // CasdoorConfig contains non-sensitive identifiers and runtime credentials
@@ -410,6 +413,13 @@ func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displ
 	if owner == "" {
 		owner = "built-in"
 	}
+	exists, err := c.casdoorUserExistsByEmail(ctx, accessToken, owner, email)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCasdoorUserLookupFailed, err)
+	}
+	if exists {
+		return ErrCasdoorEmailAlreadyExists
+	}
 	user := casdoorUser{
 		Owner:             owner,
 		Name:              casdoorUsername(email),
@@ -435,19 +445,81 @@ func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displ
 	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, response.Body)
+		if response.StatusCode == http.StatusConflict {
+			return ErrCasdoorRegistrationConflict
+		}
 		return fmt.Errorf("Casdoor user registration returned HTTP %d", response.StatusCode)
 	}
 	var result struct {
 		Status string `json:"status"`
 		Data   bool   `json:"data"`
+		Msg    string `json:"msg"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
 		return fmt.Errorf("decode Casdoor user registration response: %w", err)
 	}
 	if strings.EqualFold(result.Status, "error") || !result.Data {
+		if isCasdoorEmailConflict(result.Msg) {
+			return ErrCasdoorEmailAlreadyExists
+		}
+		if isCasdoorRegistrationConflict(result.Msg) {
+			return ErrCasdoorRegistrationConflict
+		}
 		return fmt.Errorf("Casdoor user registration was rejected")
 	}
 	return nil
+}
+
+func (c *CasdoorClient) casdoorUserExistsByEmail(ctx context.Context, accessToken, owner, email string) (bool, error) {
+	query := url.Values{}
+	query.Set("owner", owner)
+	query.Set("email", strings.TrimSpace(strings.ToLower(email)))
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.Issuer+"/api/get-user?"+query.Encode(), nil)
+	if err != nil {
+		return false, fmt.Errorf("create Casdoor user lookup request: %w", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+accessToken)
+	response, err := c.client.Do(request)
+	if err != nil {
+		return false, fmt.Errorf("request Casdoor user lookup: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, response.Body)
+		return false, fmt.Errorf("Casdoor user lookup returned HTTP %d", response.StatusCode)
+	}
+	var result struct {
+		Status string          `json:"status"`
+		Data   json.RawMessage `json:"data"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return false, fmt.Errorf("decode Casdoor user lookup response: %w", err)
+	}
+	if strings.EqualFold(result.Status, "error") || len(result.Data) == 0 {
+		return false, fmt.Errorf("Casdoor user lookup was rejected")
+	}
+	if strings.TrimSpace(string(result.Data)) == "null" {
+		return false, nil
+	}
+	var user map[string]json.RawMessage
+	if err := json.Unmarshal(result.Data, &user); err != nil || user == nil {
+		return false, fmt.Errorf("Casdoor user lookup returned invalid data")
+	}
+	return true, nil
+}
+
+func isCasdoorRegistrationConflict(message string) bool {
+	message = strings.ToLower(strings.TrimSpace(message))
+	for _, marker := range []string{"already exists", "already registered", "already used", "already taken", "already in use", "has been taken", "duplicate", "unique constraint"} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func isCasdoorEmailConflict(message string) bool {
+	return strings.Contains(strings.ToLower(message), "email") && isCasdoorRegistrationConflict(message)
 }
 
 func casdoorUsername(email string) string {
