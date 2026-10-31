@@ -89,7 +89,7 @@ export default function LoginFormClient() {
     setAuthFlowActive(true)
     setGoogleLoading(true)
     try {
-      const session = await signInWithGoogle()
+      const session = await signInWithGoogle(getRedirect())
       if (!session) {
         setAuthFlowActive(false)
         return
