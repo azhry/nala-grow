@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { AUTH_TOKEN_KEY } from "./lib/auth-constants"
+import {
+  AUTH_SESSION_EXPIRY_KEY,
+  AUTH_TOKEN_KEY,
+  hasValidSessionCookie,
+} from "./lib/auth-constants"
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get(AUTH_TOKEN_KEY)?.value
+  const expiresAt = request.cookies.get(AUTH_SESSION_EXPIRY_KEY)?.value
   const path = request.nextUrl.pathname
 
   const isAuthPage =
     path === "/login" ||
     path === "/signup" ||
-    path === "/reset-password"
+    path === "/reset-password" ||
+    path === "/auth/callback"
 
   const isProtected =
     path === "/" ||
@@ -20,11 +26,15 @@ export function middleware(request: NextRequest) {
     path.startsWith("/export") ||
     path.startsWith("/settings")
 
-  if (!token && isProtected) {
-    return NextResponse.redirect(new URL("/login", request.url))
+  const hasValidSession = hasValidSessionCookie(token, expiresAt)
+
+  if (!hasValidSession && isProtected) {
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("redirect", `${path}${request.nextUrl.search}`)
+    return NextResponse.redirect(loginUrl)
   }
 
-  if (token && isAuthPage) {
+  if (hasValidSession && isAuthPage) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
@@ -44,5 +54,6 @@ export const config = {
     "/login/:path*",
     "/signup/:path*",
     "/reset-password/:path*",
+    "/auth/callback",
   ],
 }
