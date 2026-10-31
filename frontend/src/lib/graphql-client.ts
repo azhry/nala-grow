@@ -2,7 +2,9 @@
 // NalaGrow — Typed GraphQL client
 //
 // Wraps fetch() for the backend's hand-rolled GraphQL endpoint at /graphql.
-// Auth is provided via a JWT token stored in localStorage (set by FE-014).
+// Auth is provided via the access token in the browser session. Refresh tokens
+// are only sent to the backend refresh operation and are never added to URLs,
+// cookies, headers, or logs by this client.
 // ---------------------------------------------------------------------------
 
 import {
@@ -27,9 +29,15 @@ import {
   SIGNUP_MUTATION,
   LOGIN_MUTATION,
   LOGIN_GOOGLE_MUTATION,
+  LOGIN_CASDOOR_MUTATION,
+  REFRESH_TOKEN_MUTATION,
+  LEGACY_SIGNUP_MUTATION,
+  LEGACY_LOGIN_MUTATION,
+  LEGACY_LOGIN_GOOGLE_MUTATION,
   REQUEST_PASSWORD_RESET_MUTATION,
   RESET_PASSWORD_MUTATION,
   ME_QUERY,
+  LEGACY_ME_QUERY,
   BABIES_QUERY,
   BABY_QUERY,
   CREATE_BABY_MUTATION,
@@ -93,6 +101,8 @@ const API_URL =
  * 3. Returns null if no token is found
  */
 function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null
+
   // 1. Dedicated key
   const dedicated = localStorage.getItem(AUTH_TOKEN_KEY)
   if (dedicated) return dedicated
@@ -114,14 +124,35 @@ function getAuthToken(): string | null {
   return null
 }
 
-/** Persist a JWT auth token for subsequent requests (used by FE-014). */
+/** Persist an access token for subsequent requests. */
 export function setAuthToken(token: string): void {
   localStorage.setItem(AUTH_TOKEN_KEY, token)
 }
 
-/** Remove the stored JWT token (logout). */
+/** Remove the access token (logout also clears the richer session in auth.ts). */
 export function clearAuthToken(): void {
   localStorage.removeItem(AUTH_TOKEN_KEY)
+}
+
+function shouldRetryWithLegacyAuthSelection(error: unknown): boolean {
+  if (!(error instanceof GraphQLError)) return false
+  return error.errors.some(({ message }) =>
+    /(?:cannot query field|unknown field|cannot query|unknown argument)/i.test(message) &&
+    /(?:refreshToken|expiresIn|subject|organization|roles|permissions)/i.test(message),
+  )
+}
+
+async function executeAuthWithLegacyFallback<T>(
+  query: string,
+  legacyQuery: string,
+  variables?: object,
+): Promise<T> {
+  try {
+    return await execute<T>(query, variables, { auth: false })
+  } catch (error) {
+    if (!shouldRetryWithLegacyAuthSelection(error)) throw error
+    return execute<T>(legacyQuery, variables, { auth: false })
+  }
 }
 
 // ─── Core executor ──────────────────────────────────────────────────────────
@@ -207,14 +238,14 @@ export async function signup(
   password: string,
   displayName?: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(
+  return executeAuthWithLegacyFallback<AuthResponse>(
     SIGNUP_MUTATION,
+    LEGACY_SIGNUP_MUTATION,
     {
       email,
       password,
       displayName: displayName ?? undefined,
     },
-    { auth: false },
   )
 }
 
@@ -222,13 +253,40 @@ export async function login(
   email: string,
   password: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(LOGIN_MUTATION, { email, password }, { auth: false })
+  return executeAuthWithLegacyFallback<AuthResponse>(
+    LOGIN_MUTATION,
+    LEGACY_LOGIN_MUTATION,
+    { email, password },
+  )
 }
 
 export async function loginWithGoogle(
   idToken: string
 ): Promise<AuthResponse> {
-  return execute<AuthResponse>(LOGIN_GOOGLE_MUTATION, { idToken }, { auth: false })
+  return executeAuthWithLegacyFallback<AuthResponse>(
+    LOGIN_GOOGLE_MUTATION,
+    LEGACY_LOGIN_GOOGLE_MUTATION,
+    { idToken },
+  )
+}
+
+export async function loginWithCasdoor(
+  code: string,
+  redirectUri: string,
+): Promise<AuthResponse> {
+  return execute<AuthResponse>(
+    LOGIN_CASDOOR_MUTATION,
+    { code, redirectUri },
+    { auth: false },
+  )
+}
+
+export async function refreshSession(refreshToken: string): Promise<AuthResponse> {
+  return execute<AuthResponse>(
+    REFRESH_TOKEN_MUTATION,
+    { refreshToken },
+    { auth: false },
+  )
 }
 
 export async function requestPasswordReset(
@@ -245,7 +303,12 @@ export async function resetPassword(
 }
 
 export async function getMe(): Promise<AuthUser> {
-  return execute<AuthUser>(ME_QUERY, undefined, { auth: true })
+  try {
+    return await execute<AuthUser>(ME_QUERY, undefined, { auth: true })
+  } catch (error) {
+    if (!shouldRetryWithLegacyAuthSelection(error)) throw error
+    return execute<AuthUser>(LEGACY_ME_QUERY, undefined, { auth: true })
+  }
 }
 
 // Babies ──────
