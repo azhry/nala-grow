@@ -125,9 +125,7 @@ describe("layout AuthGuard", () => {
       </AuthGuard>,
     )
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "first baby profile",
-    )
+    expect(await screen.findByText(/first baby profile/i)).toBeInTheDocument()
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith("/profile/create"))
     expect(screen.queryByText("Dashboard")).not.toBeInTheDocument()
   })

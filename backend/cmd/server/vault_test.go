@@ -85,7 +85,7 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 					"CASDOOR_ORGANIZATION":  "NalaGrow",
 					"CASDOOR_APPLICATION":   "nala-grow",
 					"CASDOOR_AUDIENCE":      "vault-casdoor-audience",
-					"CASDOOR_REDIRECT_URI":  "https://app.vault.example/auth/callback",
+					"CASDOOR_REDIRECT_URL":  "https://app.vault.example/auth/callback",
 					"CASDOOR_ADMIN_TOKEN":   "vault-casdoor-admin-token",
 					"HEALTHCHECK_TIMEOUT":   "750ms",
 				},
@@ -132,6 +132,7 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 		config.Casdoor.Organization != "NalaGrow" ||
 		config.Casdoor.Application != "nala-grow" ||
 		config.Casdoor.Audience != "vault-casdoor-audience" ||
+		config.Casdoor.RedirectURI != "https://app.vault.example/auth/callback" ||
 		config.Casdoor.AdminToken != "vault-casdoor-admin-token" ||
 		config.Health.CasdoorIssuer != "https://casdoor.vault.example" {
 		t.Fatal("Casdoor settings were not loaded exclusively from Vault")
