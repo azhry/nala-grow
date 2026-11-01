@@ -1,0 +1,17 @@
+**/.env
+**/.env.*
+**/.vault-config
+**/.vault-config.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/id_rsa*
+**/id_ed25519*
+**/.ssh/
+**/.aws/
+**/.azure/
+**/.git/
+coverage.out
+**/*.log

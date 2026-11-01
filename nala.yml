@@ -3,7 +3,50 @@ projects:
     cwd: backend
     run: go run ./cmd/server
     port: 4000
+    deployment:
+      schemaVersion: 1
+      app:
+        name: nala-grow-backend
+      build:
+        context: .
+        dockerfile: Dockerfile
+        command: [go, build, -o, server, ./cmd/server]
+      test:
+        command: [go, test, ./...]
+      runtime:
+        command: [./server]
+        health:
+          path: /healthz
+      configuration:
+        vault:
+          mount: secret
+          path: nala-labs/nala-grow
+          keys: [HOST, PORT, DATABASE_URL, ALLOWED_ORIGIN, JWT_SECRET, GOOGLE_CLIENT_ID, CASDOOR_ENABLED, CASDOOR_ISSUER, CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET, CASDOOR_ORGANIZATION, CASDOOR_APPLICATION, CASDOOR_AUDIENCE, CASDOOR_REDIRECT_URI, CASDOOR_ADMIN_TOKEN, MONGODB_ADDR, MONGODB_URI, REDIS_ADDR, REDIS_URL, KAFKA_ADDR, KAFKA_BROKERS, HEALTHCHECK_TIMEOUT]
+        database:
+          required: true
+          ref: nala-grow
   frontend:
     cwd: frontend
     run: npm run dev
     port: 3000
+    deployment:
+      schemaVersion: 1
+      app:
+        name: nala-grow-frontend
+      build:
+        context: .
+        dockerfile: Dockerfile
+        command: [npm, run, build]
+      test:
+        command: [npm, run, test:unit]
+      runtime:
+        command: [npm, run, start]
+        health:
+          path: /login
+      configuration:
+        vault:
+          mount: secret
+          path: nala-labs/nala-grow
+          keys: [NEXT_PUBLIC_API_URL, NEXT_PUBLIC_GRAPHQL_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ISSUER, NEXT_PUBLIC_CASDOOR_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ORGANIZATION, NEXT_PUBLIC_CASDOOR_APPLICATION, NEXT_PUBLIC_CASDOOR_REDIRECT_URI, NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL]
+        database:
+          required: false
