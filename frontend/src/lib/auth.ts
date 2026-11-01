@@ -248,9 +248,10 @@ export async function signInWithCasdoor(
 // ─── Casdoor Google authorization-code flow ─────────────────────────────────
 
 export function getCasdoorRedirectUri(): string {
+  if (typeof window !== "undefined") return `${window.location.origin}/auth/callback`
+
   const configured = process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI?.trim()
   if (configured) return configured
-  if (typeof window !== "undefined") return `${window.location.origin}/auth/callback`
   return "http://localhost:3000/auth/callback"
 }
 

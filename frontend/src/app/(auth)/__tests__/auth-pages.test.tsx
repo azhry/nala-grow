@@ -4,6 +4,17 @@ import LoginPage from "../login/page"
 import SignupPage from "../signup/page"
 import ResetPasswordPage from "../reset-password/page"
 
+const casdoorPublicEnvKeys = [
+  "NEXT_PUBLIC_CASDOOR_ISSUER",
+  "NEXT_PUBLIC_CASDOOR_CLIENT_ID",
+  "NEXT_PUBLIC_CASDOOR_ORGANIZATION",
+  "NEXT_PUBLIC_CASDOOR_APPLICATION",
+  "NEXT_PUBLIC_CASDOOR_REDIRECT_URI",
+] as const
+const originalCasdoorPublicEnv = Object.fromEntries(
+  casdoorPublicEnvKeys.map((key) => [key, process.env[key]]),
+)
+
 type MockAuthState = {
   user: { id: string; email: string } | null
   _hasHydrated: boolean
@@ -96,6 +107,12 @@ beforeAll(() => {
 afterAll(() => {
   jest.restoreAllMocks()
 
+  for (const key of casdoorPublicEnvKeys) {
+    const value = originalCasdoorPublicEnv[key]
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
+
   // Restore original descriptors
   if (origHrefDescriptor) {
     try {
@@ -175,6 +192,8 @@ function mockProfileLookupError() {
 describe("auth pages", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    for (const key of casdoorPublicEnvKeys) delete process.env[key]
+    mockSearchParams = new URLSearchParams()
     mockAuthState = { user: null, _hasHydrated: true }
     mockUseAppStore.mockImplementation((selector: (state: MockAuthState) => unknown) =>
       selector(mockAuthState),
@@ -334,8 +353,65 @@ describe("auth pages", () => {
     await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/profile/create"))
   })
 
-  it("shows the new password form for Supabase recovery code redirects", () => {
-    mockSearchParams = new URLSearchParams("code=supabase-recovery-code")
+  it("uses Casdoor's application-specific reset route without unsupported query params", () => {
+    process.env.NEXT_PUBLIC_CASDOOR_ISSUER = "https://identity.example.test"
+    process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID = "nala-grow-client"
+    process.env.NEXT_PUBLIC_CASDOOR_ORGANIZATION = "nalagrow"
+    process.env.NEXT_PUBLIC_CASDOOR_APPLICATION = "nala-grow-web"
+    process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI = "https://grow.example.test/auth/callback"
+    mockSearchParams = new URLSearchParams("token=casdoor-recovery-token")
+
+    render(<ResetPasswordPage />)
+
+    expect(screen.queryByLabelText("Email Address")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("New Password")).not.toBeInTheDocument()
+    expect(mockResetPassword).not.toHaveBeenCalled()
+    expect(mockUpdatePassword).not.toHaveBeenCalled()
+
+    const recoveryLink = screen.getByRole("link", { name: /continue to password reset/i })
+    const recoveryUrl = new URL(recoveryLink.getAttribute("href") || "")
+    expect(recoveryUrl.origin).toBe("https://identity.example.test")
+    expect(recoveryUrl.pathname).toBe("/forget/nala-grow-web")
+    expect(recoveryUrl.search).toBe("")
+  })
+
+  it("builds the app-specific reset route from only the Casdoor issuer and application", () => {
+    process.env.NEXT_PUBLIC_CASDOOR_ISSUER = "https://identity.example.test/base/path"
+    process.env.NEXT_PUBLIC_CASDOOR_APPLICATION = "nala-grow-web"
+
+    render(<ResetPasswordPage />)
+
+    const recoveryLink = screen.getByRole("link", { name: /continue to password reset/i })
+    const recoveryUrl = new URL(recoveryLink.getAttribute("href") || "")
+    expect(recoveryUrl.origin).toBe("https://identity.example.test")
+    expect(recoveryUrl.pathname).toBe("/forget/nala-grow-web")
+    expect(recoveryUrl.search).toBe("")
+  })
+
+  it("does not fall back to local reset when Casdoor settings are incomplete", () => {
+    process.env.NEXT_PUBLIC_CASDOOR_ISSUER = "https://identity.example.test"
+
+    render(<ResetPasswordPage />)
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Casdoor password recovery is not configured/i)
+    expect(screen.queryByLabelText("Email Address")).not.toBeInTheDocument()
+    expect(mockResetPassword).not.toHaveBeenCalled()
+  })
+
+  it("keeps the local email reset form only when Casdoor is not configured", async () => {
+    render(<ResetPasswordPage />)
+
+    fireEvent.change(screen.getByLabelText("Email Address"), {
+      target: { value: "person@example.test" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /send reset link/i }))
+
+    await waitFor(() => expect(mockResetPassword).toHaveBeenCalledWith("person@example.test"))
+    expect(await screen.findByText("Check Your Email")).toBeInTheDocument()
+  })
+
+  it("shows the new password form for local-auth recovery code redirects", () => {
+    mockSearchParams = new URLSearchParams("code=local-recovery-code")
 
     render(<ResetPasswordPage />)
 
@@ -343,8 +419,8 @@ describe("auth pages", () => {
     expect(screen.getByLabelText("New Password")).toBeInTheDocument()
   })
 
-  it("updates password using the Supabase recovery code", async () => {
-    mockSearchParams = new URLSearchParams("code=supabase-recovery-code")
+  it("updates password using a local-auth recovery code", async () => {
+    mockSearchParams = new URLSearchParams("code=local-recovery-code")
 
     render(<ResetPasswordPage />)
 
@@ -355,7 +431,7 @@ describe("auth pages", () => {
 
     await waitFor(() =>
       expect(mockUpdatePassword).toHaveBeenCalledWith(
-        "supabase-recovery-code",
+        "local-recovery-code",
         "newpassword123",
       ),
     )

@@ -285,11 +285,15 @@ func (c *CasdoorClient) tokenRequest(ctx context.Context, values url.Values) (*C
 	if err != nil {
 		return nil, err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, discovery.TokenEndpoint, strings.NewReader(values.Encode()))
+	return c.tokenRequestAt(ctx, discovery.TokenEndpoint, strings.NewReader(values.Encode()), "application/x-www-form-urlencoded")
+}
+
+func (c *CasdoorClient) tokenRequestAt(ctx context.Context, endpoint string, body io.Reader, contentType string) (*CasdoorToken, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("create Casdoor token request: %w", err)
 	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Content-Type", contentType)
 	response, err := c.client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("request Casdoor token: %w", err)
@@ -467,15 +471,23 @@ func (c *CasdoorClient) RefreshToken(ctx context.Context, refreshToken string) (
 	if strings.TrimSpace(refreshToken) == "" {
 		return nil, fmt.Errorf("refresh token is required")
 	}
-	values := url.Values{
-		"grant_type":    {"refresh_token"},
-		"client_id":     {c.config.ClientID},
-		"client_secret": {c.config.ClientSecret},
-		"refresh_token": {refreshToken},
+	payload, err := json.Marshal(struct {
+		GrantType    string `json:"grant_type"`
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		RefreshToken string `json:"refresh_token"`
+		Scope        string `json:"scope"`
+	}{
+		GrantType:    "refresh_token",
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
+		RefreshToken: refreshToken,
+		Scope:        "openid email profile",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("encode Casdoor refresh request: %w", err)
 	}
-	setOptionalTokenValue(values, "organization", c.config.Organization)
-	setOptionalTokenValue(values, "application", c.config.Application)
-	return c.tokenRequest(ctx, values)
+	return c.tokenRequestAt(ctx, c.config.Issuer+"/api/login/oauth/refresh_token", strings.NewReader(string(payload)), "application/json")
 }
 
 func (c *CasdoorClient) clientCredentialsToken(ctx context.Context) (*CasdoorToken, error) {
@@ -509,6 +521,11 @@ func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displ
 	displayName = strings.TrimSpace(displayName)
 	if displayName == "" {
 		displayName = casdoorUsername(email)
+	}
+	if _, err := c.casdoorUsernameByEmail(ctx, email); err == nil {
+		return ErrCasdoorEmailAlreadyExists
+	} else if !errors.Is(err, ErrCasdoorUserNotFound) {
+		return fmt.Errorf("check for an existing Casdoor account: %w", err)
 	}
 	payload := struct {
 		Type         string `json:"type"`
@@ -547,6 +564,12 @@ func (c *CasdoorClient) RegisterUser(ctx context.Context, email, password, displ
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 64*1024)).Decode(&result); err != nil {
 		return fmt.Errorf("decode Casdoor user registration response: %w", err)
+	}
+	if isCasdoorEmailConflict(result.Msg) {
+		return ErrCasdoorEmailAlreadyExists
+	}
+	if isCasdoorRegistrationConflict(result.Msg) {
+		return ErrCasdoorRegistrationConflict
 	}
 	if response.StatusCode == http.StatusConflict {
 		return ErrCasdoorRegistrationConflict

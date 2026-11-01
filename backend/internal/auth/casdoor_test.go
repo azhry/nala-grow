@@ -161,9 +161,62 @@ func TestCasdoorAuthorizationCodeRequiresConfiguredRedirectAndRejectsWrongIssuer
 	}
 }
 
+func TestCasdoorRefreshTokenUsesNativeRefreshEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/login/oauth/refresh_token" {
+			t.Errorf("refresh request = %s %s, want POST /api/login/oauth/refresh_token", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("refresh content type = %q, want application/json", got)
+		}
+		var payload map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode refresh request: %v", err)
+			return
+		}
+		if payload["grant_type"] != "refresh_token" || payload["client_id"] != "nala-grow" || payload["scope"] != "openid email profile" {
+			t.Errorf("refresh request parameters are incomplete")
+		}
+		if payload["client_secret"] != "client-secret" || payload["refresh_token"] != "refresh-token" {
+			t.Errorf("refresh credentials are missing or changed")
+		}
+		writeJSON(t, w, map[string]interface{}{
+			"access_token":  "rotated-access-token",
+			"refresh_token": "rotated-refresh-token",
+			"token_type":    "Bearer",
+			"expires_in":    3600,
+		})
+	}))
+	defer server.Close()
+
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled:      true,
+		Issuer:       server.URL,
+		ClientID:     "nala-grow",
+		ClientSecret: "client-secret",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	token, err := client.RefreshToken(t.Context(), "refresh-token")
+	if err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if token.AccessToken != "rotated-access-token" || token.RefreshToken != "rotated-refresh-token" || token.ExpiresIn != 3600 {
+		t.Fatalf("refreshed token metadata is incomplete")
+	}
+}
+
 func TestCasdoorRegisterUserUsesPublicSignupAPI(t *testing.T) {
 	var signupRequests int
+	var lookupRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if serveCasdoorSignupPreflight(t, w, r, "parent@example.com", false) {
+			lookupRequests++
+			return
+		}
 		if r.URL.Path != "/api/signup" || r.Method != http.MethodPost {
 			t.Errorf("request = %s %s, want POST /api/signup", r.Method, r.URL.Path)
 			http.NotFound(w, r)
@@ -203,6 +256,36 @@ func TestCasdoorRegisterUserUsesPublicSignupAPI(t *testing.T) {
 	if signupRequests != 1 {
 		t.Fatalf("signup requests = %d, want 1", signupRequests)
 	}
+	if lookupRequests != 3 {
+		t.Fatalf("preflight requests = %d, want discovery, client token, and user lookup", lookupRequests)
+	}
+}
+
+func TestCasdoorRegisterUserRejectsExistingAccountBeforeSignup(t *testing.T) {
+	var signupRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if serveCasdoorSignupPreflight(t, w, r, "parent@example.com", true) {
+			return
+		}
+		if r.URL.Path == "/api/signup" {
+			signupRequests++
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	client, err := NewCasdoorClient(CasdoorConfig{
+		Enabled: true, Issuer: server.URL, ClientID: "nala-grow", ClientSecret: "client-secret",
+		Organization: "NalaGrow", Application: "nala-grow-web",
+	})
+	if err != nil {
+		t.Fatalf("NewCasdoorClient() error = %v", err)
+	}
+	if err := client.RegisterUser(t.Context(), "parent@example.com", "new-password", "Parent"); !errors.Is(err, ErrCasdoorEmailAlreadyExists) {
+		t.Fatalf("RegisterUser() error = %v, want %v", err, ErrCasdoorEmailAlreadyExists)
+	}
+	if signupRequests != 0 {
+		t.Fatalf("signup requests = %d, want 0 for an existing email", signupRequests)
+	}
 }
 
 func TestCasdoorRegisterUserClassifiesSignupRejections(t *testing.T) {
@@ -220,6 +303,9 @@ func TestCasdoorRegisterUserClassifiesSignupRejections(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if serveCasdoorSignupPreflight(t, w, r, "parent@example.com", false) {
+					return
+				}
 				writeJSON(t, w, map[string]interface{}{"status": "error", "msg": test.message})
 			}))
 			defer server.Close()
@@ -404,4 +490,42 @@ func contains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func serveCasdoorSignupPreflight(t *testing.T, w http.ResponseWriter, r *http.Request, email string, exists bool) bool {
+	t.Helper()
+	switch r.URL.Path {
+	case "/.well-known/openid-configuration":
+		writeJSON(t, w, map[string]string{
+			"issuer":                 serverIssuer(r),
+			"token_endpoint":         serverIssuer(r) + "/oauth/token",
+			"authorization_endpoint": serverIssuer(r) + "/oauth/authorize",
+			"jwks_uri":               serverIssuer(r) + "/jwks",
+		})
+	case "/oauth/token":
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse Casdoor signup preflight token request: %v", err)
+		}
+		if r.Form.Get("grant_type") != "client_credentials" {
+			t.Errorf("signup preflight grant = %q, want client_credentials", r.Form.Get("grant_type"))
+			http.Error(w, "unexpected grant", http.StatusBadRequest)
+			return true
+		}
+		writeJSON(t, w, map[string]interface{}{"access_token": "client-access-token", "token_type": "Bearer", "expires_in": 3600})
+	case "/api/get-user":
+		if r.Method != http.MethodGet || r.URL.Query().Get("owner") != "NalaGrow" || r.URL.Query().Get("email") != email {
+			t.Errorf("signup preflight lookup = %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		}
+		if r.Header.Get("Authorization") != "Bearer client-access-token" {
+			t.Errorf("signup preflight Authorization = %q, want client token", r.Header.Get("Authorization"))
+		}
+		var data interface{}
+		if exists {
+			data = map[string]string{"name": "parent"}
+		}
+		writeJSON(t, w, map[string]interface{}{"status": "ok", "data": data})
+	default:
+		return false
+	}
+	return true
 }

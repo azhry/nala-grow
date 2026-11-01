@@ -13,6 +13,7 @@ import {
   deleteBaby as gqlDeleteBaby,
 } from "./graphql-client"
 import type { BabyInput } from "./graphql-types"
+import type { BabySex } from "./graphql-types"
 import type { BabyProfile as GraphQLBabyProfile } from "./graphql-types"
 import type { BabyProfile as StoreBabyProfile } from "./store"
 
@@ -43,7 +44,7 @@ export async function createBaby(
   const input: BabyInput = {
     name: data.name as string,
     dob: data.dob as string | undefined,
-    sex: data.sex as string | undefined,
+    sex: data.sex as BabySex | undefined,
     photoUrl: (data.photoUrl ?? data.photo_url) as string | undefined,
   }
   const result = await gqlCreateBaby(input)
@@ -61,7 +62,7 @@ export async function updateBaby(
   const input: Partial<BabyInput> = {}
   if (data.name) input.name = data.name as string
   if (data.dob) input.dob = data.dob as string
-  if (data.sex) input.sex = data.sex as string
+  if (data.sex) input.sex = data.sex as BabySex
   if (data.photoUrl ?? data.photo_url)
     input.photoUrl = (data.photoUrl ?? data.photo_url) as string
   const result = await gqlUpdateBaby(id, input)

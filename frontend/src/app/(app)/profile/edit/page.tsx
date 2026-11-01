@@ -4,6 +4,7 @@ import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PhotoUpload, Spinner, SuccessOverlay } from "@/components/ui"
 import { updateBaby } from "@/lib/baby-service"
+import type { BabySex } from "@/lib/graphql-types"
 import { useAppStore } from "@/lib/store"
 import { ApiError } from "@/lib/api-client"
 import { uploadBabyPhoto } from "@/lib/photo-utils"
@@ -22,8 +23,8 @@ function EditProfileForm() {
 
   const [name, setName] = useState(baby?.name || "")
   const [dob, setDob] = useState(baby?.dob || "")
-  const [sex, setSex] = useState<"male" | "female" | "unspecified">(
-    baby?.sex || "unspecified",
+  const [sex, setSex] = useState<BabySex>(
+    baby?.sex === "male" || baby?.sex === "female" ? baby.sex : "other",
   )
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState(baby?.photo_url || "")
@@ -161,7 +162,7 @@ function EditProfileForm() {
                 Sex
               </label>
               <div className="grid grid-cols-3 gap-base">
-                {(["male", "female", "unspecified"] as const).map((s) => (
+                {(["male", "female", "other"] as const).map((s) => (
                   <label key={s} className="group relative cursor-pointer">
                     <input
                       type="radio"

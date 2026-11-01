@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  getCasdoorRedirectUri,
   getSessionToken,
   getCurrentSession,
   isAuthenticated,
@@ -89,6 +90,25 @@ describe("auth service", () => {
     localStorage.clear()
     document.cookie = `${AUTH_TOKEN_KEY}=; max-age=0`
     document.cookie = `${AUTH_SESSION_KEY}=; max-age=0`
+  })
+
+  describe("getCasdoorRedirectUri", () => {
+    const originalRedirectUri = process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI
+
+    afterEach(() => {
+      if (originalRedirectUri === undefined) {
+        delete process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI
+      } else {
+        process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI = originalRedirectUri
+      }
+    })
+
+    it("uses the current browser origin when a legacy callback is configured", () => {
+      process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI =
+        "https://legacy.example.test/old-callback"
+
+      expect(getCasdoorRedirectUri()).toBe(`${window.location.origin}/auth/callback`)
+    })
   })
 
   describe("signInWithEmail", () => {

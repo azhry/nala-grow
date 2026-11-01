@@ -32,6 +32,7 @@ var vaultConfigKeys = map[string]struct{}{
 	"CASDOOR_APPLICATION":   {},
 	"CASDOOR_AUDIENCE":      {},
 	"CASDOOR_REDIRECT_URI":  {},
+	"CASDOOR_REDIRECT_URL":  {},
 	"CASDOOR_ADMIN_TOKEN":   {},
 	"MONGODB_ADDR":          {},
 	"MONGODB_URI":           {},

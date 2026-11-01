@@ -168,6 +168,10 @@ func casdoorConfigFromVault(values map[string]string) auth.CasdoorConfig {
 	issuer := strings.TrimSpace(values["CASDOOR_ISSUER"])
 	clientID := strings.TrimSpace(values["CASDOOR_CLIENT_ID"])
 	clientSecret := strings.TrimSpace(values["CASDOOR_CLIENT_SECRET"])
+	redirectURI := strings.TrimSpace(values["CASDOOR_REDIRECT_URI"])
+	if redirectURI == "" {
+		redirectURI = strings.TrimSpace(values["CASDOOR_REDIRECT_URL"])
+	}
 	enabledValue := strings.TrimSpace(values["CASDOOR_ENABLED"])
 	enabled := !strings.EqualFold(enabledValue, "false") &&
 		(strings.EqualFold(enabledValue, "true") || (issuer != "" && clientID != "" && clientSecret != ""))
@@ -180,7 +184,7 @@ func casdoorConfigFromVault(values map[string]string) auth.CasdoorConfig {
 		Organization: strings.TrimSpace(values["CASDOOR_ORGANIZATION"]),
 		Application:  strings.TrimSpace(values["CASDOOR_APPLICATION"]),
 		Audience:     getEnvFrom(values, "CASDOOR_AUDIENCE", clientID),
-		RedirectURI:  strings.TrimSpace(values["CASDOOR_REDIRECT_URI"]),
+		RedirectURI:  redirectURI,
 		AdminToken:   strings.TrimSpace(values["CASDOOR_ADMIN_TOKEN"]),
 	}
 }
