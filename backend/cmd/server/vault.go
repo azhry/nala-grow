@@ -32,6 +32,7 @@ var vaultConfigKeys = map[string]struct{}{
 	"CASDOOR_APPLICATION":   {},
 	"CASDOOR_AUDIENCE":      {},
 	"CASDOOR_REDIRECT_URI":  {},
+	"CASDOOR_REDIRECT_URL":  {},
 	"CASDOOR_ADMIN_TOKEN":   {},
 	"MONGODB_ADDR":          {},
 	"MONGODB_URI":           {},
@@ -80,6 +81,7 @@ func loadRuntimeConfigFromEnvironment(environment map[string]string, workingDir 
 	config := configFromEnvironment(environment)
 	if vaultEnabled {
 		config.Casdoor = casdoorConfigFromVault(vaultValues)
+		config.Casdoor.FrontendRedirectURI = casdoorFrontendRedirectURI(config.AllowedOrigin)
 		config.Health.CasdoorIssuer = config.Casdoor.Issuer
 	}
 	return config, nil

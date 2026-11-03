@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  getCasdoorRedirectUri,
   getSessionToken,
   getCurrentSession,
   isAuthenticated,
   refreshAuthSession,
   resetPassword,
   signInWithEmail,
+  signInWithCasdoor,
   signInWithGoogle,
   signOut,
   signUpWithEmail,
@@ -20,6 +22,7 @@ import { AUTH_SESSION_KEY } from "../auth-constants"
 const mockLogin = jest.fn()
 const mockSignup = jest.fn()
 const mockLoginWithGoogle = jest.fn()
+const mockLoginWithCasdoor = jest.fn()
 const mockRefreshSession = jest.fn()
 const mockRequestPasswordReset = jest.fn()
 const mockResetPassword = jest.fn()
@@ -31,7 +34,7 @@ jest.mock("../graphql-client", () => ({
   login: (...args: unknown[]) => mockLogin(...args),
   signup: (...args: unknown[]) => mockSignup(...args),
   loginWithGoogle: (...args: unknown[]) => mockLoginWithGoogle(...args),
-  loginWithCasdoor: jest.fn(),
+  loginWithCasdoor: (...args: unknown[]) => mockLoginWithCasdoor(...args),
   refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
   requestPasswordReset: (...args: unknown[]) => mockRequestPasswordReset(...args),
   resetPassword: (...args: unknown[]) => mockResetPassword(...args),
@@ -91,6 +94,25 @@ describe("auth service", () => {
     document.cookie = `${AUTH_SESSION_KEY}=; max-age=0`
   })
 
+  describe("getCasdoorRedirectUri", () => {
+    const originalRedirectUri = process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI
+
+    afterEach(() => {
+      if (originalRedirectUri === undefined) {
+        delete process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI
+      } else {
+        process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI = originalRedirectUri
+      }
+    })
+
+    it("uses the current browser origin when a legacy callback is configured", () => {
+      process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI =
+        "https://legacy.example.test/old-callback"
+
+      expect(getCasdoorRedirectUri()).toBe(`${window.location.origin}/auth/callback`)
+    })
+  })
+
   describe("signInWithEmail", () => {
     it("calls GraphQL login and persists the session", async () => {
       mockLogin.mockResolvedValue(authResponse)
@@ -115,6 +137,56 @@ describe("auth service", () => {
       await expect(
         signInWithEmail("bad@test.com", "wrong"),
       ).rejects.toThrow(/Invalid credentials/)
+    })
+  })
+
+  describe("signInWithCasdoor", () => {
+    it("preserves a client-safe GraphQL error", async () => {
+      const { GraphQLError } = await import("../graphql-types")
+      const { ApiError } = await import("../api-client")
+      mockLoginWithCasdoor.mockRejectedValue(
+        new GraphQLError([
+          { message: "could not create user in identity provider" },
+        ]),
+      )
+
+      let error: unknown
+      try {
+        await signInWithCasdoor("oauth-code", "https://app.example/auth/callback")
+      } catch (caught) {
+        error = caught
+      }
+
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toHaveProperty("status", 401)
+      expect(error).toHaveProperty("message", "could not create user in identity provider")
+    })
+
+    it("preserves a typed API error", async () => {
+      const { ApiError } = await import("../api-client")
+      mockLoginWithCasdoor.mockRejectedValue(
+        new ApiError(503, "Identity provider is temporarily unavailable", "trace-id"),
+      )
+
+      await expect(
+        signInWithCasdoor("oauth-code", "https://app.example/auth/callback"),
+      ).rejects.toMatchObject({
+        status: 503,
+        message: "Identity provider is temporarily unavailable",
+      })
+    })
+
+    it("uses generic copy for untyped failures", async () => {
+      mockLoginWithCasdoor.mockRejectedValue(
+        new Error("OAuth code=private-code access_token=private-token raw response body"),
+      )
+
+      await expect(
+        signInWithCasdoor("oauth-code", "https://app.example/auth/callback"),
+      ).rejects.toMatchObject({
+        status: 401,
+        message: "Google sign-in could not be completed. Please try again.",
+      })
     })
   })
 

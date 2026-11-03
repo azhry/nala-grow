@@ -14,8 +14,14 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/auth", () => ({
   ApiError: class ApiError extends Error {
-    status = 401
-    traceId = ""
+    status: number
+    traceId: string
+
+    constructor(status: number, message: string, traceId: string) {
+      super(message)
+      this.status = status
+      this.traceId = traceId
+    }
   },
   consumeCasdoorOAuthState: (...args: unknown[]) => mockConsumeState(...args),
   getCasdoorRedirectUri: () => "https://app.example/auth/callback",
@@ -73,5 +79,22 @@ describe("Casdoor callback page", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("expired")
     expect(mockSignInWithCasdoor).not.toHaveBeenCalled()
+  })
+
+  it("shows a client-safe auth error without exposing callback values", async () => {
+    mockSearchParams = new URLSearchParams(
+      "code=private-oauth-code&state=private-oauth-state",
+    )
+    mockConsumeState.mockReturnValue("/dashboard")
+    const { ApiError } = await import("@/lib/auth")
+    mockSignInWithCasdoor.mockRejectedValue(
+      new ApiError(401, "could not create user in identity provider", ""),
+    )
+
+    render(<CasdoorCallbackPage />)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("could not create user in identity provider")
+    expect(alert).not.toHaveTextContent(/private-oauth-code|private-oauth-state/)
   })
 })

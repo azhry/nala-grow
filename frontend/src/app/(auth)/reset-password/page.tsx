@@ -6,10 +6,44 @@ import { useSearchParams } from "next/navigation"
 import { Spinner } from "@/components/ui"
 import { resetPassword, updatePassword, ApiError } from "@/lib/auth"
 
+type CasdoorRecoveryConfig =
+  | { mode: "local" }
+  | { mode: "misconfigured" }
+  | { mode: "casdoor"; url: string }
+
+function getCasdoorRecoveryConfig(): CasdoorRecoveryConfig {
+  const issuer = process.env.NEXT_PUBLIC_CASDOOR_ISSUER?.trim() || ""
+  const application = process.env.NEXT_PUBLIC_CASDOOR_APPLICATION?.trim() || ""
+
+  if (!issuer && !application) {
+    return { mode: "local" }
+  }
+  if (!issuer || !application) {
+    return { mode: "misconfigured" }
+  }
+
+  try {
+    const issuerUrl = new URL(issuer)
+    if (issuerUrl.protocol !== "http:" && issuerUrl.protocol !== "https:") {
+      return { mode: "misconfigured" }
+    }
+
+    const recoveryUrl = new URL(
+      `/forget/${encodeURIComponent(application)}`,
+      issuerUrl.origin,
+    )
+
+    return { mode: "casdoor", url: recoveryUrl.toString() }
+  } catch {
+    return { mode: "misconfigured" }
+  }
+}
+
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
   const code = searchParams.get("code")
+  const casdoorRecovery = getCasdoorRecoveryConfig()
 
   const [email, setEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -84,17 +118,56 @@ function ResetPasswordForm() {
       <main className="z-10 w-full max-w-md">
         <div className="mb-stack-lg text-center">
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight md:font-headline-lg md:text-headline-lg">
-            {hasRecoverySession ? "Set New Password" : "Reset Password"}
+            {casdoorRecovery.mode === "local" && hasRecoverySession
+              ? "Set New Password"
+              : "Reset Password"}
           </h1>
           <p className="mt-base font-body-md text-body-md text-on-surface-variant">
-            {hasRecoverySession
+            {casdoorRecovery.mode === "casdoor"
+              ? "Reset your NalaGrow password through Casdoor, which manages your account credentials."
+              : casdoorRecovery.mode === "misconfigured"
+                ? "Password recovery is temporarily unavailable. Please contact support."
+                : hasRecoverySession
               ? "Enter your new password below."
               : "We'll send you a link to reset your password."}
           </p>
         </div>
 
         <div className="glass-card soft-shadow rounded-[24px] border border-white/50 bg-surface-container-lowest p-8">
-          {success ? (
+          {casdoorRecovery.mode === "casdoor" ? (
+            <div className="flex flex-col items-center gap-stack-md py-stack-md text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-container/30">
+                <span className="material-symbols-outlined text-[36px] text-primary">
+                  lock_reset
+                </span>
+              </div>
+              <h2 className="font-headline-sm text-headline-sm text-on-surface">
+                Reset through Casdoor
+              </h2>
+              <p className="font-body-md text-body-md text-on-surface-variant">
+                Casdoor will verify your account and handle the password reset.
+              </p>
+              <a
+                href={casdoorRecovery.url}
+                className="soft-shadow squishy-active mt-base flex h-14 w-full items-center justify-center gap-base rounded-xl bg-primary font-headline-sm text-headline-sm text-on-primary transition-all hover:bg-on-primary-fixed-variant"
+              >
+                <span>Continue to password reset</span>
+                <span className="material-symbols-outlined">arrow_forward</span>
+              </a>
+            </div>
+          ) : casdoorRecovery.mode === "misconfigured" ? (
+            <div className="flex flex-col items-center gap-stack-md py-stack-md text-center">
+              <p role="alert" className="font-body-md text-body-md text-error">
+                Casdoor password recovery is not configured. Please contact support.
+              </p>
+              <Link
+                href="/login"
+                className="soft-shadow squishy-active mt-base flex h-14 w-full items-center justify-center rounded-xl bg-primary font-headline-sm text-headline-sm text-on-primary transition-all hover:bg-on-primary-fixed-variant"
+              >
+                Back to Login
+              </Link>
+            </div>
+          ) : success ? (
             <div className="flex flex-col items-center gap-stack-md py-stack-md text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-container/30">
                 <span className="material-symbols-outlined text-[36px] text-primary">
@@ -152,7 +225,7 @@ function ResetPasswordForm() {
               </div>
 
               {error && (
-                <p className="ml-1 font-body-sm text-body-sm text-error">
+                <p role="alert" className="ml-1 font-body-sm text-body-sm text-error">
                   {error}
                 </p>
               )}
@@ -192,7 +265,7 @@ function ResetPasswordForm() {
               </div>
 
               {error && (
-                <p className="ml-1 font-body-sm text-body-sm text-error">
+                <p role="alert" className="ml-1 font-body-sm text-body-sm text-error">
                   {error}
                 </p>
               )}
