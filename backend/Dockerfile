@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine3.24 AS builder
 
 RUN apk add --no-cache gcc musl-dev
 
@@ -11,7 +11,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /app/server ./cmd/server
 
 # Runtime stage
-FROM alpine:3.19
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
