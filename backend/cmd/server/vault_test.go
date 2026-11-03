@@ -100,6 +100,7 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 	t.Setenv("VAULT_SECRET_ID", "")
 	t.Setenv("VAULT_KV_MOUNT", "secret")
 	t.Setenv("VAULT_KV_PATH", "nala-labs/nala-grow")
+	t.Setenv("ALLOWED_ORIGIN", "http://localhost:3000")
 	t.Setenv("DATABASE_URL", "postgres://process.example/nalagrow")
 	t.Setenv("JWT_SECRET", "process-jwt-secret")
 	t.Setenv("GOOGLE_CLIENT_ID", "process-google-client")
@@ -133,6 +134,7 @@ func TestLoadRuntimeConfigUsesVaultValuesWithToken(t *testing.T) {
 		config.Casdoor.Application != "nala-grow" ||
 		config.Casdoor.Audience != "vault-casdoor-audience" ||
 		config.Casdoor.RedirectURI != "https://app.vault.example/auth/callback" ||
+		config.Casdoor.FrontendRedirectURI != "http://localhost:3000/auth/callback" ||
 		config.Casdoor.AdminToken != "vault-casdoor-admin-token" ||
 		config.Health.CasdoorIssuer != "https://casdoor.vault.example" {
 		t.Fatal("Casdoor settings were not loaded exclusively from Vault")

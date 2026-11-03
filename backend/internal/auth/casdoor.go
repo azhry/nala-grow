@@ -34,6 +34,7 @@ var (
 	ErrCasdoorPasswordGrantBlocked    = errors.New("Casdoor password grant is not available")
 	ErrCasdoorOAuthClientRejected     = errors.New("Casdoor rejected the OAuth client")
 	ErrCasdoorTokenRejected           = errors.New("Casdoor rejected the token request")
+	ErrCasdoorRedirectURI             = errors.New("Casdoor redirect URI is not allowed")
 	ErrCasdoorMFARequired             = errors.New("Casdoor requires a second authentication factor")
 	ErrCasdoorEmailUnverified         = errors.New("Casdoor requires a verified email address")
 	ErrCasdoorSigninRestricted        = errors.New("Casdoor sign-in policy blocked this account")
@@ -43,16 +44,17 @@ var (
 // needed to use Casdoor as NalaGrow's identity provider. Secrets are supplied
 // by the process environment or Vault and are never serialized by this type.
 type CasdoorConfig struct {
-	Enabled      bool
-	Issuer       string
-	ClientID     string
-	ClientSecret string
-	Organization string
-	Application  string
-	Audience     string
-	RedirectURI  string
-	AdminToken   string
-	HTTPClient   *http.Client
+	Enabled             bool
+	Issuer              string
+	ClientID            string
+	ClientSecret        string
+	Organization        string
+	Application         string
+	Audience            string
+	RedirectURI         string
+	FrontendRedirectURI string
+	AdminToken          string
+	HTTPClient          *http.Client
 }
 
 func (c CasdoorConfig) configured() bool {
@@ -636,10 +638,15 @@ func casdoorUsername(email string) string {
 
 func (c *CasdoorClient) validateRedirectURI(redirectURI string) error {
 	redirectURI = strings.TrimSpace(redirectURI)
-	if redirectURI == "" || c.config.RedirectURI == "" || redirectURI != c.config.RedirectURI {
-		return fmt.Errorf("redirect URI is not allowed")
+	if redirectURI == "" {
+		return ErrCasdoorRedirectURI
 	}
-	return nil
+	for _, allowedURI := range []string{c.config.RedirectURI, c.config.FrontendRedirectURI} {
+		if allowedURI = strings.TrimSpace(allowedURI); allowedURI != "" && redirectURI == allowedURI {
+			return nil
+		}
+	}
+	return ErrCasdoorRedirectURI
 }
 
 func (c *CasdoorClient) ValidateAccessToken(ctx context.Context, rawToken string) (*CasdoorPrincipal, error) {

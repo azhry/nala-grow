@@ -209,7 +209,15 @@ func (h *Handler) resolveLoginWithCasdoorResult(ctx context.Context, variables m
 	}
 	token, principal, err := h.auth.Casdoor.AuthorizationCodeGrant(ctx, code, redirectURI)
 	if err != nil {
-		return ExecResult{Errors: []GraphQLError{{Message: "could not exchange Casdoor authorization code"}}}
+		message := "Casdoor could not complete sign-in; please start the sign-in flow again"
+		if errors.Is(err, auth.ErrCasdoorRedirectURI) {
+			message = "NalaGrow's callback URL is not allowed by its Casdoor application"
+		} else if errors.Is(err, auth.ErrCasdoorOAuthClientRejected) {
+			message = "Casdoor rejected the NalaGrow OAuth client configuration"
+		} else if errors.Is(err, auth.ErrCasdoorTokenRejected) {
+			message = "Casdoor rejected the sign-in code; please start the sign-in flow again"
+		}
+		return ExecResult{Errors: []GraphQLError{{Message: message}}}
 	}
 	userID, user, err := ensurePrincipalUser(ctx, h, principalToAuthPrincipal(principal))
 	if err != nil {

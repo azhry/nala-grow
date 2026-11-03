@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -162,6 +163,20 @@ func configFromEnvironment(environment map[string]string) Config {
 			Timeout:      getDurationFrom(environment, "HEALTHCHECK_TIMEOUT", health.DefaultTimeout),
 		},
 	}
+}
+
+func casdoorFrontendRedirectURI(allowedOrigin string) string {
+	parsed, err := url.Parse(strings.TrimSpace(allowedOrigin))
+	if err != nil || parsed.User != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return ""
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return ""
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return ""
+	}
+	return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/auth/callback"}).String()
 }
 
 func casdoorConfigFromVault(values map[string]string) auth.CasdoorConfig {

@@ -134,22 +134,26 @@ func TestCasdoorAuthorizationCodeRequiresConfiguredRedirectAndRejectsWrongIssuer
 	defer server.Close()
 
 	client, err := NewCasdoorClient(CasdoorConfig{
-		Enabled:      true,
-		Issuer:       server.URL,
-		ClientID:     "nala-grow",
-		ClientSecret: "client-secret",
-		Audience:     "nala-grow",
-		RedirectURI:  "http://localhost:3000/auth/casdoor/callback",
+		Enabled:             true,
+		Issuer:              server.URL,
+		ClientID:            "nala-grow",
+		ClientSecret:        "client-secret",
+		Audience:            "nala-grow",
+		RedirectURI:         "http://localhost:8080/api/auth/callback",
+		FrontendRedirectURI: "http://localhost:3000/auth/callback",
 	})
 	if err != nil {
 		t.Fatalf("NewCasdoorClient() error = %v", err)
 	}
-	if _, _, err := client.AuthorizationCodeGrant(t.Context(), "code", "http://evil.example/callback"); err == nil {
+	if _, _, err := client.AuthorizationCodeGrant(t.Context(), "code", "http://evil.example/callback"); !errors.Is(err, ErrCasdoorRedirectURI) {
 		t.Fatal("AuthorizationCodeGrant() accepted an unconfigured redirect URI")
 	}
-	_, principal, err := client.AuthorizationCodeGrant(t.Context(), "code", "http://localhost:3000/auth/casdoor/callback")
+	_, principal, err := client.AuthorizationCodeGrant(t.Context(), "code", "http://localhost:8080/api/auth/callback")
 	if err != nil {
-		t.Fatalf("AuthorizationCodeGrant() error = %v", err)
+		t.Fatalf("AuthorizationCodeGrant() rejected the configured Vault redirect: %v", err)
+	}
+	if _, _, err := client.AuthorizationCodeGrant(t.Context(), "code", "http://localhost:3000/auth/callback"); err != nil {
+		t.Fatalf("AuthorizationCodeGrant() rejected the configured NalaGrow frontend redirect: %v", err)
 	}
 	if principal.Subject != "parent-2" {
 		t.Fatalf("principal subject = %q, want parent-2", principal.Subject)

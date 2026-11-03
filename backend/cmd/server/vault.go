@@ -81,6 +81,7 @@ func loadRuntimeConfigFromEnvironment(environment map[string]string, workingDir 
 	config := configFromEnvironment(environment)
 	if vaultEnabled {
 		config.Casdoor = casdoorConfigFromVault(vaultValues)
+		config.Casdoor.FrontendRedirectURI = casdoorFrontendRedirectURI(config.AllowedOrigin)
 		config.Health.CasdoorIssuer = config.Casdoor.Issuer
 	}
 	return config, nil
