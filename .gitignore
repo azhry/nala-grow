@@ -15,6 +15,7 @@ node_modules
 .swc
 # Build artifacts
 backend/nala-grow-backend.exe
+backend/coverage.out
 *.bak
 .env
 .env.local
