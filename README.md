@@ -37,6 +37,26 @@ process environment values override values from the file. The real
 Without Vault transport variables, local development retains the existing
 process-environment defaults.
 
+## Production packaging
+
+The root `nala.yml` is the deployment descriptor for both independently
+packaged components. Build each image from its component directory so its
+`.dockerignore` rules keep dotenv files, Vault bootstrap files, and private
+keys out of the build context:
+
+```bash
+docker build --file backend/Dockerfile --tag nala-grow-backend backend
+docker build --file frontend/Dockerfile --tag nala-grow-frontend frontend
+```
+
+The backend declares the account-owned `nala-grow` database reference and the
+NalaGrow Vault KV path. The frontend declares only its allowlisted public
+configuration keys; Next.js embeds those values during its production build.
+Vault transport credentials remain outside both image contexts. For a
+Vault-backed frontend build, provide the protected repository-root
+`.vault-config` as a BuildKit secret with `--secret id=vault-config,src=.vault-config`;
+the file is mounted only while the build runs and is not copied into the image.
+
 ## Project Structure
 
 ```
