@@ -102,3 +102,16 @@ func TestGoogleLoginRequiresCasdoorWhenCasdoorIsConfigured(t *testing.T) {
 	require.Len(t, result.Errors, 1)
 	require.Equal(t, "Google sign-in must use the Casdoor authorization flow", result.Errors[0].Message)
 }
+
+func TestCasdoorLoginExplainsRejectedCallbackURI(t *testing.T) {
+	h := newTestHandler()
+	h.auth.Casdoor = &auth.CasdoorClient{}
+
+	result := h.resolveLoginWithCasdoorResult(t.Context(), map[string]interface{}{
+		"code":        "authorization-code",
+		"redirectUri": "http://localhost:3000/auth/callback",
+	})
+
+	require.Len(t, result.Errors, 1)
+	require.Equal(t, "NalaGrow's callback URL is not allowed by its Casdoor application", result.Errors[0].Message)
+}

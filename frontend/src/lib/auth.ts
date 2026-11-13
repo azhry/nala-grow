@@ -240,17 +240,24 @@ export async function signInWithCasdoor(
 ): Promise<AuthSession> {
   try {
     return persistAuthResponse(await gqlLoginWithCasdoor(code, redirectUri))
-  } catch {
-    throw new ApiError(401, "Google sign-in could not be completed. Please try again.", "")
+  } catch (err) {
+    if (err instanceof GraphQLError) throw authError(err, 401)
+    if (err instanceof ApiError) throw err
+    throw new ApiError(
+      401,
+      "Google sign-in could not be completed. Please try again.",
+      "",
+    )
   }
 }
 
 // ─── Casdoor Google authorization-code flow ─────────────────────────────────
 
 export function getCasdoorRedirectUri(): string {
+  if (typeof window !== "undefined") return `${window.location.origin}/auth/callback`
+
   const configured = process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI?.trim()
   if (configured) return configured
-  if (typeof window !== "undefined") return `${window.location.origin}/auth/callback`
   return "http://localhost:3000/auth/callback"
 }
 
