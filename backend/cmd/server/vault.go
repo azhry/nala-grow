@@ -33,12 +33,6 @@ var vaultConfigKeys = map[string]struct{}{
 	"CASDOOR_AUDIENCE":      {},
 	"CASDOOR_REDIRECT_URI":  {},
 	"CASDOOR_ADMIN_TOKEN":   {},
-	"MONGODB_ADDR":          {},
-	"MONGODB_URI":           {},
-	"REDIS_ADDR":            {},
-	"REDIS_URL":             {},
-	"KAFKA_ADDR":            {},
-	"KAFKA_BROKERS":         {},
 	"HEALTHCHECK_TIMEOUT":   {},
 }
 

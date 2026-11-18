@@ -153,12 +153,6 @@ func configFromEnvironment(environment map[string]string) Config {
 		GoogleClientID: getEnvFrom(environment, "GOOGLE_CLIENT_ID", ""),
 		Health: health.Config{
 			VaultAddress: getEnvFrom(environment, "VAULT_ADDR", ""),
-			MongoAddress: getEnvFrom(environment, "MONGODB_ADDR", ""),
-			MongoURI:     getEnvFrom(environment, "MONGODB_URI", ""),
-			RedisAddress: getEnvFrom(environment, "REDIS_ADDR", ""),
-			RedisURL:     getEnvFrom(environment, "REDIS_URL", ""),
-			KafkaAddress: getEnvFrom(environment, "KAFKA_ADDR", ""),
-			KafkaBrokers: getEnvFrom(environment, "KAFKA_BROKERS", ""),
 			Timeout:      getDurationFrom(environment, "HEALTHCHECK_TIMEOUT", health.DefaultTimeout),
 		},
 	}

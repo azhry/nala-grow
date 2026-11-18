@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,22 +27,12 @@ var dependencyNames = [...]string{
 	"casdoor",
 	"vault",
 	"postgresql",
-	"mongodb",
-	"redis",
-	"kafka",
 }
 
 // Config contains non-secret dependency addresses used by the health endpoint.
-// URI values are retained only to derive host/port addresses for TCP probes.
 type Config struct {
 	CasdoorIssuer string
 	VaultAddress  string
-	MongoAddress  string
-	MongoURI      string
-	RedisAddress  string
-	RedisURL      string
-	KafkaAddress  string
-	KafkaBrokers  string
 	Timeout       time.Duration
 	HTTPClient    *http.Client
 }
@@ -72,9 +61,6 @@ type Dependencies struct {
 	Casdoor    DependencyStatus `json:"casdoor"`
 	Vault      DependencyStatus `json:"vault"`
 	PostgreSQL DependencyStatus `json:"postgresql"`
-	MongoDB    DependencyStatus `json:"mongodb"`
-	Redis      DependencyStatus `json:"redis"`
-	Kafka      DependencyStatus `json:"kafka"`
 }
 
 type Response struct {
@@ -100,9 +86,6 @@ func NewChecker(config Config, postgres Pinger) *Checker {
 			{name: "casdoor", probe: httpProbe(config.CasdoorIssuer, "/.well-known/openid-configuration", httpClient)},
 			{name: "vault", probe: httpProbe(config.VaultAddress, "/v1/sys/health", httpClient)},
 			{name: "postgresql", probe: postgresProbe},
-			{name: "mongodb", probe: tcpProbeFromValues(config.MongoAddress, config.MongoURI, "27017")},
-			{name: "redis", probe: tcpProbeFromValues(config.RedisAddress, config.RedisURL, "6379")},
-			{name: "kafka", probe: tcpProbeFromValues(config.KafkaAddress, config.KafkaBrokers, "9092")},
 		},
 		timeout: config.Timeout,
 	}
@@ -155,9 +138,6 @@ func (c *Checker) Check(ctx context.Context) Response {
 		Casdoor:    DependencyStatus{Status: statuses[0]},
 		Vault:      DependencyStatus{Status: statuses[1]},
 		PostgreSQL: DependencyStatus{Status: statuses[2]},
-		MongoDB:    DependencyStatus{Status: statuses[3]},
-		Redis:      DependencyStatus{Status: statuses[4]},
-		Kafka:      DependencyStatus{Status: statuses[5]},
 	}
 	for _, status := range statuses {
 		if status != StatusOK {
@@ -210,57 +190,6 @@ func httpProbe(baseAddress, suffix string, client *http.Client) Probe {
 		}
 		return nil
 	}
-}
-
-func tcpProbeFromValues(preferred, fallback, defaultPort string) Probe {
-	address := serviceAddress(preferred, defaultPort)
-	if address == "" {
-		address = serviceAddress(fallback, defaultPort)
-	}
-	if address == "" {
-		return nil
-	}
-	return func(ctx context.Context) error {
-		connection, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
-		if err != nil {
-			return err
-		}
-		return connection.Close()
-	}
-}
-
-func serviceAddress(value, defaultPort string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	value = strings.TrimSpace(strings.Split(value, ",")[0])
-	if value == "" {
-		return ""
-	}
-	if strings.Contains(value, "://") {
-		parsed, err := url.Parse(value)
-		if err != nil || parsed.Host == "" {
-			return ""
-		}
-		value = parsed.Host
-	}
-	if host, port, err := net.SplitHostPort(value); err == nil {
-		if host == "" || port == "" {
-			return ""
-		}
-		return net.JoinHostPort(host, port)
-	}
-	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
-		value = strings.TrimSuffix(strings.TrimPrefix(value, "["), "]")
-	}
-	if strings.Count(value, ":") > 1 {
-		return net.JoinHostPort(value, defaultPort)
-	}
-	if strings.Contains(value, ":") {
-		return ""
-	}
-	return net.JoinHostPort(value, defaultPort)
 }
 
 func appendHealthPath(baseAddress, suffix string) (string, error) {
