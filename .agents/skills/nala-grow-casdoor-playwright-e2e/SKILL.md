@@ -11,8 +11,8 @@ Use this skill to test the NalaGrow browser flow that is in scope for a task or 
 
 1. Read the repository instructions and the relevant files under `.agents/knowledge/`. Load only the documented test account needed for the run. Keep account values, tokens, OAuth state, and request bodies out of output and artifacts.
 2. Confirm the real frontend URL and service state from the documented service manager or project knowledge. Do not guess a port.
-3. Run the focused spec with `E2E_SERVICES_EXTERNAL=1` and an explicit `BASE_URL`. This prevents the default test setup from reclaiming the running service ports and starting a disposable backend.
-4. Set Playwright tracing, screenshots, and video to off for credential-bearing runs. Use an isolated browser context.
+3. Run the focused spec with `E2E_SERVICES_EXTERNAL=1` and an explicit `BASE_URL`. This prevents the default test setup from reclaiming the running service ports and starting a disposable backend. Use `--headed` for local runs so the browser is visible; omit it only for CI or an explicit headless request.
+4. Set Playwright tracing, screenshots, and video to off for credential-bearing runs. Headed mode does not require saving artifacts. Use an isolated browser context.
 
 ## Run the flow
 

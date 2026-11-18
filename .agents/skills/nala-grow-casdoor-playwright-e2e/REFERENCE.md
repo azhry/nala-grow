@@ -40,14 +40,14 @@ flowchart LR
 | Recovery handoff | From `/login`, follow `Forgot Password?` to `/reset-password`. | Assert the reset heading, `Reset through Casdoor` section, and an external `/forget/{application}` link. | If the real provider shows `No verification method`, classify recovery as blocked. Do not submit a reset request or alter provider settings. |
 | Timeout or unexpected error | Any bounded navigation or locator wait expires, or the page exposes an error. | Record the expected condition, timeout, visible heading/alert, and sanitized route. | Do not retry a mutation or provider action until the first attempt's outcome is known. Never include query values, credentials, tokens, or request bodies in logs. |
 
-## Focused Playwright run
+## Focused headed Playwright run
 
-The project runner defaults to a local setup that may reclaim ports 3000 and 4000. For the existing desktop services, keep `E2E_SERVICES_EXTERNAL=1` on every command and use the verified URL. Disable trace, screenshot, and video when account values are present.
+The project runner defaults to a local setup that may reclaim ports 3000 and 4000. For the existing desktop services, keep `E2E_SERVICES_EXTERNAL=1` on every command and use the verified URL. Local runs use `--headed` by default so the browser stays visible while each scenario runs; omit it for CI or an explicitly headless run. Disable trace, screenshot, and video when account values are present.
 
 The focused spec is `frontend/e2e/casdoor-session.spec.ts`. It covers documented-account login and reload, provider redirect without account selection, the configured recovery link, and callback error-route rendering. It creates no account or profile and uses no request interception, localStorage seeding, provider stub, or fake persistence.
 
 ```bash
-E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 npm --prefix frontend run test:e2e -- --project=desktop --reporter=dot --trace=off e2e/casdoor-session.spec.ts
+E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 npm --prefix frontend run test:e2e -- --project=desktop --headed --reporter=dot --trace=off e2e/casdoor-session.spec.ts
 status=$?
 printf 'Playwright exit=%s\n' "$status"
 ```
