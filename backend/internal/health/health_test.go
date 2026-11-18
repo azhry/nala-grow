@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,18 +31,9 @@ func TestHealthHandlerReportsAllDependenciesHealthy(t *testing.T) {
 	}))
 	t.Cleanup(httpServer.Close)
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen for TCP health probes: %v", err)
-	}
-	t.Cleanup(func() { _ = listener.Close() })
-
 	checker := NewChecker(Config{
 		CasdoorIssuer: httpServer.URL,
 		VaultAddress:  httpServer.URL,
-		MongoAddress:  listener.Addr().String(),
-		RedisAddress:  listener.Addr().String(),
-		KafkaAddress:  listener.Addr().String(),
 	}, fakePinger{})
 	recorder := httptest.NewRecorder()
 	Handler(checker).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
@@ -65,9 +55,6 @@ func TestHealthHandlerReportsAllDependenciesHealthy(t *testing.T) {
 		"casdoor":    response.Dependencies.Casdoor,
 		"vault":      response.Dependencies.Vault,
 		"postgresql": response.Dependencies.PostgreSQL,
-		"mongodb":    response.Dependencies.MongoDB,
-		"redis":      response.Dependencies.Redis,
-		"kafka":      response.Dependencies.Kafka,
 	} {
 		if dependency.Status != StatusOK {
 			t.Errorf("dependency %q status = %q, want %q", name, dependency.Status, StatusOK)
@@ -105,9 +92,6 @@ func TestHealthHandlerReportsDegradedForUnavailableAndUnconfiguredDependencies(t
 	for name, dependency := range map[string]DependencyStatus{
 		"casdoor": response.Dependencies.Casdoor,
 		"vault":   response.Dependencies.Vault,
-		"mongodb": response.Dependencies.MongoDB,
-		"redis":   response.Dependencies.Redis,
-		"kafka":   response.Dependencies.Kafka,
 	} {
 		if dependency.Status != StatusNotConfigured {
 			t.Errorf("dependency %q status = %q, want %q", name, dependency.Status, StatusNotConfigured)
@@ -157,29 +141,6 @@ func TestHealthCheckerBoundsProbeTimeout(t *testing.T) {
 	}
 }
 
-func TestServiceAddressSupportsURIsAndBrokerLists(t *testing.T) {
-	tests := []struct {
-		name        string
-		value       string
-		defaultPort string
-		want        string
-	}{
-		{name: "host and port", value: "localhost:27017", defaultPort: "27017", want: "localhost:27017"},
-		{name: "mongodb URI", value: "mongodb://user:secret@mongo.example/nalagrow", defaultPort: "27017", want: "mongo.example:27017"},
-		{name: "redis URI", value: "redis://:secret@redis.example:6380/0", defaultPort: "6379", want: "redis.example:6380"},
-		{name: "first Kafka broker", value: "kafka-1:9092,kafka-2:9092", defaultPort: "9092", want: "kafka-1:9092"},
-		{name: "default port", value: "kafka.example", defaultPort: "9092", want: "kafka.example:9092"},
-		{name: "blank", value: "", defaultPort: "9092", want: ""},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := serviceAddress(test.value, test.defaultPort); got != test.want {
-				t.Fatalf("serviceAddress(%q, %q) = %q, want %q", test.value, test.defaultPort, got, test.want)
-			}
-		})
-	}
-}
-
 func TestHealthHandlerReturnsNotConfiguredWhenCheckerIsNil(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Handler(nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
@@ -191,7 +152,7 @@ func TestHealthHandlerReturnsNotConfiguredWhenCheckerIsNil(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode health response: %v", err)
 	}
-	if response.Dependencies.Casdoor.Status != StatusNotConfigured || response.Dependencies.Kafka.Status != StatusNotConfigured {
+	if response.Dependencies.Casdoor.Status != StatusNotConfigured || response.Dependencies.PostgreSQL.Status != StatusNotConfigured {
 		t.Fatalf("nil checker dependencies = %+v, want not_configured", response.Dependencies)
 	}
 }

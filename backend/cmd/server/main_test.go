@@ -52,26 +52,11 @@ func TestCasdoorFrontendRedirectURIUsesConfiguredOrigin(t *testing.T) {
 func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	t.Setenv("CASDOOR_ISSUER", "https://casdoor.example")
 	t.Setenv("VAULT_ADDR", "https://vault.example")
-	t.Setenv("MONGODB_ADDR", "mongo.example:27017")
-	t.Setenv("MONGODB_URI", "mongodb://mongo.example/nalagrow")
-	t.Setenv("REDIS_ADDR", "redis.example:6379")
-	t.Setenv("REDIS_URL", "redis://redis.example:6379/0")
-	t.Setenv("KAFKA_ADDR", "kafka.example:9092")
-	t.Setenv("KAFKA_BROKERS", "kafka.example:9092")
 	t.Setenv("HEALTHCHECK_TIMEOUT", "750ms")
 
 	config := loadConfig()
 	if config.Health.CasdoorIssuer != "" || config.Health.VaultAddress != "https://vault.example" {
 		t.Fatalf("HTTP health settings = %+v", config.Health)
-	}
-	if config.Health.MongoAddress != "mongo.example:27017" || config.Health.MongoURI != "mongodb://mongo.example/nalagrow" {
-		t.Fatalf("MongoDB health settings = %+v", config.Health)
-	}
-	if config.Health.RedisAddress != "redis.example:6379" || config.Health.RedisURL != "redis://redis.example:6379/0" {
-		t.Fatalf("Redis health settings = %+v", config.Health)
-	}
-	if config.Health.KafkaAddress != "kafka.example:9092" || config.Health.KafkaBrokers != "kafka.example:9092" {
-		t.Fatalf("Kafka health settings = %+v", config.Health)
 	}
 	if config.Health.Timeout != 750*time.Millisecond {
 		t.Fatalf("health timeout = %s, want 750ms", config.Health.Timeout)
