@@ -4,9 +4,30 @@ Use the state table to decide what to assert and when to stop. Each check uses t
 
 ## Source diagram
 
-This single user-provided flow diagram is preserved unchanged as the skill's visual reference. Follow the repository's allowlisted, non-printing configuration loader when checking account configuration; do not read `.agents/.env` directly. Signup, Terms acceptance, and Google account selection remain subject to the user-control boundaries below.
+The Mermaid flow below translates the single rough diagram supplied with the request and makes the browser handoff states explicit. Follow the repository's allowlisted, non-printing configuration loader; do not read `.agents/.env` directly. Signup, Terms acceptance, and Google account selection remain subject to the user-control boundaries below.
 
-![User-provided authentication test flow](assets/user-provided-auth-flow.png)
+```mermaid
+flowchart LR
+    Start((Start)) --> Config["Load required config with the repository's non-printing allowlist loader"]
+    Config --> Account{Documented test account exists?}
+    Account -->|Yes| SignIn["Sign in and assert the visible route and state"]
+    Account -->|No| SignupGate{Signup authorized without accepting Terms?}
+    SignupGate -->|Yes| Signup["Create a dedicated test account"]
+    SignupGate -->|No| Stop["Stop and report the user action needed"]
+    Signup --> SignIn
+    SignIn --> Google{Google sign-in selected?}
+    Google -->|No| Feature["Test the feature the user requested"]
+    Google -->|Yes| Redirect["Wait for the provider redirect"]
+    Redirect --> Chooser{Account chooser appears?}
+    Chooser -->|Yes| UserChoice["Pause; the user chooses an account"]
+    Chooser -->|No| Callback["Wait for and inspect the NalaGrow callback"]
+    UserChoice --> Callback
+    Callback --> Outcome{What state does NalaGrow show?}
+    Outcome -->|Authenticated| Destination["Assert the visible post-auth destination"]
+    Outcome -->|Error or cancellation| Retry["Assert the error and safe retry route"]
+    Destination --> Feature
+    Retry --> Stop
+```
 
 | State | Entry and action | Required evidence | Branch or recovery |
 | --- | --- | --- | --- |
