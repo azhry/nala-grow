@@ -2,6 +2,12 @@
 
 Use the state table to decide what to assert and when to stop. Each check uses the real configured services unless marked regression-only.
 
+## Source diagram
+
+This single user-provided flow diagram is preserved unchanged as the skill's visual reference. Follow the repository's allowlisted, non-printing configuration loader when checking account configuration; do not read `.agents/.env` directly. Signup, Terms acceptance, and Google account selection remain subject to the user-control boundaries below.
+
+![User-provided authentication test flow](assets/user-provided-auth-flow.png)
+
 | State | Entry and action | Required evidence | Branch or recovery |
 | --- | --- | --- | --- |
 | Login ready | Open `/login` from the normal entry point. | URL ends in `/login`; the `Welcome back` heading and labelled email/password fields are visible. | Wait for the page heading with a bounded locator assertion. A successful HTTP response alone is not evidence. |
