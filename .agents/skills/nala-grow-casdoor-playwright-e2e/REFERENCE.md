@@ -56,8 +56,8 @@ The project README documents the frontend at `http://localhost:3000`. Confirm th
 In the same Bash terminal, load only the selected account pair. These commands do not print the values:
 
 ```bash
-NALA_GROW_E2E_EMAIL="$(grep -m1 '^TEST_ACCOUNT_EMAIL_3=' .agents/.env | cut -d= -f2- | tr -d '\r')"
-NALA_GROW_E2E_PASSWORD="$(grep -m1 '^TEST_ACCOUNT_PASSWORD_3=' .agents/.env | cut -d= -f2- | tr -d '\r')"
+NALA_GROW_E2E_EMAIL="$(grep -m1 '^TEST_ACCOUNT_EMAIL_3=' .agents/.env | cut -d= -f2- | tr -d '\r' | sed 's/^'\''//; s/'\''$//; s/^"//; s/"$//')"
+NALA_GROW_E2E_PASSWORD="$(grep -m1 '^TEST_ACCOUNT_PASSWORD_3=' .agents/.env | cut -d= -f2- | tr -d '\r' | sed 's/^'\''//; s/'\''$//; s/^"//; s/"$//')"
 export NALA_GROW_E2E_EMAIL NALA_GROW_E2E_PASSWORD
 ```
 
