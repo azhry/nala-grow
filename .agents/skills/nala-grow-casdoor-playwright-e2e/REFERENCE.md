@@ -1,65 +1,78 @@
-# Browser state and evidence reference
+# Browser flow and evidence reference
 
-Use the state table to decide what to assert and when to stop. Each check uses the real configured services unless marked regression-only.
-
-## Source diagram
-
-The Mermaid flow below translates the single rough diagram supplied with the request and makes the browser handoff states explicit. Follow the repository's allowlisted, non-printing configuration loader; do not read `.agents/.env` directly. Signup, Terms acceptance, and Google account selection remain subject to the user-control boundaries below.
+This is the single flow from the supplied diagram, expressed in Mermaid. The config check happens before the browser opens. The browser starts at `/login` for an existing configured account, or `/signup` when no account pair is configured.
 
 ```mermaid
 flowchart LR
-    Start((Start)) --> Config["Load required config with the repository's non-printing allowlist loader"]
-    Config --> Account{Documented test account exists?}
-    Account -->|Yes| SignIn["Sign in and assert the visible route and state"]
-    Account -->|No| SignupGate{Signup authorized without accepting Terms?}
-    SignupGate -->|Yes| Signup["Create a dedicated test account"]
-    SignupGate -->|No| Stop["Stop and report the user action needed"]
-    Signup --> SignIn
-    SignIn --> Google{Google sign-in selected?}
-    Google -->|No| Feature["Test the feature the user requested"]
-    Google -->|Yes| Redirect["Wait for the provider redirect"]
-    Redirect --> Chooser{Account chooser appears?}
-    Chooser -->|Yes| UserChoice["Pause; the user chooses an account"]
-    Chooser -->|No| Callback["Wait for and inspect the NalaGrow callback"]
-    UserChoice --> Callback
-    Callback --> Outcome{What state does NalaGrow show?}
-    Outcome -->|Authenticated| Destination["Assert the visible post-auth destination"]
-    Outcome -->|Error or cancellation| Retry["Assert the error and safe retry route"]
-    Destination --> Feature
-    Retry --> Stop
+    Start((Start)) --> Config["Check .agents/.env with a non-printing allowlisted loader"]
+    Config --> Account{Complete test account pair exists?}
+    Account -->|Yes| Login["Open /login and sign in"]
+    Account -->|No| Signup["Open /signup and create the account"]
+    Signup --> Login
+    Login --> Google{Use Google sign-in?}
+    Google -->|Yes| Provider["Continue with Google and wait for provider"]
+    Google -->|No| Feature["Continue with the requested feature"]
+    Provider --> Chooser{Visible Google account chooser?}
+    Chooser -->|Yes| Select["Select the first visible account"]
+    Chooser -->|No| User["Pause in browser for user sign-in"]
+    Select --> Callback["Return through NalaGrow callback"]
+    User --> Callback
+    Callback --> Home{Authenticated dashboard visible?}
+    Feature --> Home
+    Home -->|Yes| Result["Assert /dashboard and its visible greeting"]
+    Home -->|No| Error["Keep the real error or onboarding route visible"]
+    Result --> Hold["Pause on the real dashboard for inspection"]
 ```
 
-| State | Entry and action | Required evidence | Branch or recovery |
-| --- | --- | --- | --- |
-| Login ready | Open `/login` from the normal entry point. | URL ends in `/login`; the `Welcome back` heading and labelled email/password fields are visible. | Wait for the page heading with a bounded locator assertion. A successful HTTP response alone is not evidence. |
-| Password sign-in | Fill the documented test account and submit once. | Record the disabled/loading submit state when it remains visible long enough to observe. Assert `/dashboard` or `/profile/create` and its visible heading. Reload and assert the same authenticated destination. | If the form shows `role=alert`, record the visible error. Do not resubmit until the first outcome is known. If profile lookup fails, record the retry state instead of calling it an empty profile list. |
-| Signup fallback | Use only when no documented account exists and a dedicated identity is authorized. | Assert the signup route, required fields, and the actual completion result. | NalaGrow signup requires Terms acceptance. Do not accept terms for the user. If that step needs the user's action, stop and record it. |
-| Google redirect | From `/login`, choose `Continue with Google` only when the task calls for the Google branch. | Assert that the browser leaves the NalaGrow origin for the configured identity provider. Do not print the full URL because it may contain OAuth state. | If an account chooser appears, stop before selecting an account. Let the user choose. Do not accept Terms of Service. |
-| Callback loading | Continue only after the user has completed the provider step. | While the app processes the callback, assert the visible `Connecting your Google account` status. Then assert the resulting NalaGrow URL and authenticated heading. | A callback success is not proven by leaving for the provider. Do not report success if the user has not completed the provider step. |
-| Callback error UI | Directly open `/auth/callback?error=access_denied` only for a route-rendering check. | Assert `Sign-in needs another try`, the visible alert, and the `Back to Login` link. | Classify this as regression-only. It is not evidence of a live provider cancellation or callback response. |
-| Recovery handoff | From `/login`, follow `Forgot Password?` to `/reset-password`. | Assert the reset heading, `Reset through Casdoor` section, and an external `/forget/{application}` link. | If the real provider shows `No verification method`, classify recovery as blocked. Do not submit a reset request or alter provider settings. |
-| Timeout or unexpected error | Any bounded navigation or locator wait expires, or the page exposes an error. | Record the expected condition, timeout, visible heading/alert, and sanitized route. | Do not retry a mutation or provider action until the first attempt's outcome is known. Never include query values, credentials, tokens, or request bodies in logs. |
+## Flow details
 
-## Focused headed Playwright run
+| State | Required behavior and evidence |
+| --- | --- |
+| Config check | Load only the selected email/password keys from `.agents/.env` into the current Bash process. Do not source the file or print values. |
+| Account exists | Open `/login`, assert the `Welcome back` heading and labelled fields, then use the selected sign-in method. The default method is password. |
+| Account missing | Open `/signup` and pause in the visible browser. Complete signup and sign-in in the real UI, including any required Terms acceptance. Resume only after reaching the authenticated app. |
+| Password sign-in | Submit the loaded account once. Assert `/dashboard` and its visible greeting, reload, and assert the same destination again. |
+| Google sign-in | Click `Continue with Google`. If an account chooser with visible account rows appears, select the first visible row. If Google needs a manual sign-in step, continue in the paused browser. |
+| Authenticated home | The expected route is `/dashboard`. A `/profile/create` route means onboarding is still required; do not create profile data for the test. |
+| Browser result | The main spec pauses on the real dashboard after reload. The browser remains open until the user resumes Playwright or closes the browser. On failure, it pauses on the actual failure state. |
+| Callback and recovery | `casdoor-session-regressions.spec.ts` contains route and handoff checks only. Those are regression evidence, not proof of a successful login. |
 
-The project runner defaults to a local setup that may reclaim ports 3000 and 4000. For the existing desktop services, keep `E2E_SERVICES_EXTERNAL=1` on every command and use the verified URL. Local runs use `--headed` by default so the browser stays visible while each scenario runs; omit it for CI or an explicitly headless run. Disable trace, screenshot, and video when account values are present.
+## Focused headed run
 
-The focused spec is `frontend/e2e/casdoor-session.spec.ts`. It covers documented-account login and reload, provider redirect without account selection, the configured recovery link, and callback error-route rendering. It creates no account or profile and uses no request interception, localStorage seeding, provider stub, or fake persistence.
+The project README documents the frontend at `http://localhost:3000`. Confirm that the real services are running before using this URL. Keep `E2E_SERVICES_EXTERNAL=1` so Playwright does not reclaim ports or start disposable services. Local runs use a visible browser and pause on the result page. Tracing, screenshots, and video stay disabled.
+
+In the same Bash terminal, load only the selected account pair. These commands do not print the values:
 
 ```bash
-E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 npm --prefix frontend run test:e2e -- --project=desktop --headed --reporter=dot --trace=off e2e/casdoor-session.spec.ts
+NALA_GROW_E2E_EMAIL="$(grep -m1 '^TEST_ACCOUNT_EMAIL_3=' .agents/.env | cut -d= -f2- | tr -d '\r')"
+NALA_GROW_E2E_PASSWORD="$(grep -m1 '^TEST_ACCOUNT_PASSWORD_3=' .agents/.env | cut -d= -f2- | tr -d '\r')"
+export NALA_GROW_E2E_EMAIL NALA_GROW_E2E_PASSWORD
+```
+
+Run the password sign-in flow:
+
+```bash
+E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 NALA_GROW_E2E_INTERACTIVE=1 NALA_GROW_E2E_SIGN_IN_METHOD=password npm --prefix frontend run test:e2e -- --project=desktop --headed --reporter=dot --trace=off e2e/casdoor-session.spec.ts
 status=$?
 printf 'Playwright exit=%s\n' "$status"
 ```
 
-The password-login case reads `NALA_GROW_E2E_EMAIL` and `NALA_GROW_E2E_PASSWORD` from the process environment and skips when either is absent. Load them from `.agents/knowledge/defaults.md` without printing them. The issue's Step 1 command shows the silent Bash loader. Clear both variables after the run.
+To follow the Google branch, run the same flow with `NALA_GROW_E2E_SIGN_IN_METHOD=google`:
 
-## Result classification
+```bash
+E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 NALA_GROW_E2E_INTERACTIVE=1 NALA_GROW_E2E_SIGN_IN_METHOD=google npm --prefix frontend run test:e2e -- --project=desktop --headed --reporter=dot --trace=off e2e/casdoor-session.spec.ts
+status=$?
+printf 'Playwright exit=%s\n' "$status"
+```
 
-- **Passed:** the expected visible route or state was asserted after the action.
-- **Failed:** a live result contradicts the expected state or a bounded assertion fails.
-- **Blocked:** a real dependency prevents the requested flow, such as the provider reporting no verification method.
-- **Not run:** required user input or an unavailable approved account prevents execution.
-- **Regression-only:** a direct route assertion checks app rendering without exercising the external provider.
+The target command's immediate exit status is printed after it returns. While Playwright is paused, the live page is the evidence: inspect the dashboard or error in the browser before resuming. Do not treat a provider redirect, terminal text, a mocked route, or a skipped test as a successful login.
 
-Keep the final note specific: state the scenario, route, visible result, command and exit status when one ran, and any user-controlled or external boundary that remains untested.
+## Evidence limits
+
+- **Passed:** the real `/dashboard` and greeting were visible after sign-in and reload.
+- **Failed:** an assertion failed or the account remained on login with a visible error.
+- **Blocked:** Vault, Casdoor, or another required real service prevented the flow.
+- **Not run:** account setup or another user action was required but not completed.
+- **Regression-only:** a direct callback or recovery route check ran without a successful provider login.
+
+Never report an unrun or redirected-only flow as a successful login. Keep OAuth URLs, query values, credentials, tokens, and request bodies out of output and artifacts.

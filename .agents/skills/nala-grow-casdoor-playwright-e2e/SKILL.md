@@ -5,28 +5,23 @@ description: Use when verifying NalaGrow authentication, session, Google OAuth, 
 
 # NalaGrow Casdoor Playwright E2E
 
-Use this skill to test the NalaGrow browser flow that is in scope for a task or pull request. It supplements the repository instructions and does not change the app's auth or provider boundaries.
+Use the browser flow in [REFERENCE.md](REFERENCE.md) for NalaGrow authentication checks. Its first step is checking `.agents/.env`; when a test account is configured, sign in with it. When no account is configured, complete signup and sign-in in the visible browser.
 
-## Before the browser run
+## Before running
 
-1. Read the repository instructions and the relevant files under `.agents/knowledge/`. Load only the documented test account needed for the run. Keep account values, tokens, OAuth state, and request bodies out of output and artifacts.
-2. Confirm the real frontend URL and service state from the documented service manager or project knowledge. Do not guess a port.
-3. Run the focused spec with `E2E_SERVICES_EXTERNAL=1` and an explicit `BASE_URL`. This prevents the default test setup from reclaiming the running service ports and starting a disposable backend. Use `--headed` for local runs so the browser is visible; omit it only for CI or an explicit headless request.
-4. Set Playwright tracing, screenshots, and video to off for credential-bearing runs. Headed mode does not require saving artifacts. Use an isolated browser context.
+1. Read the repository instructions and relevant files under `.agents/knowledge/`.
+2. Confirm the actual frontend URL and service state from Nala Ctrl or project knowledge. If Nala Ctrl is unavailable and this check is required, follow its local-run fallback. Do not bypass a Vault or Casdoor configuration failure.
+3. Load only the selected account email and password keys from `.agents/.env` with the non-printing Bash loader in [REFERENCE.md](REFERENCE.md). Never print those values or read the file directly.
+4. Use `E2E_SERVICES_EXTERNAL=1` and the confirmed `BASE_URL` so Playwright does not reclaim ports or start disposable services.
 
-## Run the flow
+## Follow the diagram
 
-1. Start from the normal entry route. Assert the route, heading, and accessible controls before acting.
-2. Use the documented account when it exists. If a new identity is required, follow the task's authorization and Terms of Service boundaries. Never accept terms for the user.
-3. Use role, label, or test-id locators. Assert result and error states, plus the URL after navigation. Assert a loading state when it remains visible long enough to observe. Use bounded locator or URL waits. Do not use fixed sleeps or treat a click or HTTP status as success.
-4. After password sign-in, allow `/dashboard` or `/profile/create` according to the account's profiles. Reload and assert the authenticated route again.
-5. Start Google sign-in only when the task calls for it. Assert the provider redirect. If an account chooser appears, stop and give control to the user. Do not choose an account or accept terms. After a user completes the provider step, assert the callback result and the visible NalaGrow destination without logging query values.
-6. Follow Forgot Password through the UI. Assert the configured Casdoor handoff. If the provider shows “No verification method,” classify recovery as blocked. Do not submit a reset or change provider configuration to force a result.
-7. Label direct callback error-route checks as regression evidence. They do not prove a live provider cancellation or successful callback.
+- Run `frontend/e2e/casdoor-session.spec.ts` as the primary flow. It starts at `/login` when a complete test account pair is loaded and `/signup` when no pair is available. It does not begin at the public landing route.
+- The default sign-in method is password. Set `NALA_GROW_E2E_SIGN_IN_METHOD=google` to take the Google branch.
+- When Google's chooser displays account rows, the test selects the first visible account. If Google requires a manual sign-in screen, the headed browser pauses there for the user to continue.
+- The success state is the authenticated `/dashboard` page with its visible greeting, retained after reload. An onboarding route or a visible error is not reported as the home screen.
+- Local runs use `--headed` and `NALA_GROW_E2E_INTERACTIVE=1`. Playwright pauses on the actual result page, leaving the browser open for inspection. Failures also pause on the real error state. Resume the test in Playwright Inspector when finished reviewing.
+- Signup requires the user to complete the form and accept any required terms. The test does not accept terms or create profile, feeding, or other application data on the user's behalf.
+- Keep tracing, screenshots, and video off when credentials are present. Never log provider URLs, query values, tokens, credentials, or request bodies.
 
-## Evidence and cleanup
-
-- Record each scenario as passed, failed, blocked, not run, or regression-only, with the visible route and state that supports the result.
-- Keep external provider behavior separate from UI route assertions. Never mock or stub the provider or persistence for live acceptance.
-- Close the isolated browser context. Clean only records created by the run. Do not create profile or feeding data unless the task explicitly requires it and defines cleanup.
-- Follow [REFERENCE.md](REFERENCE.md) for the route/state matrix and the focused Playwright command.
+Callback rendering and recovery handoff checks are separate regression evidence in `frontend/e2e/casdoor-session-regressions.spec.ts`; they do not replace the diagram-driven sign-in flow or prove a successful provider login.
