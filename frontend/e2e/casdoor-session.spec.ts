@@ -1,9 +1,14 @@
+import { randomBytes, randomUUID } from "node:crypto"
 import { expect, test, type Page } from "@playwright/test"
 
-const accountEmail = process.env.NALA_GROW_E2E_EMAIL
-const accountPassword = process.env.NALA_GROW_E2E_PASSWORD
+type Account = { email: string; password: string }
+type AuthOutcome = "authenticated" | "rejected" | null
+
+const configuredEmail = process.env.NALA_GROW_E2E_EMAIL
+const configuredPassword = process.env.NALA_GROW_E2E_PASSWORD
 const signInMethod = process.env.NALA_GROW_E2E_SIGN_IN_METHOD ?? "password"
-const interactive = process.env.NALA_GROW_E2E_INTERACTIVE === "1"
+const startWithSignup = process.env.NALA_GROW_E2E_START_WITH_SIGNUP === "1"
+const acceptTerms = process.env.NALA_GROW_E2E_ACCEPT_TERMS === "1"
 const navigationTimeout = 20_000
 
 test.use({
@@ -21,8 +26,21 @@ function pathname(page: Page): string {
   return new URL(page.url()).pathname
 }
 
-async function showPageForInspection(page: Page): Promise<void> {
-  if (interactive && !page.isClosed()) await page.pause()
+function configuredAccount(): Account | null {
+  if (Boolean(configuredEmail) !== Boolean(configuredPassword)) {
+    throw new Error("The configured E2E email/password pair is incomplete.")
+  }
+  return configuredEmail && configuredPassword
+    ? { email: configuredEmail, password: configuredPassword }
+    : null
+}
+
+function createDisposableAccount(): Account {
+  const password = `NalaGrow-${randomBytes(18).toString("base64url")}a1!`
+  return {
+    email: `nala-grow-e2e-${randomUUID()}@example.test`,
+    password,
+  }
 }
 
 async function openLogin(page: Page): Promise<void> {
@@ -33,27 +51,65 @@ async function openLogin(page: Page): Promise<void> {
   await expect(page.getByRole("textbox", { name: "Password" })).toBeVisible()
 }
 
-async function showAuthenticatedHome(page: Page): Promise<void> {
-  await expect.poll(() => pathname(page), { timeout: navigationTimeout }).toBe("/dashboard")
-  await expect(
-    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
-  ).toBeVisible()
+async function waitForAuthOutcome(page: Page, errorSelector: string): Promise<AuthOutcome> {
+  return Promise.race([
+    page.waitForURL(
+      (url) => ["/dashboard", "/profile/create"].includes(url.pathname),
+      { timeout: navigationTimeout },
+    ).then(() => "authenticated" as const).catch(() => null),
+    page.waitForFunction(
+      (selector) => Boolean(document.querySelector(selector)?.textContent?.trim()),
+      errorSelector,
+      { timeout: navigationTimeout },
+    )
+      .then(() => "rejected" as const).catch(() => null),
+  ])
 }
 
-async function signInWithPassword(page: Page): Promise<void> {
-  if (!accountEmail || !accountPassword) {
-    throw new Error("The configured test account is missing from the process environment.")
+async function signInWithPassword(page: Page, account: Account): Promise<AuthOutcome> {
+  await openLogin(page)
+  await page.getByRole("textbox", { name: "Email Address" }).fill(account.email)
+  await page.getByRole("textbox", { name: "Password" }).fill(account.password)
+  await page.getByRole("button", { name: /^Login/ }).click()
+  const outcome = await waitForAuthOutcome(page, '[data-testid="login-error"]')
+  if (!outcome) {
+    throw new Error("Password sign-in did not reach the authenticated app or show a login error.")
+  }
+  return outcome
+}
+
+async function signUpWithPassword(page: Page, account: Account): Promise<AuthOutcome> {
+  await page.goto("/signup")
+  await expect.poll(() => pathname(page), { timeout: navigationTimeout }).toBe("/signup")
+  await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible()
+  await page.getByRole("textbox", { name: "Email Address" }).fill(account.email)
+  await page.getByRole("textbox", { name: "Password" }).fill(account.password)
+
+  if (!acceptTerms) {
+    throw new Error(
+      "Signup requires NALA_GROW_E2E_ACCEPT_TERMS=1 after the user authorizes Terms acceptance for this run.",
+    )
   }
 
-  await page.getByRole("textbox", { name: "Email Address" }).fill(accountEmail)
-  await page.getByRole("textbox", { name: "Password" }).fill(accountPassword)
-  await page.getByRole("button", { name: /^Login/ }).click()
-  await showAuthenticatedHome(page)
+  await page.getByRole("checkbox").check()
+  await page.getByRole("button", { name: "Create Account" }).click()
+  const signupError = page.locator("form p[role=\"alert\"]")
+  const outcome = await waitForAuthOutcome(page, "form p[role=\"alert\"]")
+  if (!outcome) {
+    throw new Error("Signup did not reach the authenticated app or show a signup error.")
+  }
+
+  if (outcome === "rejected") {
+    const message = (await signupError.innerText()).trim()
+    if (/already exists|already registered|log in instead/i.test(message)) return "rejected"
+    throw new Error(`Signup was rejected: ${message}`)
+  }
+  return outcome
 }
 
 async function chooseFirstVisibleGoogleAccount(page: Page): Promise<void> {
   const chooserHeading = page.getByRole("heading", { name: /choose an account/i })
-  const accountChoices = page.locator('[data-identifier]:visible')
+  const accountChoices = page.locator("[data-identifier]:visible")
   const chooserVisible = await chooserHeading.isVisible().catch(() => false)
 
   if (chooserVisible && (await accountChoices.count()) > 0) {
@@ -61,11 +117,7 @@ async function chooseFirstVisibleGoogleAccount(page: Page): Promise<void> {
     return
   }
 
-  if (!interactive) {
-    throw new Error("Google needs a visible account choice or interactive browser sign-in.")
-  }
-
-  // Keep the actual provider page open when Google needs a user action.
+  // Google sign-in is the only flow that may need a person to complete a provider screen.
   await page.pause()
 }
 
@@ -83,49 +135,63 @@ async function signInWithGoogle(page: Page): Promise<void> {
     () => new URL(page.url()).origin === appOrigin,
     { timeout: navigationTimeout },
   ).toBe(true)
-  await showAuthenticatedHome(page)
 }
 
-async function signUpWhenNoAccountExists(page: Page): Promise<void> {
-  if (!interactive) {
-    throw new Error("No configured account exists. Run headed to complete signup and sign-in in the browser.")
+async function completeRequiredProfile(page: Page): Promise<void> {
+  if (pathname(page) !== "/profile/create") return
+
+  const name = `NalaGrow E2E Baby ${randomUUID().slice(0, 8)}`
+  const dob = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  await page.getByRole("textbox", { name: "Baby's Name" }).fill(name)
+  await page.getByLabel("Date of Birth").fill(dob)
+  await page.getByRole("button", { name: "Save Profile" }).click()
+  await expect(page.getByText("Profile Created!")).toBeVisible()
+  await expect.poll(() => pathname(page), { timeout: navigationTimeout }).toBe("/profile/manage")
+  await page.goto("/dashboard")
+}
+
+async function assertDashboard(page: Page): Promise<void> {
+  await completeRequiredProfile(page)
+  await expect.poll(() => pathname(page), { timeout: navigationTimeout }).toBe("/dashboard")
+  await expect(
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ }),
+  ).toBeVisible()
+}
+
+async function signUpAfterRejectedLogin(page: Page, account: Account): Promise<void> {
+  const signupOutcome = await signUpWithPassword(page, account)
+  if (signupOutcome === "authenticated") return
+
+  const retryOutcome = await signInWithPassword(page, account)
+  if (retryOutcome === "authenticated") return
+
+  const freshAccount = createDisposableAccount()
+  const freshSignupOutcome = await signUpWithPassword(page, freshAccount)
+  if (freshSignupOutcome !== "authenticated") {
+    throw new Error("A fresh disposable E2E account was rejected during signup.")
   }
-
-  await page.goto("/signup")
-  await expect.poll(() => pathname(page), { timeout: navigationTimeout }).toBe("/signup")
-  await expect(page.getByRole("heading", { name: /create.*account|sign up/i })).toBeVisible()
-
-  // The user follows signup with sign-in in the real UI and handles any Terms acceptance.
-  await page.pause()
-  await showAuthenticatedHome(page)
 }
 
-test("diagram flow signs in and leaves the authenticated NalaGrow home visible", async ({ page }) => {
-  if (interactive) test.setTimeout(0)
+test("diagram flow signs in or signs up and reaches the authenticated NalaGrow home", async ({ page }) => {
+  test.setTimeout(signInMethod === "google" ? 0 : 120_000)
 
-  try {
-    if (!accountEmail || !accountPassword) {
-      await signUpWhenNoAccountExists(page)
+  const account = configuredAccount() ?? createDisposableAccount()
+
+  if (signInMethod === "google") {
+    await openLogin(page)
+    await signInWithGoogle(page)
+  } else if (signInMethod === "password") {
+    if (startWithSignup) {
+      await signUpAfterRejectedLogin(page, account)
     } else {
-      await openLogin(page)
-
-      if (signInMethod === "password") {
-        await signInWithPassword(page)
-      } else if (signInMethod === "google") {
-        await signInWithGoogle(page)
-      } else {
-        throw new Error("NALA_GROW_E2E_SIGN_IN_METHOD must be password or google.")
-      }
+      const outcome = await signInWithPassword(page, account)
+      if (outcome === "rejected") await signUpAfterRejectedLogin(page, account)
     }
-
-    await page.reload({ waitUntil: "domcontentloaded", timeout: navigationTimeout })
-    await showAuthenticatedHome(page)
-
-    // Pause on the real dashboard so the browser result is visible for review.
-    await showPageForInspection(page)
-  } catch (error) {
-    // Leave failures, including provider and login errors, visible in the browser.
-    await showPageForInspection(page).catch(() => undefined)
-    throw error
+  } else {
+    throw new Error("NALA_GROW_E2E_SIGN_IN_METHOD must be password or google.")
   }
+
+  await assertDashboard(page)
+  await page.reload({ waitUntil: "domcontentloaded", timeout: navigationTimeout })
+  await assertDashboard(page)
 })
