@@ -41,6 +41,8 @@ flowchart LR
 
 The project README documents the frontend at `http://localhost:3000`. Confirm that the real services are running before using this URL. Keep `E2E_SERVICES_EXTERNAL=1` so Playwright does not reclaim ports or start disposable services. Local runs use a visible browser and pause on the result page. Tracing, screenshots, and video stay disabled.
 
+Run the primary spec without `--grep`: it contains the single diagram-driven sign-in test. Callback and recovery checks are in the separate regression spec.
+
 In the same Bash terminal, load only the selected account pair. These commands do not print the values:
 
 ```bash
