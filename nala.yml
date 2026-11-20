@@ -20,7 +20,7 @@ projects:
       configuration:
         vault:
           mount: secret
-          path: nala-labs/nala-grow
+          path: nala-grow
           keys: [HOST, PORT, DATABASE_URL, ALLOWED_ORIGIN, JWT_SECRET, GOOGLE_CLIENT_ID, CASDOOR_ENABLED, CASDOOR_ISSUER, CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET, CASDOOR_ORGANIZATION, CASDOOR_APPLICATION, CASDOOR_AUDIENCE, CASDOOR_REDIRECT_URI, CASDOOR_ADMIN_TOKEN, HEALTHCHECK_TIMEOUT]
         database:
           required: true
@@ -46,7 +46,7 @@ projects:
       configuration:
         vault:
           mount: secret
-          path: nala-labs/nala-grow
+          path: nala-grow
           keys: [NEXT_PUBLIC_API_URL, NEXT_PUBLIC_GRAPHQL_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ISSUER, NEXT_PUBLIC_CASDOOR_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ORGANIZATION, NEXT_PUBLIC_CASDOOR_APPLICATION, NEXT_PUBLIC_CASDOOR_REDIRECT_URI, NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL]
         database:
           required: false
