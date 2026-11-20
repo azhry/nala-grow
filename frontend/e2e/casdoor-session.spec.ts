@@ -158,34 +158,33 @@ async function assertDashboard(page: Page): Promise<void> {
   ).toBeVisible()
 }
 
-async function signUpAfterRejectedLogin(page: Page, account: Account): Promise<void> {
-  const signupOutcome = await signUpWithPassword(page, account)
-  if (signupOutcome === "authenticated") return
-
-  const retryOutcome = await signInWithPassword(page, account)
-  if (retryOutcome === "authenticated") return
-
-  const freshAccount = createDisposableAccount()
-  const freshSignupOutcome = await signUpWithPassword(page, freshAccount)
-  if (freshSignupOutcome !== "authenticated") {
-    throw new Error("A fresh disposable E2E account was rejected during signup.")
+async function signUpWithUniqueAccount(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const account = createDisposableAccount()
+    const outcome = await signUpWithPassword(page, account)
+    if (outcome === "authenticated") return
   }
+
+  throw new Error("Three unique disposable E2E accounts were rejected during signup.")
 }
 
 test("diagram flow signs in or signs up and reaches the authenticated NalaGrow home", async ({ page }) => {
   test.setTimeout(signInMethod === "google" ? 0 : 120_000)
-
-  const account = configuredAccount() ?? createDisposableAccount()
 
   if (signInMethod === "google") {
     await openLogin(page)
     await signInWithGoogle(page)
   } else if (signInMethod === "password") {
     if (startWithSignup) {
-      await signUpAfterRejectedLogin(page, account)
+      await signUpWithUniqueAccount(page)
     } else {
-      const outcome = await signInWithPassword(page, account)
-      if (outcome === "rejected") await signUpAfterRejectedLogin(page, account)
+      const account = configuredAccount()
+      if (!account) {
+        await signUpWithUniqueAccount(page)
+      } else {
+        const outcome = await signInWithPassword(page, account)
+        if (outcome === "rejected") await signUpWithUniqueAccount(page)
+      }
     }
   } else {
     throw new Error("NALA_GROW_E2E_SIGN_IN_METHOD must be password or google.")

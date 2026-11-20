@@ -1,27 +1,24 @@
 # Browser flow and evidence reference
 
-This is the single flow from the supplied diagram, expressed in Mermaid. The config check happens before the browser opens. Password login is tried first unless signup is explicitly selected; a visible login rejection falls back to signup automatically.
+This is the single flow from the supplied diagram, expressed in Mermaid. The config check happens before the browser opens. Password login uses the configured account first unless signup is explicitly selected; every signup attempt generates a new unique disposable account.
 
 ```mermaid
 flowchart LR
-    Start((Start)) --> Config["Load selected .agents/.env account keys without printing them"]
-    Config --> Account{"Complete account pair configured?"}
-    Account -->|Yes| StartSignup{"Start directly with signup?"}
-    StartSignup -->|No| Method{"Use Google sign-in?"}
-    Method -->|No| Login["Open /login and submit password sign-in"]
+    Start((Start)) --> Config["Load .agents/.env keys for login-first mode without printing them"]
+    Config --> Method{"Use Google sign-in?"}
     Method -->|Yes| Provider["Continue with Google"]
-    StartSignup -->|Yes| Signup["Open /signup, fill account, accept Terms, submit"]
-    Account -->|No| NewAccount["Create unique disposable example.test credentials"]
-    NewAccount --> Signup["Open /signup, fill account, accept Terms, submit"]
+    Method -->|No| Account{"Complete account pair configured?"}
+    Account -->|Yes| StartSignup{"Start directly with signup?"}
+    StartSignup -->|No| Login["Open /login and submit configured password account"]
+    StartSignup -->|Yes| NewAccount["Generate a unique disposable example.test account"]
+    Account -->|No| NewAccount
     Login --> Result{"Authenticated route or visible login rejection?"}
     Result -->|Authenticated| Profile{"Baby profile required?"}
-    Result -->|Rejected| Signup
-    Signup --> Created{"Signup created account or reported duplicate?"}
+    Result -->|Rejected| NewAccount
+    NewAccount --> Signup["Open /signup, fill unique account, accept Terms, submit"]
+    Signup --> Created{"Signup created account?"}
     Created -->|Created| Profile
-    Created -->|Duplicate| Retry["Retry /login with configured account"]
-    Retry --> RetryResult{"Retry authenticated?"}
-    RetryResult -->|Yes| Profile
-    RetryResult -->|No| NewAccount
+    Created -->|Duplicate collision| NewAccount
     Provider --> Chooser{"Visible Google account chooser?"}
     Chooser -->|Yes| Select["Select first visible account"]
     Chooser -->|No| GooglePause["Pause only for Google sign-in"]
@@ -39,9 +36,9 @@ flowchart LR
 
 | State | Required behavior and evidence |
 | --- | --- |
-| Config check | Load only `TEST_ACCOUNT_EMAIL_3` and `TEST_ACCOUNT_PASSWORD_3` from `.agents/.env`. Do not source the file or print values. |
-| Password login | Submit the configured account once. If the login form shows an error, automatically continue to signup with that account. |
-| Signup | Fill email/password automatically. If the configured account is absent, use a unique disposable `example.test` account. If Casdoor says the email already exists, retry login once. |
+| Config check | For login-first mode, load only `TEST_ACCOUNT_EMAIL_3` and `TEST_ACCOUNT_PASSWORD_3` from `.agents/.env`. Direct signup does not use the configured account. Never source the file or print values. |
+| Password login | Submit the configured account once when available. If the login form shows an error, automatically sign up with a new unique account. |
+| Signup | Every signup attempt gets a newly generated unique `example.test` email and password. A duplicate collision generates another unique account; signup never reuses the configured login account. |
 | Terms acceptance | The signup checkbox submits agreement to NalaGrow's Terms and Privacy Policy. Set `NALA_GROW_E2E_ACCEPT_TERMS=1` only for a run with explicit user authorization; do not persist this flag. |
 | Required profile | If post-signup onboarding routes to `/profile/create`, create a synthetic E2E baby profile with no real child data, then open `/dashboard`. |
 | Google sign-in | Click `Continue with Google`. Select the first visible `[data-identifier]` account row when the chooser appears. Pause only if Google requires a manual sign-in screen. |
@@ -53,7 +50,7 @@ flowchart LR
 
 The project README documents the frontend at `http://localhost:3000`. Confirm the real services are running before using this URL. Keep `E2E_SERVICES_EXTERNAL=1` so Playwright does not reclaim ports or start disposable services. Run the primary spec without `--grep`; the old callback/recovery grep titles are not in this file and select zero tests.
 
-In the same Bash terminal, load only the selected account pair. These commands do not print the values:
+For login-first mode, load only the selected account pair in the same Bash terminal. These commands do not print values. Direct signup skips this loader and generates a fresh account:
 
 ```bash
 NALA_GROW_E2E_EMAIL="$(grep -m1 '^TEST_ACCOUNT_EMAIL_3=' .agents/.env | cut -d= -f2- | tr -d '\r' | sed 's/^'\''//; s/'\''$//; s/^"//; s/"$//')"
@@ -69,7 +66,7 @@ status=$?
 printf 'Playwright exit=%s\n' "$status"
 ```
 
-To start directly with signup after a known login failure, add `NALA_GROW_E2E_START_WITH_SIGNUP=1`:
+To start directly with signup after a known login failure, add `NALA_GROW_E2E_START_WITH_SIGNUP=1`. This generates a new disposable account and does not reuse the configured login account:
 
 ```bash
 E2E_SERVICES_EXTERNAL=1 BASE_URL=http://localhost:3000 NALA_GROW_E2E_SIGN_IN_METHOD=password NALA_GROW_E2E_START_WITH_SIGNUP=1 NALA_GROW_E2E_ACCEPT_TERMS=1 npm --prefix frontend run test:e2e -- --project=desktop --headed --reporter=dot --trace=off e2e/casdoor-session.spec.ts
