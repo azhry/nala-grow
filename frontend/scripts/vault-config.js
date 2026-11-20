@@ -16,8 +16,17 @@ const OPTIONAL_PUBLIC_ENV_KEYS = [
   "NEXT_PUBLIC_CASDOOR_ORGANIZATION",
   "NEXT_PUBLIC_CASDOOR_APPLICATION",
   "NEXT_PUBLIC_CASDOOR_REDIRECT_URI",
-  "NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL",
 ]
+
+// These values identify the public Casdoor application and recovery route.
+// Keep credentials, audience settings, and administrative tokens out of this map.
+const VAULT_PUBLIC_ENV_MAP = {
+  NEXT_PUBLIC_CASDOOR_ISSUER: "CASDOOR_ISSUER",
+  NEXT_PUBLIC_CASDOOR_CLIENT_ID: "CASDOOR_CLIENT_ID",
+  NEXT_PUBLIC_CASDOOR_ORGANIZATION: "CASDOOR_ORGANIZATION",
+  NEXT_PUBLIC_CASDOOR_APPLICATION: "CASDOOR_APPLICATION",
+  NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "CASDOOR_REDIRECT_URL",
+}
 
 const PUBLIC_ENV_KEYS = [...REQUIRED_PUBLIC_ENV_KEYS, ...OPTIONAL_PUBLIC_ENV_KEYS]
 
@@ -230,8 +239,12 @@ async function loadVaultPublicEnv(env = process.env, fetchImpl, startDirectory =
 
   return Object.fromEntries(
     PUBLIC_ENV_KEYS
-      .filter((key) => values[key] !== undefined && (REQUIRED_PUBLIC_ENV_KEYS.includes(key) || hasValue(values[key])))
-      .map((key) => [key, values[key]]),
+      .filter((key) => {
+        const vaultKey = VAULT_PUBLIC_ENV_MAP[key] || key
+        return values[vaultKey] !== undefined &&
+          (REQUIRED_PUBLIC_ENV_KEYS.includes(key) || hasValue(values[vaultKey]))
+      })
+      .map((key) => [key, values[VAULT_PUBLIC_ENV_MAP[key] || key]]),
   )
 }
 
@@ -240,5 +253,6 @@ module.exports = {
   DEFAULT_KV_PATH,
   OPTIONAL_PUBLIC_ENV_KEYS,
   PUBLIC_ENV_KEYS,
+  VAULT_PUBLIC_ENV_MAP,
   loadVaultPublicEnv,
 }

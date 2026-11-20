@@ -147,6 +147,40 @@ describe("profile pages", () => {
     expect(mockPush).toHaveBeenCalledWith("/profile/manage")
   })
 
+  it("creates a baby profile using the backend Other sex value", async () => {
+    storeState.babies = []
+    storeState.activeBaby = null
+    mockCreateBaby.mockResolvedValue({
+      id: "baby-other",
+      name: "Rowan",
+      dob: "2025-05-17",
+      sex: "other",
+    })
+
+    render(<CreateBabyProfilePage />)
+
+    fireEvent.change(screen.getByLabelText("Baby's Name"), {
+      target: { value: "Rowan" },
+    })
+    fireEvent.change(screen.getByLabelText("Date of Birth"), {
+      target: { value: "2025-05-17" },
+    })
+    fireEvent.click(screen.getByText("Other"))
+    fireEvent.click(screen.getByRole("button", { name: /save profile/i }))
+
+    await waitFor(() =>
+      expect(mockCreateBaby).toHaveBeenCalledWith({
+        name: "Rowan",
+        dob: "2025-05-17",
+        sex: "other",
+        photo_url: undefined,
+      }),
+    )
+    expect(mockSetActiveBaby).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "baby-other", sex: "other" }),
+    )
+  })
+
   it("keeps the profile information disclosure keyboard accessible", () => {
     render(<CreateBabyProfilePage />)
 
@@ -190,6 +224,57 @@ describe("profile pages", () => {
     )
   })
 
+  it("loads and saves Other using the backend sex value", async () => {
+    const babyOther = { ...babyOne, sex: "other" as const }
+    storeState.babies = [babyOther]
+    storeState.activeBaby = babyOther
+    mockUpdateBaby.mockResolvedValue({ ...babyOther, name: "Rowan Rose" })
+
+    render(<EditBabyProfilePage />)
+
+    const otherOption = screen.getByRole("radio", { name: "Other" })
+    expect(otherOption).toBeChecked()
+    expect(otherOption).toHaveAttribute("value", "other")
+
+    fireEvent.change(screen.getByLabelText("Baby's Name"), {
+      target: { value: "Rowan Rose" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }))
+
+    await waitFor(() =>
+      expect(mockUpdateBaby).toHaveBeenCalledWith(
+        "baby-1",
+        expect.objectContaining({ name: "Rowan Rose", sex: "other" }),
+      ),
+    )
+  })
+
+  it("treats a legacy cached unspecified value as Other when editing", async () => {
+    const legacyBaby = {
+      ...babyOne,
+      id: "baby-1",
+      sex: "unspecified" as const,
+    }
+    storeState.babies = [legacyBaby]
+    storeState.activeBaby = legacyBaby
+    mockUpdateBaby.mockResolvedValue({ ...legacyBaby, sex: "other" })
+
+    render(<EditBabyProfilePage />)
+
+    const otherOption = screen.getByRole("radio", { name: "Other" })
+    expect(otherOption).toBeChecked()
+    expect(otherOption).toHaveAttribute("value", "other")
+
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }))
+
+    await waitFor(() =>
+      expect(mockUpdateBaby).toHaveBeenCalledWith(
+        "baby-1",
+        expect.objectContaining({ sex: "other" }),
+      ),
+    )
+  })
+
   it("switches active baby without navigating to a missing dashboard route", () => {
     render(<ManageProfilesPage />)
 
@@ -201,6 +286,17 @@ describe("profile pages", () => {
     expect(mockSetActiveBaby).toHaveBeenCalledWith(babyTwo)
     expect(mockPush).toHaveBeenCalledWith("/profile/manage")
     expect(mockPush).not.toHaveBeenCalledWith("/dashboard")
+  })
+
+  it("displays current and legacy Other values as Other", () => {
+    const babyOther = { ...babyOne, id: "baby-other", sex: "other" as const }
+    const legacyBaby = { ...babyTwo, id: "baby-legacy", sex: "unspecified" as const }
+    storeState.babies = [babyOther, legacyBaby]
+    storeState.activeBaby = babyOther
+
+    render(<ManageProfilesPage />)
+
+    expect(screen.getAllByText(/Sex:\s*Other/)).toHaveLength(2)
   })
 
   it("deletes a baby profile after confirmation", async () => {

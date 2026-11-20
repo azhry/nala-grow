@@ -13,14 +13,40 @@ import (
 
 func TestSignupReportsCasdoorDuplicateActionably(t *testing.T) {
 	var signupRequests int
+	var userLookups int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/signup" {
-			t.Errorf("request = %s %s, want POST /api/signup", r.Method, r.URL.Path)
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeTestJSON(t, w, map[string]string{
+				"issuer":                 "http://" + r.Host,
+				"token_endpoint":         "http://" + r.Host + "/oauth/token",
+				"authorization_endpoint": "http://" + r.Host + "/oauth/authorize",
+				"jwks_uri":               "http://" + r.Host + "/jwks",
+			})
+		case "/oauth/token":
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("parse client credentials request: %v", err)
+			}
+			if got := r.Form.Get("grant_type"); got != "client_credentials" {
+				t.Errorf("grant_type = %q, want client_credentials", got)
+			}
+			writeTestJSON(t, w, map[string]interface{}{"access_token": "client-access-token", "token_type": "Bearer", "expires_in": 3600})
+		case "/api/get-user":
+			userLookups++
+			if r.Method != http.MethodGet || r.URL.Query().Get("owner") != "NalaGrow" || r.URL.Query().Get("email") != "parent@example.com" {
+				t.Errorf("user lookup = %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer client-access-token" {
+				t.Errorf("user lookup Authorization = %q, want client token", got)
+			}
+			writeTestJSON(t, w, map[string]interface{}{"status": "ok", "data": map[string]string{"name": "parent"}})
+		case "/api/signup":
+			signupRequests++
+			writeTestJSON(t, w, map[string]interface{}{"status": "ok"})
+		default:
+			t.Errorf("unexpected request = %s %s", r.Method, r.URL.Path)
 			http.NotFound(w, r)
-			return
 		}
-		signupRequests++
-		writeTestJSON(t, w, map[string]interface{}{"status": "error", "msg": "check:Email already exists"})
 	}))
 	defer server.Close()
 
@@ -45,7 +71,8 @@ func TestSignupReportsCasdoorDuplicateActionably(t *testing.T) {
 
 	require.Len(t, result.Errors, 1)
 	require.Equal(t, "an account with this email already exists; please log in instead", result.Errors[0].Message)
-	require.Equal(t, 1, signupRequests, "Casdoor signup is the authoritative duplicate check")
+	require.Equal(t, 0, signupRequests, "existing accounts must be rejected before Casdoor signup")
+	require.Equal(t, 1, userLookups, "Casdoor's organization-scoped email lookup detects existing accounts")
 }
 
 func writeTestJSON(t *testing.T, w http.ResponseWriter, value interface{}) {

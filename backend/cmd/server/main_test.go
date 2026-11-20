@@ -25,6 +25,30 @@ func TestLoadConfigDefaultsToFrontendDevOrigin(t *testing.T) {
 	}
 }
 
+func TestCasdoorFrontendRedirectURIUsesConfiguredOrigin(t *testing.T) {
+	tests := []struct {
+		name   string
+		origin string
+		want   string
+	}{
+		{name: "local frontend", origin: "http://localhost:3000", want: "http://localhost:3000/auth/callback"},
+		{name: "production frontend", origin: "https://grow.nala.io", want: "https://grow.nala.io/auth/callback"},
+		{name: "origin with trailing slash", origin: "https://grow.nala.io/", want: "https://grow.nala.io/auth/callback"},
+		{name: "path is rejected", origin: "https://grow.nala.io/app", want: ""},
+		{name: "credentials are rejected", origin: "https://user@grow.nala.io", want: ""},
+		{name: "query is rejected", origin: "https://grow.nala.io?next=other", want: ""},
+		{name: "non-http scheme is rejected", origin: "ftp://grow.nala.io", want: ""},
+		{name: "relative URL is rejected", origin: "/auth/callback", want: ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := casdoorFrontendRedirectURI(test.origin); got != test.want {
+				t.Fatalf("casdoorFrontendRedirectURI(%q) = %q, want %q", test.origin, got, test.want)
+			}
+		})
+	}
+}
+
 func TestLoadConfigReadsHealthSettings(t *testing.T) {
 	t.Setenv("CASDOOR_ISSUER", "https://casdoor.example")
 	t.Setenv("VAULT_ADDR", "https://vault.example")

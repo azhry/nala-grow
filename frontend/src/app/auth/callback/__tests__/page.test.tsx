@@ -5,6 +5,7 @@ const mockReplace = jest.fn()
 const mockConsumeState = jest.fn()
 const mockSignInWithCasdoor = jest.fn()
 const mockGetPostAuthDestination = jest.fn()
+const mockIsProfileLookupError = jest.fn()
 let mockSearchParams = new URLSearchParams()
 
 jest.mock("next/navigation", () => ({
@@ -14,8 +15,14 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/auth", () => ({
   ApiError: class ApiError extends Error {
-    status = 401
-    traceId = ""
+    status: number
+    traceId: string
+
+    constructor(status: number, message: string, traceId: string) {
+      super(message)
+      this.status = status
+      this.traceId = traceId
+    }
   },
   consumeCasdoorOAuthState: (...args: unknown[]) => mockConsumeState(...args),
   getCasdoorRedirectUri: () => "https://app.example/auth/callback",
@@ -24,7 +31,7 @@ jest.mock("@/lib/auth", () => ({
 
 jest.mock("@/lib/profile-bootstrap", () => ({
   getPostAuthDestination: (...args: unknown[]) => mockGetPostAuthDestination(...args),
-  isProfileLookupError: () => false,
+  isProfileLookupError: (...args: unknown[]) => mockIsProfileLookupError(...args),
 }))
 
 describe("Casdoor callback page", () => {
@@ -33,6 +40,7 @@ describe("Casdoor callback page", () => {
     mockSearchParams = new URLSearchParams()
     mockSignInWithCasdoor.mockResolvedValue({ token: "token" })
     mockGetPostAuthDestination.mockResolvedValue("/dashboard")
+    mockIsProfileLookupError.mockReturnValue(false)
   })
 
   it("shows a retryable error when the callback is incomplete", async () => {
@@ -73,5 +81,48 @@ describe("Casdoor callback page", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("expired")
     expect(mockSignInWithCasdoor).not.toHaveBeenCalled()
+  })
+
+  it("shows a recoverable timeout without exposing callback values", async () => {
+    mockSearchParams = new URLSearchParams(
+      "code=private-oauth-code&state=private-oauth-state",
+    )
+    mockConsumeState.mockReturnValue("/dashboard")
+    const { ApiError } = await import("@/lib/auth")
+    mockSignInWithCasdoor.mockRejectedValue(
+      new ApiError(504, "The request timed out. Please try again.", ""),
+    )
+
+    render(<CasdoorCallbackPage />)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("The request timed out. Please try again.")
+    expect(alert).not.toHaveTextContent(/private-oauth-code|private-oauth-state/)
+    expect(screen.getByRole("link", { name: /back to login/i })).toHaveAttribute(
+      "href",
+      "/login",
+    )
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+  })
+
+  it("shows a recoverable error when post-auth profile loading times out", async () => {
+    mockSearchParams = new URLSearchParams("code=unit-test&state=unit-test")
+    mockConsumeState.mockReturnValue("/dashboard")
+    mockIsProfileLookupError.mockReturnValue(true)
+    mockGetPostAuthDestination.mockRejectedValue(
+      new Error("We couldn’t check your baby profiles. Please try again."),
+    )
+
+    render(<CasdoorCallbackPage />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t check your baby profiles. Please try again.",
+    )
+    expect(screen.getByRole("link", { name: /back to login/i })).toHaveAttribute(
+      "href",
+      "/login",
+    )
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 })

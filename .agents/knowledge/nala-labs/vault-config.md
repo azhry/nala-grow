@@ -15,6 +15,11 @@ including the issuer, client/application identifiers, client secret, tenant and
 application names, callback/audience values, enablement, and any server-side
 user-management credential. Secrets remain process-local after loading.
 
+The live NalaGrow record names its callback key `CASDOOR_REDIRECT_URL`. The
+backend maps that value to its internal redirect URI setting, and the frontend
+exposes it as `NEXT_PUBLIC_CASDOOR_REDIRECT_URI`. Keep the existing Vault key;
+do not add a duplicate callback key to match an internal code name.
+
 The service may support explicit process environment overrides for controlled
 local tests, but production deployment should use Vault. `backend/.env` is not
 the source of truth for deployed configuration.

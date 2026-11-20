@@ -1,11 +1,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import type { BabySex } from "./graphql-types"
 
 export interface BabyProfile {
   id: string
   name: string
   dob: string
-  sex: "male" | "female" | "unspecified"
+  sex: BabySex | "unspecified"
   photo_url?: string
 }
 

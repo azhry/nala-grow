@@ -45,10 +45,14 @@ export function getSafeRedirect(redirect: string | null): string {
  */
 export async function bootstrapProfiles(): Promise<BabyProfile[]> {
   const profiles = await fetchBabies()
-  const { setBabies, setActiveBaby } = useAppStore.getState()
+  const { activeBaby, setBabies, setActiveBaby } = useAppStore.getState()
+  const selectedBaby =
+    profiles.find((profile) => profile.id === activeBaby?.id) ??
+    profiles[0] ??
+    null
 
   setBabies(profiles)
-  setActiveBaby(profiles[0] ?? null)
+  setActiveBaby(selectedBaby)
 
   return profiles
 }

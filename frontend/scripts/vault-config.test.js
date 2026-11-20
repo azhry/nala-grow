@@ -68,12 +68,11 @@ describe("loadVaultPublicEnv", () => {
               NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
               NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
               NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
-              NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
-              NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
-              NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
-              NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
-              NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
-              NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
+              CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+              CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+              CASDOOR_ORGANIZATION: "vault-nala-grow",
+              CASDOOR_APPLICATION: "vault-nala-grow-web",
+              CASDOOR_REDIRECT_URL: "https://vault-app.example.test/auth/callback",
             },
           },
         }),
@@ -88,7 +87,6 @@ describe("loadVaultPublicEnv", () => {
         NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
         NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
         NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
-        NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
       })
       expect(fetchImpl).toHaveBeenCalledWith(
         "https://vault.example.test/v1/secret/data/apps/nala-grow",
@@ -107,15 +105,16 @@ describe("loadVaultPublicEnv", () => {
             NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
             NEXT_PUBLIC_GRAPHQL_URL: "https://api.example.test/graphql",
             NEXT_PUBLIC_GOOGLE_CLIENT_ID: "google-client-id",
-            NEXT_PUBLIC_CASDOOR_ISSUER: "https://vault-casdoor.example.test",
-            NEXT_PUBLIC_CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
-            NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
-            NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
-            NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
-            NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
+            CASDOOR_ISSUER: "https://vault-casdoor.example.test",
+            CASDOOR_CLIENT_ID: "vault-casdoor-client-id",
+            CASDOOR_ORGANIZATION: "vault-nala-grow",
+            CASDOOR_APPLICATION: "vault-nala-grow-web",
+            CASDOOR_REDIRECT_URL: "https://vault-app.example.test/auth/callback",
             DATABASE_URL: "postgres://backend-secret",
             GOOGLE_CLIENT_SECRET: "backend-secret",
             CASDOOR_CLIENT_SECRET: "backend-secret",
+            CASDOOR_AUDIENCE: "backend-secret",
+            CASDOOR_ADMIN_TOKEN: "backend-secret",
           },
         },
       }),
@@ -146,10 +145,13 @@ describe("loadVaultPublicEnv", () => {
       NEXT_PUBLIC_CASDOOR_ORGANIZATION: "vault-nala-grow",
       NEXT_PUBLIC_CASDOOR_APPLICATION: "vault-nala-grow-web",
       NEXT_PUBLIC_CASDOOR_REDIRECT_URI: "https://vault-app.example.test/auth/callback",
-      NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL: "https://vault-casdoor.example.test/login/oauth/authorize",
     })
     expect(JSON.stringify(publicEnv)).not.toContain("vault-token")
     expect(JSON.stringify(publicEnv)).not.toContain("backend-secret")
+    expect(publicEnv).not.toHaveProperty("CASDOOR_ISSUER")
+    expect(publicEnv).not.toHaveProperty("CASDOOR_CLIENT_SECRET")
+    expect(publicEnv).not.toHaveProperty("CASDOOR_AUDIENCE")
+    expect(publicEnv).not.toHaveProperty("CASDOOR_ADMIN_TOKEN")
   })
 
   test("authenticates with AppRole before reading a custom KV v2 path", async () => {
@@ -304,6 +306,5 @@ test("includes only the Casdoor public runtime keys in the allowlist", () => {
     "NEXT_PUBLIC_CASDOOR_ORGANIZATION",
     "NEXT_PUBLIC_CASDOOR_APPLICATION",
     "NEXT_PUBLIC_CASDOOR_REDIRECT_URI",
-    "NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL",
   ])
 })

@@ -7,6 +7,7 @@ import {
 const mockFetchBabies = jest.fn()
 const mockSetBabies = jest.fn()
 const mockSetActiveBaby = jest.fn()
+let mockActiveBaby: { id: string } | null = null
 
 jest.mock("../baby-service", () => ({
   fetchBabies: (...args: unknown[]) => mockFetchBabies(...args),
@@ -15,6 +16,7 @@ jest.mock("../baby-service", () => ({
 jest.mock("../store", () => ({
   useAppStore: {
     getState: () => ({
+      activeBaby: mockActiveBaby,
       setBabies: mockSetBabies,
       setActiveBaby: mockSetActiveBaby,
     }),
@@ -28,9 +30,17 @@ const baby = {
   sex: "female" as const,
 }
 
+const secondBaby = {
+  id: "baby-2",
+  name: "Ira",
+  dob: "2024-02-10",
+  sex: "female" as const,
+}
+
 describe("profile bootstrap", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockActiveBaby = null
   })
 
   it("seeds the full profile list and first active profile", async () => {
@@ -43,7 +53,29 @@ describe("profile bootstrap", () => {
     expect(mockSetActiveBaby).toHaveBeenCalledWith(baby)
   })
 
+  it("preserves the selected profile when it remains in the refreshed list", async () => {
+    const refreshedSelection = { ...secondBaby, name: "Ira updated" }
+    mockActiveBaby = secondBaby
+    mockFetchBabies.mockResolvedValue([baby, refreshedSelection])
+
+    await expect(bootstrapProfiles()).resolves.toEqual([baby, refreshedSelection])
+
+    expect(mockSetBabies).toHaveBeenCalledWith([baby, refreshedSelection])
+    expect(mockSetActiveBaby).toHaveBeenCalledWith(refreshedSelection)
+  })
+
+  it("falls back to the first profile when the selected profile was deleted", async () => {
+    mockActiveBaby = { id: "baby-deleted" }
+    mockFetchBabies.mockResolvedValue([baby, secondBaby])
+
+    await expect(bootstrapProfiles()).resolves.toEqual([baby, secondBaby])
+
+    expect(mockSetBabies).toHaveBeenCalledWith([baby, secondBaby])
+    expect(mockSetActiveBaby).toHaveBeenCalledWith(baby)
+  })
+
   it("clears stale active profile state when the successful lookup is empty", async () => {
+    mockActiveBaby = baby
     mockFetchBabies.mockResolvedValue([])
 
     await expect(bootstrapProfiles()).resolves.toEqual([])

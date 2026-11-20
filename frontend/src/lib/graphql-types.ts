@@ -27,11 +27,13 @@ export interface AuthResponse {
 
 // ─── Baby ───────────────────────────────────────────────────────────────────
 
+export type BabySex = "male" | "female" | "other"
+
 export interface BabyProfile {
   id: string
   name: string
   dob: string
-  sex: string
+  sex: BabySex
   photoUrl: string
   createdAt: string
   userId: string
@@ -40,7 +42,7 @@ export interface BabyProfile {
 export interface BabyInput {
   name: string
   dob?: string
-  sex?: string
+  sex?: BabySex
   photoUrl?: string
 }
 

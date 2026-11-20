@@ -89,6 +89,8 @@ export type {
 
 const API_URL =
   process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
+const GRAPHQL_REQUEST_TIMEOUT_MS = 15_000
+const GRAPHQL_REQUEST_TIMEOUT_MESSAGE = "The request timed out. Please try again."
 
 // ─── Token helpers ──────────────────────────────────────────────────────────
 
@@ -185,48 +187,75 @@ export async function execute<T>(
 
   const body = JSON.stringify({ query, variables })
 
-  let res: Response
+  const controller = new AbortController()
+  let didTimeout = false
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const request = (async (): Promise<T> => {
+    let res: Response
+    try {
+      res = await fetch(API_URL, {
+        method: "POST",
+        headers,
+        body,
+        signal: controller.signal,
+      })
+    } catch (err) {
+      throw new GraphQLError([
+        { message: `Network error: ${(err as Error).message}` },
+      ])
+    }
+
+    // Parse the JSON envelope while the request deadline is still active.
+    let json: GraphQLResponse<Record<string, unknown>>
+    try {
+      json = await res.json()
+    } catch {
+      throw new GraphQLError([
+        {
+          message: `Invalid JSON response (HTTP ${res.status})`,
+        },
+      ])
+    }
+
+    // GraphQL-level errors
+    if (json.errors && json.errors.length > 0) {
+      throw new GraphQLError(json.errors)
+    }
+
+    // Ensure data exists
+    if (!json.data) {
+      throw new GraphQLError([{ message: "Empty response data" }])
+    }
+
+    // Return the first (and only) key's value
+    const keys = Object.keys(json.data)
+    if (keys.length === 0) {
+      throw new GraphQLError([{ message: "Empty data object" }])
+    }
+
+    return json.data[keys[0]] as T
+  })()
+
+  const deadline = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      didTimeout = true
+      controller.abort()
+      reject(new GraphQLError([{ message: GRAPHQL_REQUEST_TIMEOUT_MESSAGE }]))
+    }, GRAPHQL_REQUEST_TIMEOUT_MS)
+  })
+
   try {
-    res = await fetch(API_URL, {
-      method: "POST",
-      headers,
-      body,
-    })
+    // The race also guarantees a deadline if a fetch implementation ignores abort.
+    return await Promise.race([request, deadline])
   } catch (err) {
-    throw new GraphQLError([
-      { message: `Network error: ${(err as Error).message}` },
-    ])
+    if (didTimeout) {
+      throw new GraphQLError([{ message: GRAPHQL_REQUEST_TIMEOUT_MESSAGE }])
+    }
+    throw err
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
-
-  // Parse the JSON envelope
-  let json: GraphQLResponse<Record<string, unknown>>
-  try {
-    json = await res.json()
-  } catch {
-    throw new GraphQLError([
-      {
-        message: `Invalid JSON response (HTTP ${res.status})`,
-      },
-    ])
-  }
-
-  // GraphQL-level errors
-  if (json.errors && json.errors.length > 0) {
-    throw new GraphQLError(json.errors)
-  }
-
-  // Ensure data exists
-  if (!json.data) {
-    throw new GraphQLError([{ message: "Empty response data" }])
-  }
-
-  // Return the first (and only) key's value
-  const keys = Object.keys(json.data)
-  if (keys.length === 0) {
-    throw new GraphQLError([{ message: "Empty data object" }])
-  }
-
-  return json.data[keys[0]] as T
 }
 
 // ─── Convenience functions ──────────────────────────────────────────────────
