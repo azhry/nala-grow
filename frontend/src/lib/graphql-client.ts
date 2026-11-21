@@ -68,6 +68,7 @@ import {
 } from "./graphql-queries"
 import { DEMO_BABY_ID } from "./demo-data"
 import { AUTH_TOKEN_KEY } from "./auth-constants"
+import { getPublicRuntimeConfig } from "./public-runtime-config"
 
 export type {
   AuthResponse,
@@ -87,8 +88,6 @@ export type {
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const API_URL =
-  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
 const GRAPHQL_REQUEST_TIMEOUT_MS = 15_000
 const GRAPHQL_REQUEST_TIMEOUT_MESSAGE = "The request timed out. Please try again."
 
@@ -186,6 +185,8 @@ export async function execute<T>(
   }
 
   const body = JSON.stringify({ query, variables })
+  const apiURL =
+    getPublicRuntimeConfig().NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:4000/graphql"
 
   const controller = new AbortController()
   let didTimeout = false
@@ -194,7 +195,7 @@ export async function execute<T>(
   const request = (async (): Promise<T> => {
     let res: Response
     try {
-      res = await fetch(API_URL, {
+      res = await fetch(apiURL, {
         method: "POST",
         headers,
         body,

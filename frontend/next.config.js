@@ -1,5 +1,3 @@
-const { loadVaultPublicEnv } = require("./scripts/vault-config")
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: { unoptimized: true },
@@ -8,7 +6,4 @@ const nextConfig = {
   },
 }
 
-module.exports = async () => ({
-  ...nextConfig,
-  env: await loadVaultPublicEnv(),
-})
+module.exports = nextConfig

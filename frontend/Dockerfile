@@ -12,7 +12,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN --mount=type=secret,id=vault-config,target=/app/.vault-config,required=false npm run build
+RUN npm run build
 
 FROM node:24-bookworm-slim AS production-dependencies
 

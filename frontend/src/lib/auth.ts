@@ -24,6 +24,7 @@ import {
   isSessionExpired,
 } from "./auth-constants"
 import { getSafeRedirect } from "./profile-bootstrap"
+import { getPublicRuntimeConfig } from "./public-runtime-config"
 
 export type AuthUser = UserIdentity
 
@@ -256,15 +257,16 @@ export async function signInWithCasdoor(
 export function getCasdoorRedirectUri(): string {
   if (typeof window !== "undefined") return `${window.location.origin}/auth/callback`
 
-  const configured = process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI?.trim()
+  const configured = getPublicRuntimeConfig().NEXT_PUBLIC_CASDOOR_REDIRECT_URI?.trim()
   if (configured) return configured
   return "http://localhost:3000/auth/callback"
 }
 
 export function isCasdoorGoogleConfigured(): boolean {
+  const config = getPublicRuntimeConfig()
   return Boolean(
-    process.env.NEXT_PUBLIC_CASDOOR_ISSUER?.trim() &&
-      process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID?.trim(),
+    config.NEXT_PUBLIC_CASDOOR_ISSUER?.trim() &&
+      config.NEXT_PUBLIC_CASDOOR_CLIENT_ID?.trim(),
   )
 }
 
@@ -287,9 +289,10 @@ export function startCasdoorGoogleSignIn(redirect: string | null = null): void {
     throw new ApiError(503, "Google sign-in is unavailable outside the browser.", "")
   }
 
-  const issuer = process.env.NEXT_PUBLIC_CASDOOR_ISSUER!.replace(/\/$/, "")
+  const config = getPublicRuntimeConfig()
+  const issuer = config.NEXT_PUBLIC_CASDOOR_ISSUER!.replace(/\/$/, "")
   const authorizationEndpoint =
-    process.env.NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL?.trim() ||
+    config.NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL?.trim() ||
     `${issuer}/login/oauth/authorize`
   const state = createOAuthState()
   const oauthState: CasdoorOAuthState = {
@@ -304,15 +307,15 @@ export function startCasdoorGoogleSignIn(redirect: string | null = null): void {
   }
 
   const params = new URLSearchParams({
-    client_id: process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID!,
+    client_id: config.NEXT_PUBLIC_CASDOOR_CLIENT_ID!,
     redirect_uri: getCasdoorRedirectUri(),
     response_type: "code",
     scope: "openid email profile",
     state,
     provider_hint: "google",
   })
-  const organization = process.env.NEXT_PUBLIC_CASDOOR_ORGANIZATION?.trim()
-  const application = process.env.NEXT_PUBLIC_CASDOOR_APPLICATION?.trim()
+  const organization = config.NEXT_PUBLIC_CASDOOR_ORGANIZATION?.trim()
+  const application = config.NEXT_PUBLIC_CASDOOR_APPLICATION?.trim()
   if (organization) params.set("organization", organization)
   if (application) params.set("application", application)
 

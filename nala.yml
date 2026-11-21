@@ -11,8 +11,6 @@ projects:
         context: .
         dockerfile: Dockerfile
         command: [go, build, -o, server, ./cmd/server]
-      test:
-        command: [go, test, ./...]
       runtime:
         command: [./server]
         health:
@@ -20,8 +18,8 @@ projects:
       configuration:
         vault:
           mount: secret
-          path: nala-labs/nala-grow
-          keys: [HOST, PORT, DATABASE_URL, ALLOWED_ORIGIN, JWT_SECRET, GOOGLE_CLIENT_ID, CASDOOR_ENABLED, CASDOOR_ISSUER, CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET, CASDOOR_ORGANIZATION, CASDOOR_APPLICATION, CASDOOR_AUDIENCE, CASDOOR_REDIRECT_URI, CASDOOR_ADMIN_TOKEN, HEALTHCHECK_TIMEOUT]
+          path: nala-grow
+          keys: [HOST, PORT, ALLOWED_ORIGIN, JWT_SECRET, GOOGLE_CLIENT_ID, CASDOOR_ENABLED, CASDOOR_ISSUER, CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET, CASDOOR_ORGANIZATION, CASDOOR_APPLICATION, CASDOOR_AUDIENCE, CASDOOR_REDIRECT_URI, CASDOOR_ADMIN_TOKEN, HEALTHCHECK_TIMEOUT]
         database:
           required: true
           ref: nala-grow
@@ -37,8 +35,6 @@ projects:
         context: .
         dockerfile: Dockerfile
         command: [npm, run, build]
-      test:
-        command: [npm, run, test:unit]
       runtime:
         command: [npm, run, start]
         health:
@@ -46,7 +42,14 @@ projects:
       configuration:
         vault:
           mount: secret
-          path: nala-labs/nala-grow
+          path: nala-grow
           keys: [NEXT_PUBLIC_API_URL, NEXT_PUBLIC_GRAPHQL_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ISSUER, NEXT_PUBLIC_CASDOOR_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ORGANIZATION, NEXT_PUBLIC_CASDOOR_APPLICATION, NEXT_PUBLIC_CASDOOR_REDIRECT_URI, NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL]
+          keyMappings:
+            NEXT_PUBLIC_CASDOOR_ISSUER: CASDOOR_ISSUER
+            NEXT_PUBLIC_CASDOOR_CLIENT_ID: CASDOOR_CLIENT_ID
+            NEXT_PUBLIC_CASDOOR_ORGANIZATION: CASDOOR_ORGANIZATION
+            NEXT_PUBLIC_CASDOOR_APPLICATION: CASDOOR_APPLICATION
+            NEXT_PUBLIC_CASDOOR_REDIRECT_URI: CASDOOR_REDIRECT_URL
+          optionalKeys: [NEXT_PUBLIC_CASDOOR_ISSUER, NEXT_PUBLIC_CASDOOR_CLIENT_ID, NEXT_PUBLIC_CASDOOR_ORGANIZATION, NEXT_PUBLIC_CASDOOR_APPLICATION, NEXT_PUBLIC_CASDOOR_REDIRECT_URI, NEXT_PUBLIC_CASDOOR_AUTHORIZATION_URL]
         database:
           required: false

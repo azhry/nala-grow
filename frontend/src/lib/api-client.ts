@@ -1,5 +1,5 @@
 /** @deprecated Use graphql-client.ts instead. This file will be removed in FE-016. */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
+import { getPublicRuntimeConfig } from "./public-runtime-config"
 
 export class ApiError extends Error {
   status: number
@@ -16,7 +16,8 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const apiBase = getPublicRuntimeConfig().NEXT_PUBLIC_API_URL || "/api/v1"
+  const res = await fetch(`${apiBase}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
