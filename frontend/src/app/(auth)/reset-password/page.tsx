@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Spinner } from "@/components/ui"
 import { resetPassword, updatePassword, ApiError } from "@/lib/auth"
+import { getPublicRuntimeConfig } from "@/lib/public-runtime-config"
 
 type CasdoorRecoveryConfig =
   | { mode: "local" }
@@ -12,8 +13,9 @@ type CasdoorRecoveryConfig =
   | { mode: "casdoor"; url: string }
 
 function getCasdoorRecoveryConfig(): CasdoorRecoveryConfig {
-  const issuer = process.env.NEXT_PUBLIC_CASDOOR_ISSUER?.trim() || ""
-  const application = process.env.NEXT_PUBLIC_CASDOOR_APPLICATION?.trim() || ""
+  const config = getPublicRuntimeConfig()
+  const issuer = config.NEXT_PUBLIC_CASDOOR_ISSUER?.trim() || ""
+  const application = config.NEXT_PUBLIC_CASDOOR_APPLICATION?.trim() || ""
 
   if (!issuer && !application) {
     return { mode: "local" }
@@ -43,7 +45,7 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
   const code = searchParams.get("code")
-  const casdoorRecovery = getCasdoorRecoveryConfig()
+  const [casdoorRecovery, setCasdoorRecovery] = useState<CasdoorRecoveryConfig>({ mode: "local" })
 
   const [email, setEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -54,6 +56,7 @@ function ResetPasswordForm() {
   const [hasRecoverySession, setHasRecoverySession] = useState(Boolean(token || code))
 
   useEffect(() => {
+    setCasdoorRecovery(getCasdoorRecoveryConfig())
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
     setHasRecoverySession(
       Boolean(
