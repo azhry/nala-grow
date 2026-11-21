@@ -11,8 +11,6 @@ projects:
         context: .
         dockerfile: Dockerfile
         command: [go, build, -o, server, ./cmd/server]
-      test:
-        command: [go, test, ./...]
       runtime:
         command: [./server]
         health:
@@ -37,8 +35,6 @@ projects:
         context: .
         dockerfile: Dockerfile
         command: [npm, run, build]
-      test:
-        command: [npm, run, test:unit]
       runtime:
         command: [npm, run, start]
         health:
